@@ -226,7 +226,7 @@
 
         function renderMainRows() {
             const container = document.getElementById('proposition-rows');
-            container.innerHTML = propositions.length ? '' : `<div class="text-slate-400 text-center py-20">Propositions appear here<br>Double-click any row to split at exact click location</div>`;
+            container.innerHTML = propositions.length ? '' : `<div class="text-slate-400 text-center py-20">Propositions appear here<br>Double-click any row to split at exact click location<br>For best results, use a Chromium browser</div>`;
             propositions.forEach((prop, i) => {
                 const isSelected = selectedIndices.includes(i);
                 const indentStyle = `margin-inline-start: ${prop.level * 48}px;`;
