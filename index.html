@@ -88,6 +88,7 @@
                 <span class="text-xs font-medium px-2.5 py-px bg-amber-100 text-amber-700 rounded-full">Free</span>
             </div>
             <div class="flex items-center gap-x-4 text-sm">
+				<button onclick="saveProjectAsHTML()" class="flex items-center gap-x-2 px-4 h-9 bg-[#1e40af] hover:bg-[#1a3a9e] border border-slate-300 hover:border-slate-400 rounded-2xl text-white font-bold">💾 Save Project</button>
                 <button onclick="showLogicalRelationships()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">📖 Logical Relationships</button>
                 <button onclick="exportPNG()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">📷 Export PNG</button>
                 <button onclick="loadThessaloniansExample()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">Load 1 Thess. 2:13</button>
@@ -1195,6 +1196,62 @@ diagramContainer.addEventListener('mousedown', function(e) {
     diagramContainer.addEventListener('mousemove', mouseMoveHandler);
     diagramContainer.addEventListener('mouseup', mouseUpHandler);
 });
+
+		// Save project as standalone HTML file
+function saveProjectAsHTML() {
+    const projectData = {
+        propositions: propositions,
+        brackets: brackets,
+        zoomLevel: zoomLevel,
+        isRTL: isRTL,
+        timestamp: new Date().toISOString()
+    };
+    
+    // Get the current HTML and inject the data
+    const htmlContent = document.documentElement.outerHTML;
+    
+    // Find where to inject the data (right before closing)
+    const injectionPoint = '// DATA_INJECTION_POINT';
+    const dataString = `
+        // Project data saved at ${projectData.timestamp}
+        const SAVED_PROJECT_DATA = ${JSON.stringify(projectData)};
+        `;
+    
+    // Create a modified version that auto-loads the data
+    const modifiedHTML = htmlContent.replace(
+        'let propositions = [];',
+        `let propositions = [];
+        let SAVED_PROJECT_DATA = null;`
+    ).replace(
+        'loadFromStorage();',
+        `loadFromStorage();
+        if (typeof SAVED_PROJECT_DATA !== 'undefined' && SAVED_PROJECT_DATA) {
+            propositions = SAVED_PROJECT_DATA.propositions || [];
+            brackets = SAVED_PROJECT_DATA.brackets || [];
+            zoomLevel = SAVED_PROJECT_DATA.zoomLevel || 1;
+            isRTL = SAVED_PROJECT_DATA.isRTL || false;
+            renderSidebarList();
+            renderMainRows();
+            renderCanvas();
+            if (isRTL) toggleRTL();
+        }`
+    );
+    
+    // Inject the data into the script
+    const finalHTML = modifiedHTML.replace(
+        'let SAVED_PROJECT_DATA = null;',
+        `let SAVED_PROJECT_DATA = ${JSON.stringify(projectData)};`
+    );
+    
+    // Create blob and download
+    const blob = new Blob([finalHTML], { type: 'text/html;charset=utf-8' });
+    const link = document.createElement('a');
+    const filename = `discourse-analysis-${new Date().toISOString().split('T')[0]}.html`;
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+}
     </script>
 
     <!-- Logical Relationships Modal -->
