@@ -57,7 +57,7 @@
         svg { overflow: visible; }
         #workspace-scaler { transform-origin: top left; transition: transform 0.15s ease; }
     </style>
-<style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style><style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style></head>
+</head>
 <body class="bg-slate-50">
     <div class="max-w-screen-2xl mx-auto">
         <div class="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
@@ -71,7 +71,9 @@
                 <button onclick="exportPNG()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">📷 Export PNG</button>
                 <button onclick="loadThessaloniansExample()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">Load 1 Thess. 2:13</button>
                 <div class="flex items-center gap-x-1.5 text-sm text-slate-500">Hebrew Mode</div>
-				<button id="rtl-toggle" onclick="toggleRTL()" role="switch" aria-checked="false" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e40af]" style="outline:none;">
+				<button id="rtl-toggle" onclick="toggleRTL()" role="switch" aria-checked="false"
+                    class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e40af]"
+                    style="outline:none;">
                     <span id="rtl-thumb" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
                 </button>
 				<button onclick="window.open(&#39;https://buymeacoffee.com/reformedretrieval&#39;, &#39;_blank&#39;)" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">
@@ -90,16 +92,16 @@
                         <button onclick="addNewProposition()" class="w-10 h-10 border border-slate-300 hover:border-slate-400 rounded-3xl text-slate-600">+</button>
                     </div>
                 </div>
-                <div id="sidebar-prop-list" class="flex-1 overflow-auto p-2 space-y-1"><div class="px-6 py-12 text-center text-slate-400 text-sm">No propositions yet.<br>Paste and split above.</div></div>
-                <div class="p-4 border-t text-xs text-slate-400 flex justify-between"><div>Drag to reorder • Double-click in main area to split</div><button onclick="clearAll()" class="text-red-500 hover:text-red-600">Clear All</button></div>
+                <div id="sidebar-prop-list" class="flex-1 overflow-auto p-2 space-y-1"></div>
+                <div class="p-4 border-t text-xs text-slate-400 flex justify-between"><div>▲▼ to reorder • Double-click in main area to split</div><button onclick="clearAll()" class="text-red-500 hover:text-red-600">Clear All</button></div>
             </div>
 
             <div class="flex-1 flex flex-col bg-white relative" id="workspace">
                 <div id="diagram-container" class="flex-1 relative p-8 overflow-auto" style="position:relative;">
                     <div class="overlay" onclick="deselectAll()" style="position:absolute;inset:0;z-index:0;"></div>
-                    <div id="workspace-scaler" style="position: relative; z-index: 1; transform: scale(1);">
-                        <svg id="bracket-svg" width="365" height="1200" class="canvas-container" style="background: transparent; left: 0px; right: auto; width: 365px;"></svg>
-                        <div id="proposition-rows" class="pl-[280px] space-y-4 min-h-full" style="direction: ltr; padding-left: 340px; padding-right: 20px;"><div class="text-slate-400 text-center py-20">Propositions appear here<br>Double-click any row to split at exact click location<br>Designed for Chromium browsers</div></div>
+                    <div id="workspace-scaler" style="position:relative;z-index:1;">
+                        <svg id="bracket-svg" width="280" height="1200" class="canvas-container" style="background:transparent;"></svg>
+                        <div id="proposition-rows" class="pl-[280px] space-y-4 min-h-full"></div>
                     </div>
                 </div>
             </div>
@@ -156,16 +158,69 @@
         let isRTL = false;
 
         function adjustZoom(delta) {
+            const oldZoom = zoomLevel;
             zoomLevel = Math.min(3, Math.max(0.3, Math.round((zoomLevel + delta) * 10) / 10));
+
+            if (!isRTL) {
+                const container = document.getElementById('diagram-container');
+                if (container) {
+                    if (zoomLevel >= 1) {
+                        // Zoomed in (≥100%): anchor right edge via scroll adjustment so the
+                        // right side of the content stays fixed as we zoom.
+                        const clientWidth = container.clientWidth;
+                        const oldScrollLeft = container.scrollLeft;
+                        applyZoom();
+                        const newScrollLeft = (oldScrollLeft + clientWidth) * (zoomLevel / oldZoom) - clientWidth;
+                        container.scrollLeft = Math.max(0, newScrollLeft);
+                    } else {
+                        // Zoomed out (<100%): applyZoom uses translateX to pin content to
+                        // the top-right of the viewport, so no scroll adjustment is needed.
+                        applyZoom();
+                        container.scrollLeft = 0;
+                    }
+                    return;
+                }
+            }
             applyZoom();
         }
+
         function resetZoom() {
             zoomLevel = 1;
+            if (!isRTL) {
+                const container = document.getElementById('diagram-container');
+                if (container) {
+                    applyZoom();
+                    container.scrollLeft = 0;
+                    return;
+                }
+            }
             applyZoom();
         }
+
         function applyZoom() {
             const scaler = document.getElementById("workspace-scaler");
-            if (scaler) scaler.style.transform = `scale(${zoomLevel})`;
+            const container = document.getElementById("diagram-container");
+            if (scaler) {
+                // Creative zoom-out anchor: keep transform-origin at top-left (safe for
+                // zoomed-in scrolling/panning) but push the content rightward with translateX
+                // so propositions remain visible at the top-right when zoomed out in LTR mode.
+                // translateX is purely visual — it doesn't affect layout, scroll extent, or
+                // pointer-event coordinates, so all existing interactions are preserved.
+                if (!isRTL && zoomLevel < 1 && container) {
+                    const containerW = container.clientWidth;
+                    const naturalW = scaler.offsetWidth;  // layout width, unaffected by transform
+                    const scaledW = naturalW * zoomLevel;
+                    if (scaledW < containerW) {
+                        // Slide content to the right so its right edge meets the viewport's right edge.
+                        const tx = containerW - scaledW;
+                        scaler.style.transform = `translateX(${tx}px) scale(${zoomLevel})`;
+                    } else {
+                        scaler.style.transform = `scale(${zoomLevel})`;
+                    }
+                } else {
+                    scaler.style.transform = `scale(${zoomLevel})`;
+                }
+            }
             const label = document.getElementById("zoom-label");
             if (label) label.textContent = Math.round(zoomLevel * 100) + "%";
         }
@@ -214,13 +269,44 @@
             container.innerHTML = propositions.length ? '' : `<div class="px-6 py-12 text-center text-slate-400 text-sm">No propositions yet.<br>Paste and split above.</div>`;
             propositions.forEach((prop, i) => {
                 const row = document.createElement('div');
-                row.draggable = true;
-                row.className = `proposition-row group flex items-center gap-3 px-4 py-3 rounded-3xl cursor-grab border ${i===sidebarSelected?'border-[#1e40af] bg-blue-50':'border-transparent hover:border-slate-200'}`;
-                row.ondragstart = e => e.dataTransfer.setData('text/plain', i);
-                row.ondragover = e => e.preventDefault();
-                row.ondrop = e => { e.preventDefault(); dropSidebar(e, i); };
-                row.innerHTML = `<div class="w-6 h-6 flex-shrink-0 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center text-xs font-mono">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-sm leading-relaxed outline-none min-h-[22px]">${prop.text}</div><div class="flex gap-1 opacity-0 group-hover:opacity-100"><button onclick="indentSidebar(${i},1);event.stopImmediatePropagation()" class="w-7 h-7 text-lg leading-none text-slate-400 hover:text-slate-600">↑</button><button onclick="indentSidebar(${i},-1);event.stopImmediatePropagation()" class="w-7 h-7 text-lg leading-none text-slate-400 hover:text-slate-600">↓</button><button onclick="deleteProposition(${i});event.stopImmediatePropagation()" class="w-7 h-7 text-red-400 hover:text-red-500">✕</button></div>`;
+                row.className = `proposition-row group flex items-center gap-2 px-4 py-3 rounded-3xl cursor-default border ${i===sidebarSelected?'border-[#1e40af] bg-blue-50':'border-transparent hover:border-slate-200'}`;
                 row.onclick = e => { e.stopImmediatePropagation(); sidebarSelected = i; renderSidebarList(); selectedIndices = [i]; renderMainRows(); renderCanvas(); };
+                const numBadge = document.createElement('div');
+                numBadge.className = 'w-6 h-6 flex-shrink-0 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center text-xs font-mono';
+                numBadge.textContent = i + 1;
+                const textEl = document.createElement('div');
+                textEl.contentEditable = 'true';
+                textEl.spellcheck = false;
+                textEl.dir = isRTL ? 'rtl' : 'ltr';
+                textEl.className = 'flex-1 text-sm leading-relaxed outline-none min-h-[22px] cursor-text';
+                textEl.textContent = prop.text;
+                textEl.onclick = e => e.stopImmediatePropagation();
+                textEl.onfocus = () => { sidebarSelected = i; selectedIndices = [i]; };
+                textEl.onblur = () => updatePropositionText(i, textEl.innerText);
+                const reorderBtns = document.createElement('div');
+                reorderBtns.className = 'flex flex-col gap-0.5 opacity-0 group-hover:opacity-100';
+                const upBtn = document.createElement('button');
+                upBtn.title = 'Move up';
+                upBtn.className = 'w-6 h-5 text-[10px] leading-none text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded';
+                upBtn.textContent = '▲';
+                if (i === 0) { upBtn.disabled = true; upBtn.style.cssText = 'opacity:0.25;pointer-events:none'; }
+                upBtn.onclick = e => { e.stopImmediatePropagation(); moveProposition(i, -1); };
+                const downBtn = document.createElement('button');
+                downBtn.title = 'Move down';
+                downBtn.className = 'w-6 h-5 text-[10px] leading-none text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded';
+                downBtn.textContent = '▼';
+                if (i === propositions.length - 1) { downBtn.disabled = true; downBtn.style.cssText = 'opacity:0.25;pointer-events:none'; }
+                downBtn.onclick = e => { e.stopImmediatePropagation(); moveProposition(i, 1); };
+                reorderBtns.appendChild(upBtn);
+                reorderBtns.appendChild(downBtn);
+                const delBtn = document.createElement('button');
+                delBtn.className = 'w-7 h-7 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 text-lg leading-none flex-shrink-0';
+                delBtn.textContent = '✕';
+                delBtn.onclick = e => { e.stopImmediatePropagation(); deleteProposition(i); };
+                row.appendChild(numBadge);
+                row.appendChild(textEl);
+                row.appendChild(reorderBtns);
+                row.appendChild(delBtn);
                 container.appendChild(row);
             });
         }
@@ -867,13 +953,20 @@
             renderCanvas();
         }
 
-        function dropSidebar(e, targetIndex) {
-            e.preventDefault();
-            const source = parseInt(e.dataTransfer.getData('text/plain'));
-            if (source === targetIndex) return;
+        function moveProposition(i, delta) {
+            const j = i + delta;
+            if (j < 0 || j >= propositions.length) return;
             saveToHistory();
-            const moved = propositions.splice(source, 1)[0];
-            propositions.splice(targetIndex, 0, moved);
+            [propositions[i], propositions[j]] = [propositions[j], propositions[i]];
+            brackets.forEach(b => {
+                if (b.start === i) b.start = j; else if (b.start === j) b.start = i;
+                if (b.end   === i) b.end   = j; else if (b.end   === j) b.end   = i;
+                if (b.attachToRow === i) b.attachToRow = j;
+                else if (b.attachToRow === j) b.attachToRow = i;
+            });
+            if (sidebarSelected === i) sidebarSelected = j;
+            else if (sidebarSelected === j) sidebarSelected = i;
+            selectedIndices = selectedIndices.map(idx => idx === i ? j : idx === j ? i : idx);
             renderSidebarList();
             renderMainRows();
             renderCanvas();
@@ -1049,7 +1142,7 @@
             document.getElementById('lr-modal').classList.add('hidden');
         }
 		
-		// Event listener for mouse down
+				// Event listener for mouse down
 const diagramContainer = document.getElementById('diagram-container');
 
 // Start panning
@@ -1081,7 +1174,6 @@ diagramContainer.addEventListener('mousedown', function(e) {
     diagramContainer.addEventListener('mousemove', mouseMoveHandler);
     diagramContainer.addEventListener('mouseup', mouseUpHandler);
 });
-
     </script>
 
     <!-- Logical Relationships Modal -->
@@ -1155,8 +1247,8 @@ diagramContainer.addEventListener('mousedown', function(e) {
                                 <p class="text-xs text-slate-500 mt-1"><span class="font-semibold">Conjunctions:</span> for, because, therefore, so, γάρ, ὅτι, οὖν, διό.</p>
                                 <p class="text-xs text-slate-400 mt-0.5 italic">the mind set on the flesh is hostile to God, <em>for</em> it does not submit… (Rom 8:7-8)</p>
                             </div>
-							<div class="px-4 py-3">
-                                <p class="text-sm"><span class="font-bold">Action-Result <span class="text-[#1e40af]">(Ac/R)</span>:</span> An action and a consequence or result which accompanies that action.</p>
+                            <div class="px-4 py-3">
+                                <p class="text-sm"><span class="font-bold">Action-Result <span class="text-[#1e40af]">(Ac/Res)</span>:</span> An action and a consequence or result which accompanies that action.</p>
                                 <p class="text-xs text-slate-500 mt-1"><span class="font-semibold">Conjunctions:</span> so that, that, with the result that, ὥστε.</p>
                                 <p class="text-xs text-slate-400 mt-0.5 italic">there arose a great storm, <em>so that</em> the boat was being swamped (Matt 8:24)</p>
                             </div>
@@ -1225,7 +1317,6 @@ diagramContainer.addEventListener('mousedown', function(e) {
             </div>
         </div>
     </div>
-
-
-
-<div id="synofoto-browser-extension-loaded"></div></body></html>
+<div id="synofoto-browser-extension-loaded"></div>
+</body>
+</html>
