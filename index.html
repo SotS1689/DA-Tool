@@ -1012,60 +1012,85 @@
             }
         }
 
-        function exportPNG() {
-            const scaler = document.getElementById("workspace-scaler");
-            const savedZoom = zoomLevel;
+function exportPNG() {
+    const container = document.getElementById("diagram-container");
+    const scaler    = document.getElementById("workspace-scaler");
+    // Find the SVG inside the scaler
+    const svg       = scaler.querySelector("svg"); 
+    const savedZoom = zoomLevel;
 
-            scaler.style.transform = "scale(1)";
-            scaler.style.transition = "none";
+    const savedOverflow = container.style.overflow;
+    const savedWidth    = container.style.width;
+    const savedHeight   = container.style.height;
+    
+    // Save SVG original width if it exists
+    const savedSvgW = svg ? svg.getAttribute("width") : null;
 
-            requestAnimationFrame(() => {
-                const fullW = scaler.scrollWidth;
-                const fullH = scaler.scrollHeight;
+    scaler.style.transform = "scale(1)";
+    scaler.style.transition = "none";
 
-                const wrapper = document.createElement("div");
-                wrapper.style.cssText = [
-                    "position:fixed",
-                    "top:-99999px",
-                    "left:-99999px",
-                    `width:${fullW}px`,
-                    `height:${fullH}px`,
-                    "overflow:visible",
-                    "background:#ffffff",
-                    "z-index:-1"
-                ].join(";");
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            const padding = 50;
 
-                const clone = scaler.cloneNode(true);
-                clone.style.transform = "scale(1)";
-                clone.style.transition = "none";
-                clone.style.position = "relative";
-                clone.style.width = fullW + "px";
-                wrapper.appendChild(clone);
-                document.body.appendChild(wrapper);
+            container.style.overflow = "visible";
+            container.style.width    = "max-content";
+            container.style.height   = "max-content";
+            
+            // 1. Measure raw content
+            const contentW = scaler.scrollWidth;
+            const contentH = scaler.scrollHeight;
 
-                html2canvas(wrapper, {
-                    backgroundColor: "#ffffff",
-                    scale: 2,
-                    useCORS: true,
-                    logging: false,
-                    width: fullW,
-                    height: fullH,
-                    windowWidth: fullW,
-                    windowHeight: fullH,
-                    scrollX: 0,
-                    scrollY: 0
-                }).then(canvas => {
-                    document.body.removeChild(wrapper);
-                    const a = document.createElement("a");
-                    a.download = "bracketing.png";
-                    a.href = canvas.toDataURL("image/png");
-                    a.click();
-                }).finally(() => {
-                    scaler.style.transition = "";
-                    scaler.style.transform = `scale(${savedZoom})`;
-                });
+            // 2. Define full dimensions with padding
+            const fullW = contentW + (padding * 2);
+            const fullH = contentH + (padding * 2);
+
+            // 3. Update SVG width so lines don't truncate
+            if (svg) {
+                svg.setAttribute("width", contentW);
+                svg.style.width = contentW + "px";
+            }
+
+            // 4. Temporarily expand container to hold the padded size
+            container.style.width  = fullW + "px";
+            container.style.height = fullH + "px";
+
+            html2canvas(scaler, {
+                backgroundColor: "#ffffff",
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                width:  fullW,
+                height: fullH,
+                // SHIFT the capture so content is centered with padding
+                x: -padding,
+                y: -padding,
+                windowWidth:  document.documentElement.scrollWidth,
+                windowHeight: document.documentElement.scrollHeight,
+                scrollX: 0,
+                scrollY: 0
+            }).then(canvas => {
+                const a = document.createElement("a");
+                a.download = "bracketing.png";
+                a.href = canvas.toDataURL("image/png");
+                a.click();
+            }).catch(err => {
+                console.error("Export failed:", err);
+            }).finally(() => {
+                // Restore everything
+                container.style.overflow = savedOverflow;
+                container.style.width    = savedWidth;
+                container.style.height   = savedHeight;
+                if (svg) {
+                    svg.setAttribute("width", savedSvgW);
+                    svg.style.width = ""; 
+                }
+                scaler.style.transition  = "";
+                scaler.style.transform   = `scale(${savedZoom})`;
             });
-        }
+        });
+    });
+}
 
         function copyToClipboard() {
             let md = `# Bracketing\n\n`;
