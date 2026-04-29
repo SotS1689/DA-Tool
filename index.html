@@ -289,7 +289,7 @@
             container.innerHTML = propositions.length ? '' : `<div class="px-6 py-12 text-center text-slate-400 text-sm">No propositions yet.<br>Paste and split above.</div>`;
             propositions.forEach((prop, i) => {
                 const row = document.createElement('div');
-                row.className = `proposition-row group flex items-center gap-2 px-4 py-3 rounded-3xl cursor-default border ${i===sidebarSelected?'border-[#1e40af] bg-blue-50':'border-transparent hover:border-slate-200'}`;
+                row.className = `proposition-row group flex items-center gap-2 px-4 py-3 rounded-3xl bg-slate-100 cursor-default border ${i===sidebarSelected?'border-[#1e40af] bg-blue-50':'border-transparent hover:border-slate-200'}`;
                 row.onclick = e => { e.stopImmediatePropagation(); sidebarSelected = i; renderSidebarList(); selectedIndices = [i]; renderMainRows(); renderCanvas(); };
                 const numBadge = document.createElement('div');
                 numBadge.className = 'w-6 h-6 flex-shrink-0 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center text-xs font-mono';
