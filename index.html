@@ -411,9 +411,25 @@
 
         function getCornerRow(bracket, isTop) {
             if (bracket.singleNode) {
-                return Math.floor((bracket.start + bracket.end) / 2);
+                return (bracket.start + bracket.end) / 2;
+            }
+            if (isTop && bracket.attachToRow !== undefined) {
+                return bracket.attachToRow;
             }
             return isTop ? bracket.start : bracket.end;
+        }
+
+        function getInterpolatedRowY(rowYs, rowIndex) {
+            if (Number.isInteger(rowIndex)) {
+                return rowYs[rowIndex] || 0;
+            }
+            const lower = Math.floor(rowIndex);
+            const upper = Math.ceil(rowIndex);
+            const lowerY = rowYs[lower];
+            const upperY = rowYs[upper];
+            if (lowerY === undefined) return upperY || 0;
+            if (upperY === undefined) return lowerY || 0;
+            return lowerY + (upperY - lowerY) * (rowIndex - lower);
         }
 
         function renderCanvas() {
@@ -475,10 +491,10 @@
             });
 
             const nodeY = brackets.map((b, i) => {
-                let top = rowYs[b.start] || 0;
-                let bot = rowYs[b.end]   || 0;
-                if (b.attachToRow !== undefined && rowYs[b.attachToRow] !== undefined) {
-                    top = rowYs[b.attachToRow];
+                let top = getInterpolatedRowY(rowYs, b.start);
+                let bot = getInterpolatedRowY(rowYs, b.end);
+                if (b.attachToRow !== undefined) {
+                    top = getInterpolatedRowY(rowYs, b.attachToRow);
                 }
                 const center = (top + bot) / 2;
                 return { top, bot, center };
@@ -538,7 +554,7 @@
                     if (!child.singleNode && child.end === endRow) return bracketLeftX[j];
                 }
 
-                const prop = propositions[endRow];
+                const prop = propositions[Math.round(endRow)];
                 const indent = (prop ? prop.level : 0) * 48;
                 if (!isRTL) {
                     return bracketPadding + indent - 4;
@@ -1158,11 +1174,19 @@ function exportPNG() {
 
         function getRowY(index) {
             const rows = document.querySelectorAll('#proposition-rows > div');
-            if (index >= rows.length) return 0;
-            const container = document.getElementById('diagram-container');
-            const r = rows[index].getBoundingClientRect();
-            const containerRect = container.getBoundingClientRect();
-            return Math.floor(r.top - containerRect.top + container.scrollTop + r.height / 2);
+            if (rows.length === 0) return 0;
+            if (Number.isInteger(index)) {
+                if (index < 0 || index >= rows.length) return 0;
+                const container = document.getElementById('diagram-container');
+                const r = rows[index].getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                return Math.floor(r.top - containerRect.top + container.scrollTop + r.height / 2);
+            }
+            const lower = Math.floor(index);
+            const upper = Math.ceil(index);
+            const lowerY = getRowY(lower);
+            const upperY = getRowY(upper);
+            return lowerY + (upperY - lowerY) * (index - lower);
         }
 
         function undoLastAction() {
