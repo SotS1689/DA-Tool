@@ -1214,14 +1214,10 @@ function exportPNG() {
 
 		function showResources() {
             document.getElementById('resource-modal').classList.remove('hidden');
-          // Load iframe src on show
-  			const iframe = document.getElementById('yt-iframe');
-  			iframe.src = 'https://www.youtube-nocookie.com/embed/videoseries?list=PLMcXGoRTAIpZApAOJBP-M0BeMdDU_02Rk';
   		}
 		
         function hideResources() {
             document.getElementById('resource-modal').classList.add('hidden');
-        document.getElementById('yt-iframe').src = '';
 		}
 		
 				// Event listener for mouse down
@@ -1462,7 +1458,7 @@ function saveProjectAsHTML() {
     </div>
 
 <div id="resource-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);">
-    <div class="bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="width: 860px; max-width: 92vw;">
+    <div class="bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="width: 860px; max-width: 92vw; max-height: 90vh;">
         <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
             <div>
                 <h2 class="title-font text-2xl tracking-[-0.5px]">Discourse Analysis Resources</h2>
@@ -1470,18 +1466,11 @@ function saveProjectAsHTML() {
             </div>
             <button onclick="hideResources()" class="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xl leading-none">×</button>
         </div>
-        <div class="overflow-auto p-8">
+        <div class="overflow-auto p-8 flex-1 min-h-0">
             <div class="w-full rounded-2xl overflow-hidden shadow-lg" style="aspect-ratio: 16/9;">
-                <iframe id="yt-iframe"
-                    title="Discourse Analysis Tutorial Playlist"
-                    width="100%" height="100%"
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerpolicy="strict-origin-when-cross-origin"
-                    allowfullscreen>
-                </iframe>
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/videoseries?si=r6RdCwzI3MgUnvlX&amp;list=PLMcXGoRTAIpZApAOJBP-M0BeMdDU_02Rk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
             </div>
-			<div class="overflow-auto p-8">
+			<div class="w-full rounded-2xl overflow-hidden shadow-lg" style="aspect-ratio: 16/9;">
 				<iframe width="100%" height="100%" src="https://www.youtube.com/embed/videoseries?si=0xciDPsqyCsKt1GZ&amp;list=PLNbOazQtvR8fzM2-UhQRJicFMuf1VSoJO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 				</div>
 			<div class="px-4 py-3">
