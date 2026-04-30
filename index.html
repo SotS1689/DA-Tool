@@ -124,7 +124,7 @@
                     <div class="overlay" onclick="deselectAll()" style="position:absolute;inset:0;z-index:0;"></div>
                     <div id="workspace-scaler" style="position:relative;z-index:1;">
                         <svg id="bracket-svg" width="280" height="1200" class="canvas-container" style="background:transparent;"></svg>
-                        <div id="proposition-rows" class="pl-[280px] space-y-4 min-h-full"></div>
+                        <div id="proposition-rows" class="pl-[280px] flex flex-col gap-1 min-h-full"></div>
                     </div>
                 </div>
             </div>
@@ -338,7 +338,7 @@
             propositions.forEach((prop, i) => {
                 const isSelected = selectedIndices.includes(i);
                 const indentStyle = `margin-inline-start: ${prop.level * 48}px;`;
-                const rowHTML = `<div class="flex items-start gap-3 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 14px 18px;" onclick="handleMainRowClick(${i}); event.stopImmediatePropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 w-6 pt-1">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-[15px] leading-tight outline-none min-h-[22px]">${prop.text}</div><button onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
+                const rowHTML = `<div class="flex items-start gap-3 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onclick="handleMainRowClick(${i}); event.stopImmediatePropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 w-6 pt-1">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-[15px] leading-tight outline-none min-h-[22px]">${prop.text}</div><button onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
                 container.innerHTML += rowHTML;
             });
         }
