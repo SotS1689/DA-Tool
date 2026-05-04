@@ -493,14 +493,24 @@
 
             const COL_STEP = 72;
 
-            const bracketLeftX = brackets.map((b, i) => {
-                const col = colOf[i] >= 0 ? colOf[i] : 0;
-                if (!isRTL) {
-                    return baseRightX - 12 - col * COL_STEP;
-                } else {
-                    return 30 + 12 + col * COL_STEP;
-                }
-            });
+const bracketLeftX = brackets.map((b, i) => {
+    const col = colOf[i] >= 0 ? colOf[i] : 0;
+
+    // Find the minimum indent level of all propositions spanned by this bracket
+    let minIndent = Infinity;
+    for (let r = Math.floor(b.start); r <= Math.ceil(b.end); r++) {
+        const p = propositions[r];
+        if (p !== undefined) minIndent = Math.min(minIndent, p.level);
+    }
+    if (minIndent === Infinity) minIndent = 0;
+    const indentOffset = minIndent * 48;
+
+    if (!isRTL) {
+        return baseRightX - 12 - col * COL_STEP + indentOffset;
+    } else {
+        return 30 + 12 + col * COL_STEP - indentOffset;
+    }
+});
 
             const nodeY = brackets.map((b, i) => {
                 let top = getInterpolatedRowY(rowYs, b.start);
