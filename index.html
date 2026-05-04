@@ -395,13 +395,14 @@
 
                     for (let col = minCol; ; col++) {
                         const crosses = brackets.some((other, j) => {
-                            if (j === i || colOf[j] !== col) return false;
-                            const s1 = b.start, e1 = b.end;
-                            const s2 = other.start, e2 = other.end;
-                            const overlaps = s1 < e2 && e1 > s2;
-                            const contained = (s1 >= s2 && e1 <= e2) || (s2 >= s1 && e2 <= e1);
-                            return overlaps && !contained;
-                        });
+						    if (j === i || colOf[j] !== col) return false;
+						    const s1 = b.start, e1 = b.end;
+						    const s2 = other.start, e2 = other.end;
+						    const overlaps = s1 < e2 && e1 > s2;
+						    // A bracket must be pushed left of ANY bracket it overlaps with,
+						    // including ones it fully contains or is contained by
+						    return overlaps;
+						});
                         if (!crosses) {
                             colOf[i] = col;
                             break;
