@@ -354,73 +354,105 @@
             });
         }
 
-        function assignColumns() {
-            const n = brackets.length;
-            if (n === 0) return [];
-
-            const idToIdx = {};
-            brackets.forEach((b, i) => { idToIdx[b.id] = i; });
-
-            const colOf = new Array(n).fill(-1);
-            const remaining = new Set(brackets.map((_, i) => i));
-
-            function parentsAssigned(b) {
-                if (b.parentBracketId !== undefined) {
-                    const pi = idToIdx[b.parentBracketId];
-                    if (pi === undefined || colOf[pi] === -1) return false;
-                }
-                if (b.parentBracketId2 !== undefined) {
-                    const pi = idToIdx[b.parentBracketId2];
-                    if (pi === undefined || colOf[pi] === -1) return false;
-                }
-                return true;
-            }
-
-            let safetyLimit = n * n + 10;
-            while (remaining.size > 0 && safetyLimit-- > 0) {
-                let progress = false;
-                for (const i of [...remaining]) {
-                    const b = brackets[i];
-                    if (!parentsAssigned(b)) continue;
-
-                    let minCol = 0;
-                    if (b.parentBracketId !== undefined) {
-                        const pi = idToIdx[b.parentBracketId];
-                        if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
-                    }
-                    if (b.parentBracketId2 !== undefined) {
-                        const pi = idToIdx[b.parentBracketId2];
-                        if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
-                    }
-
-                    for (let col = minCol; ; col++) {
-                        const crosses = brackets.some((other, j) => {
-						    if (j === i || colOf[j] !== col) return false;
-						    const s1 = b.start, e1 = b.end;
-						    const s2 = other.start, e2 = other.end;
-						    const overlaps = s1 < e2 && e1 > s2;
-						    // A bracket must be pushed left of ANY bracket it overlaps with,
-						    // including ones it fully contains or is contained by
-						    return overlaps;
-						});
-                        if (!crosses) {
-                            colOf[i] = col;
-                            break;
-                        }
-                    }
-
-                    remaining.delete(i);
-                    progress = true;
-                }
-                if (!progress) {
-                    const i = [...remaining][0];
-                    colOf[i] = 0;
-                    remaining.delete(i);
-                }
-            }
-
-            return colOf;
-        }
+		function assignColumns() {
+		    const n = brackets.length;
+		    if (n === 0) return [];
+		
+		    const idToIdx = {};
+		    brackets.forEach((b, i) => { idToIdx[b.id] = i; });
+		
+		    // Pre-compute minIndent for each bracket — mirrors the bracketLeftX logic exactly
+		    const COL_STEP = 72;
+		    const INDENT_STEP = 48;
+		    const BOX_CLEARANCE = 44; // corner box (32px) + connector gap (12px)
+		
+		    const minIndents = brackets.map(b => {
+		        let minIndent = Infinity;
+		        for (let r = Math.floor(b.start); r <= Math.ceil(b.end); r++) {
+		            const p = propositions[r];
+		            if (p !== undefined) minIndent = Math.min(minIndent, p.level);
+		        }
+		        return minIndent === Infinity ? 0 : minIndent;
+		    });
+		
+		    const colOf = new Array(n).fill(-1);
+		    const remaining = new Set(brackets.map((_, i) => i));
+		
+		    function parentsAssigned(b) {
+		        if (b.parentBracketId !== undefined) {
+		            const pi = idToIdx[b.parentBracketId];
+		            if (pi === undefined || colOf[pi] === -1) return false;
+		        }
+		        if (b.parentBracketId2 !== undefined) {
+		            const pi = idToIdx[b.parentBracketId2];
+		            if (pi === undefined || colOf[pi] === -1) return false;
+		        }
+		        return true;
+		    }
+		
+		    let safetyLimit = n * n + 10;
+		    while (remaining.size > 0 && safetyLimit-- > 0) {
+		        let progress = false;
+		        for (const i of [...remaining]) {
+		            const b = brackets[i];
+		            if (!parentsAssigned(b)) continue;
+		
+		            let minCol = 0;
+		            if (b.parentBracketId !== undefined) {
+		                const pi = idToIdx[b.parentBracketId];
+		                if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
+		            }
+		            if (b.parentBracketId2 !== undefined) {
+		                const pi = idToIdx[b.parentBracketId2];
+		                if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
+		            }
+		
+		            for (let col = minCol; ; col++) {
+		                const effPos_i = col * COL_STEP - minIndents[i] * INDENT_STEP;
+		
+		                const crosses = brackets.some((other, j) => {
+		                    if (j === i || colOf[j] === -1) return false;
+		
+		                    const s1 = b.start, e1 = b.end;
+		                    const s2 = other.start, e2 = other.end;
+		                    const overlaps = s1 < e2 && e1 > s2;
+		                    const contained = (s1 >= s2 && e1 <= e2) || (s2 >= s1 && e2 <= e1);
+		
+		                    // Original check: same-column row crossing
+		                    if (colOf[j] === col && overlaps && !contained) return true;
+		
+		                    // New check: corner box visual overlap due to indentOffset.
+		                    // Two brackets that share a corner row must have spine positions
+		                    // at least BOX_CLEARANCE apart, regardless of column.
+		                    const top1 = b.attachToRow !== undefined ? b.attachToRow : b.start;
+		                    const top2 = other.attachToRow !== undefined ? other.attachToRow : other.start;
+		                    const sharesCorner = top1 === top2 || top1 === e2 || e1 === top2 || e1 === e2;
+		                    if (sharesCorner) {
+		                        const effPos_j = colOf[j] * COL_STEP - minIndents[j] * INDENT_STEP;
+		                        if (Math.abs(effPos_i - effPos_j) < BOX_CLEARANCE) return true;
+		                    }
+		
+		                    return false;
+		                });
+		
+		                if (!crosses) {
+		                    colOf[i] = col;
+		                    break;
+		                }
+		            }
+		
+		            remaining.delete(i);
+		            progress = true;
+		        }
+		        if (!progress) {
+		            const i = [...remaining][0];
+		            colOf[i] = 0;
+		            remaining.delete(i);
+		        }
+		    }
+		
+		    return colOf;
+		}
 
         function getCornerRow(bracket, isTop) {
             if (bracket.singleNode) {
