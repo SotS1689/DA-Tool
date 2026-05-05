@@ -177,7 +177,10 @@
             </div>
         </div>
     </div>
-
+	
+<script id="project-data" type="application/json">
+</script>
+	
     <script>
         let propositions = [];
         let brackets = [];
@@ -1342,59 +1345,86 @@ diagramContainer.addEventListener('mousedown', function(e) {
     diagramContainer.addEventListener('mouseup', mouseUpHandler);
 });
 
+function loadEmbeddedProjectData() {
+    const dataNode = document.getElementById('project-data');
+
+    if (!dataNode) return false;
+
+    const raw = dataNode.textContent.trim();
+
+    if (!raw || raw === 'null') return false;
+
+    try {
+        const saved = JSON.parse(raw);
+
+        propositions = saved.propositions || [];
+        brackets = saved.brackets || [];
+        zoomLevel = saved.zoomLevel || 1;
+        isRTL = saved.isRTL || false;
+
+        renderSidebarList();
+        renderMainRows();
+        renderCanvas();
+
+        if (isRTL) {
+            toggleRTL();
+        }
+
+        return true;
+    } catch (err) {
+        console.error('Failed to load embedded project data:', err);
+        return false;
+    }
+}
+
+		
 		// Save project as standalone HTML file
 function saveProjectAsHTML() {
     const projectData = {
-        propositions: propositions,
-        brackets: brackets,
-        zoomLevel: zoomLevel,
-        isRTL: isRTL,
+        propositions,
+        brackets,
+        zoomLevel,
+        isRTL,
         timestamp: new Date().toISOString()
     };
-    
-    // Get the current HTML and inject the data
-    const htmlContent = document.documentElement.outerHTML;
-    
-    // Find where to inject the data (right before closing)
-    const injectionPoint = '// DATA_INJECTION_POINT';
-    const dataString = `
-        // Project data saved at ${projectData.timestamp}
-        const SAVED_PROJECT_DATA = ${JSON.stringify(projectData)};
-        `;
-    
-    // Create a modified version that auto-loads the data
-    const modifiedHTML = htmlContent.replace(
-        'let propositions = [];',
-        `let propositions = [];
-        let SAVED_PROJECT_DATA = null;`
-    ).replace(
-        'loadFromStorage();',
-        `loadFromStorage();
-        if (typeof SAVED_PROJECT_DATA !== 'undefined' && SAVED_PROJECT_DATA) {
-            propositions = SAVED_PROJECT_DATA.propositions || [];
-            brackets = SAVED_PROJECT_DATA.brackets || [];
-            zoomLevel = SAVED_PROJECT_DATA.zoomLevel || 1;
-            isRTL = SAVED_PROJECT_DATA.isRTL || false;
-            renderSidebarList();
-            renderMainRows();
-            renderCanvas();
-            if (isRTL) toggleRTL();
-        }`
-    );
-    
-    // Inject the data into the script
-    const finalHTML = modifiedHTML.replace(
-        'let SAVED_PROJECT_DATA = null;',
-        `let SAVED_PROJECT_DATA = ${JSON.stringify(projectData)};`
-    );
-    
-    // Create blob and download
-    const blob = new Blob([finalHTML], { type: 'text/html;charset=utf-8' });
+
+    // Clone current document
+    const clonedDoc = document.documentElement.cloneNode(true);
+
+    // Find or create project-data script
+    let dataNode = clonedDoc.querySelector('#project-data');
+
+    if (!dataNode) {
+        dataNode = document.createElement('script');
+        dataNode.id = 'project-data';
+        dataNode.type = 'application/json';
+
+        const head = clonedDoc.querySelector('head');
+        if (head) {
+            head.appendChild(dataNode);
+        } else {
+            clonedDoc.insertBefore(dataNode, clonedDoc.firstChild);
+        }
+    }
+
+    // Overwrite saved data (never append)
+    dataNode.textContent = JSON.stringify(projectData);
+
+    // Serialize full HTML
+    const finalHTML = '<!DOCTYPE html>\n' + clonedDoc.outerHTML;
+
+    // Download
+    const blob = new Blob([finalHTML], {
+        type: 'text/html;charset=utf-8'
+    });
+
     const link = document.createElement('a');
     const filename = `discourse-analysis-${new Date().toISOString().split('T')[0]}.html`;
+
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     link.click();
+
     URL.revokeObjectURL(link.href);
 }
     </script>
