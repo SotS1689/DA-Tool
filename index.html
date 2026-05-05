@@ -526,24 +526,59 @@
 
             const COL_STEP = 72;
 
-const bracketLeftX = brackets.map((b, i) => {
-    const col = colOf[i] >= 0 ? colOf[i] : 0;
+const bracketLeftX = (() => {
+    const result = new Array(brackets.length).fill(null);
+    const idToIdx = {};
+    brackets.forEach((b, i) => { idToIdx[b.id] = i; });
 
-    // Find the minimum indent level of all propositions spanned by this bracket
-    let minIndent = Infinity;
-    for (let r = Math.floor(b.start); r <= Math.ceil(b.end); r++) {
-        const p = propositions[r];
-        if (p !== undefined) minIndent = Math.min(minIndent, p.level);
-    }
-    if (minIndent === Infinity) minIndent = 0;
-    const indentOffset = minIndent * 48;
+    // Process ascending column order — parents (lower col) are always resolved first
+    const order = brackets.map((b, i) => ({ i, col: colOf[i] >= 0 ? colOf[i] : 0 }))
+        .sort((a, b) => a.col - b.col);
 
-    if (!isRTL) {
-        return baseRightX - 12 - col * COL_STEP + indentOffset;
-    } else {
-        return 30 + 12 + col * COL_STEP - indentOffset;
-    }
-});
+    order.forEach(({ i }) => {
+        const b = brackets[i];
+        const col = colOf[i] >= 0 ? colOf[i] : 0;
+
+        // Collect already-computed parent spine positions
+        const parentXs = [];
+        if (b.parentBracketId !== undefined) {
+            const pi = idToIdx[b.parentBracketId];
+            if (pi !== undefined && result[pi] !== null) parentXs.push(result[pi]);
+        }
+        if (b.parentBracketId2 !== undefined) {
+            const pi = idToIdx[b.parentBracketId2];
+            if (pi !== undefined && result[pi] !== null) parentXs.push(result[pi]);
+        }
+
+        if (parentXs.length > 0) {
+            // Child bracket: exactly COL_STEP from its nearest (rightmost in LTR) parent.
+            // This guarantees uniform spacing between all connected bracket pairs,
+            // regardless of each bracket's individual indentOffset.
+            if (!isRTL) {
+                result[i] = Math.min(...parentXs) - COL_STEP;
+            } else {
+                result[i] = Math.max(...parentXs) + COL_STEP;
+            }
+        } else {
+            // Root bracket (no parent): use absolute formula with indentOffset so
+            // the spine aligns visually with the propositions it brackets.
+            let minIndent = Infinity;
+            for (let r = Math.floor(b.start); r <= Math.ceil(b.end); r++) {
+                const p = propositions[r];
+                if (p !== undefined) minIndent = Math.min(minIndent, p.level);
+            }
+            if (minIndent === Infinity) minIndent = 0;
+            const indentOffset = minIndent * 48;
+            if (!isRTL) {
+                result[i] = baseRightX - 12 - col * COL_STEP + indentOffset;
+            } else {
+                result[i] = 30 + 12 + col * COL_STEP - indentOffset;
+            }
+        }
+    });
+
+    return result;
+})();
 
             const nodeY = brackets.map((b, i) => {
                 let top = getInterpolatedRowY(rowYs, b.start);
