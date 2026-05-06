@@ -1237,11 +1237,14 @@ function exportPNG() {
         function clearAll() { resetAll(); }
 
         function initialize() {
-            loadFromStorage();
-            renderSidebarList();
-            renderMainRows();
-            renderCanvas();
-            initializeCanvasClick();
+		    const hasEmbedded = loadEmbeddedProjectData();
+		    if (!hasEmbedded) {
+		        loadFromStorage();
+		        renderSidebarList();
+		        renderMainRows();
+		        renderCanvas();
+		    }
+		    initializeCanvasClick();
             
             document.addEventListener('keydown', e => {
                 if (e.key === 'Tab' && (selectedIndices.length === 1 || sidebarSelected >= 0)) {
