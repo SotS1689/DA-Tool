@@ -127,7 +127,7 @@
         </div>
 
         <div class="flex h-[calc(100vh-73px)] overflow-hidden">
-            <div class="w-96 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+            <div id="left-sidebar" class="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col" style="width:384px; min-width:180px; max-width:600px;">
                 <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
                     <h2 class="uppercase text-xs font-semibold tracking-widest text-slate-500 mb-2">Propositions</h2>
                     <textarea id="paste-area" rows="3" class="flex-1 resize-y border border-slate-300 rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[#1e40af] w-full" placeholder="Paste full passage here…"></textarea>
@@ -139,7 +139,11 @@
                 <div id="sidebar-prop-list" class="flex-1 overflow-auto p-2 space-y-1"></div>
                 <div class="p-4 border-t text-xs text-slate-400 flex justify-between"><div>▲▼ to reorder • Double-click in main area to split</div><button onclick="clearAll()" class="text-red-500 hover:text-red-600">Clear All</button></div>
             </div>
-
+			
+			<!-- After the left sidebar's closing </div> -->
+				<div id="left-resizer" style="width:5px; cursor:col-resize; flex-shrink:0; background:transparent; hover:background:#cbd5e1; position:relative; z-index:10;"
+				  onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='transparent'"></div>
+			
             <div class="flex-1 flex flex-col bg-white relative min-w-0" id="workspace">
                 <div id="diagram-container" class="flex-1 relative p-8 overflow-auto" style="position:relative; min-width:0">
                     <div class="overlay" onclick="deselectAll()" style="position:absolute;inset:0;z-index:0;"></div>
@@ -150,7 +154,10 @@
                 </div>
             </div>
 
-            <div class="w-72 flex-shrink-0 bg-white border-l border-slate-200 p-6 flex flex-col">
+			<div id="right-resizer" style="width:5px; cursor:col-resize; flex-shrink:0; background:transparent; position:relative; z-index:10;"
+			onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='transparent'"></div>
+
+            <div id="right-sidebar" class="flex-shrink-0 bg-white border-l border-slate-200 p-6 flex flex-col" style="width:384px; min-width:180px; max-width:600px;">
                 <h2 class="uppercase text-xs font-semibold tracking-widest text-slate-500 mb-4">Tools</h2>
                 <button onclick="addBlankBracket()" class="w-full h-12 bg-[#1e40af] hover:bg-[#1a3a9e] text-white rounded-3xl text-sm font-medium mb-2 flex items-center justify-center gap-2">
                     <span class="text-xl">⎇</span> ADD TWO-NODE BRACKET
@@ -1358,6 +1365,41 @@ diagramContainer.addEventListener('mousedown', function(e) {
     diagramContainer.addEventListener('mouseup', mouseUpHandler);
 });
 
+  function makeResizable(resizerId, sidebarId, side) {
+    const resizer = document.getElementById(resizerId);
+    const sidebar = document.getElementById(sidebarId);
+    let startX, startWidth;
+
+    resizer.addEventListener('mousedown', (e) => {
+      startX = e.clientX;
+      startWidth = parseInt(sidebar.style.width, 10);
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+
+      const onMouseMove = (e) => {
+        const delta = side === 'left' ? e.clientX - startX : startX - e.clientX;
+        const newWidth = Math.min(
+          parseInt(sidebar.style.maxWidth),
+          Math.max(parseInt(sidebar.style.minWidth), startWidth + delta)
+        );
+        sidebar.style.width = newWidth + 'px';
+      };
+
+      const onMouseUp = () => {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  }
+
+  makeResizable('left-resizer', 'left-sidebar', 'left');
+  makeResizable('right-resizer', 'right-sidebar', 'right');
+		
 function loadEmbeddedProjectData() {
     const dataNode = document.getElementById('project-data');
 
