@@ -317,13 +317,104 @@
             }
         }
 
+        let dragSrcIndex = null;
+
         function renderSidebarList() {
             const container = document.getElementById('sidebar-prop-list');
             container.innerHTML = propositions.length ? '' : `<div class="px-6 py-12 text-center text-slate-400 text-sm">No propositions yet.<br>Paste and split above.</div>`;
             propositions.forEach((prop, i) => {
                 const row = document.createElement('div');
                 row.className = `proposition-row group flex items-center gap-2 px-4 py-1 rounded-3xl bg-slate-100 cursor-default border ${i===sidebarSelected?'border-[#1e40af] bg-blue-50':'border-transparent hover:border-slate-200'}`;
+                row.dataset.index = i;
                 row.onclick = e => { e.stopImmediatePropagation(); sidebarSelected = i; renderSidebarList(); selectedIndices = [i]; renderMainRows(); renderCanvas(); };
+
+                // Drag handle
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'flex-shrink-0 text-slate-300 hover:text-slate-500 cursor-grab opacity-0 group-hover:opacity-100 select-none';
+                dragHandle.style.cssText = 'font-size:14px; line-height:1; letter-spacing:-1px;';
+                dragHandle.textContent = '⋮⋮';
+                dragHandle.title = 'Drag to reorder';
+                dragHandle.addEventListener('mousedown', e => e.stopPropagation());
+
+                // Make the row draggable via the handle
+                row.draggable = false; // row itself not draggable by default
+                dragHandle.addEventListener('mousedown', () => { row.draggable = true; });
+                row.addEventListener('dragend', () => { row.draggable = false; });
+
+                row.addEventListener('dragstart', e => {
+                    dragSrcIndex = i;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', i);
+                    setTimeout(() => row.style.opacity = '0.4', 0);
+                });
+
+                row.addEventListener('dragend', () => {
+                    row.style.opacity = '';
+                    row.draggable = false;
+                    document.querySelectorAll('#sidebar-prop-list .proposition-row').forEach(r => {
+                        r.style.borderTop = '';
+                        r.style.borderBottom = '';
+                    });
+                });
+
+                row.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    const rect = row.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    document.querySelectorAll('#sidebar-prop-list .proposition-row').forEach(r => {
+                        r.style.borderTop = '';
+                        r.style.borderBottom = '';
+                    });
+                    if (e.clientY < midY) {
+                        row.style.borderTop = '2px solid #1e40af';
+                    } else {
+                        row.style.borderBottom = '2px solid #1e40af';
+                    }
+                });
+
+                row.addEventListener('dragleave', () => {
+                    row.style.borderTop = '';
+                    row.style.borderBottom = '';
+                });
+
+                row.addEventListener('drop', e => {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    row.style.borderTop = '';
+                    row.style.borderBottom = '';
+                    if (dragSrcIndex === null || dragSrcIndex === i) return;
+
+                    const rect = row.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    const dropIndex = e.clientY < midY ? i : i + 1;
+                    const insertIndex = dragSrcIndex < dropIndex ? dropIndex - 1 : dropIndex;
+
+                    if (insertIndex === dragSrcIndex) return;
+
+                    saveToHistory();
+
+                    // Remap bracket indices after move
+                    const moved = propositions.splice(dragSrcIndex, 1)[0];
+                    propositions.splice(insertIndex, 0, moved);
+
+                    brackets.forEach(b => {
+                        b.start = remapIndex(b.start, dragSrcIndex, insertIndex);
+                        b.end   = remapIndex(b.end,   dragSrcIndex, insertIndex);
+                        if (b.attachToRow !== undefined) {
+                            b.attachToRow = remapIndex(b.attachToRow, dragSrcIndex, insertIndex);
+                        }
+                    });
+
+                    if (sidebarSelected === dragSrcIndex) sidebarSelected = insertIndex;
+                    selectedIndices = selectedIndices.map(idx => remapIndex(idx, dragSrcIndex, insertIndex));
+
+                    dragSrcIndex = null;
+                    renderSidebarList();
+                    renderMainRows();
+                    renderCanvas();
+                });
+
                 const numBadge = document.createElement('div');
                 numBadge.className = 'w-6 h-6 flex-shrink-0 bg-white text-slate-600 rounded-2xl flex items-center justify-center text-xs font-mono';
                 numBadge.textContent = i + 1;
@@ -336,32 +427,26 @@
                 textEl.onclick = e => e.stopImmediatePropagation();
                 textEl.onfocus = () => { sidebarSelected = i; selectedIndices = [i]; };
                 textEl.onblur = () => updatePropositionText(i, textEl.innerText);
-                const reorderBtns = document.createElement('div');
-                reorderBtns.className = 'flex flex-col gap-0.5 opacity-0 group-hover:opacity-100';
-                const upBtn = document.createElement('button');
-                upBtn.title = 'Move up';
-                upBtn.className = 'w-6 h-5 text-[10px] leading-none text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded';
-                upBtn.textContent = '▲';
-                if (i === 0) { upBtn.disabled = true; upBtn.style.cssText = 'opacity:0.25;pointer-events:none'; }
-                upBtn.onclick = e => { e.stopImmediatePropagation(); moveProposition(i, -1); };
-                const downBtn = document.createElement('button');
-                downBtn.title = 'Move down';
-                downBtn.className = 'w-6 h-5 text-[10px] leading-none text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded';
-                downBtn.textContent = '▼';
-                if (i === propositions.length - 1) { downBtn.disabled = true; downBtn.style.cssText = 'opacity:0.25;pointer-events:none'; }
-                downBtn.onclick = e => { e.stopImmediatePropagation(); moveProposition(i, 1); };
-                reorderBtns.appendChild(upBtn);
-                reorderBtns.appendChild(downBtn);
                 const delBtn = document.createElement('button');
                 delBtn.className = 'w-7 h-7 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 text-lg leading-none flex-shrink-0';
                 delBtn.textContent = '✕';
                 delBtn.onclick = e => { e.stopImmediatePropagation(); deleteProposition(i); };
+                row.appendChild(dragHandle);
                 row.appendChild(numBadge);
                 row.appendChild(textEl);
-                row.appendChild(reorderBtns);
                 row.appendChild(delBtn);
                 container.appendChild(row);
             });
+        }
+
+        function remapIndex(idx, from, to) {
+            if (idx === from) return to;
+            if (from < to) {
+                if (idx > from && idx <= to) return idx - 1;
+            } else {
+                if (idx >= to && idx < from) return idx + 1;
+            }
+            return idx;
         }
 
         function renderMainRows() {
