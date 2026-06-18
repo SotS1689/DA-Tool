@@ -99,7 +99,7 @@
   		min-width: 0;
 			}
     </style>
-</head>
+<style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style><style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style></head>
 <body class="bg-slate-50">
     <div class="max-w-screen-2xl mx-auto">
         <div class="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
@@ -115,12 +115,10 @@
 				<button onclick="exportPNG()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">📷 Export PNG</button>
                 <button onclick="loadThessaloniansExample()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">Load 1 Thess. 2:13</button>
                 <div class="flex items-center gap-x-1.5 text-sm text-slate-500">Hebrew Mode</div>
-				<button id="rtl-toggle" onclick="toggleRTL()" role="switch" aria-checked="false"
-                    class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e40af]"
-                    style="outline:none;">
+				<button id="rtl-toggle" onclick="toggleRTL()" role="switch" aria-checked="false" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e40af]" style="outline:none;">
                     <span id="rtl-thumb" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
                 </button>
-				<button onclick="window.open(&#39;https://buymeacoffee.com/reformedretrieval&#39;, &#39;_blank&#39;)" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">
+				<button onclick="window.open('https://buymeacoffee.com/reformedretrieval', '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">
     ☕ Support
 </button>
             </div>
@@ -132,31 +130,28 @@
                     <h2 class="uppercase text-xs font-semibold tracking-widest text-slate-500 mb-2">Propositions</h2>
                     <textarea id="paste-area" rows="3" class="flex-1 resize-y border border-slate-300 rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[#1e40af] w-full" placeholder="Paste full passage here…"></textarea>
                     <div class="flex gap-2 mt-3">
-                        <button onclick="splitIntoPropositions()" class="flex-1 bg-[#1e40af] text-white h-10 rounded-3xl text-sm font-medium hover:bg-[#1a3a9e]">Insert Passage</button>
+                        <button onclick="splitIntoPropositions()" class="flex-1 bg-[#1e40af] text-white h-10 rounded-3xl text-sm font-medium hover:bg-[#1a3a9e]">Insert Propositions</button>
                         <button onclick="addNewProposition()" class="w-10 h-10 border border-slate-300 hover:border-slate-400 rounded-3xl text-slate-600">+</button>
                     </div>
                 </div>
-                <div id="sidebar-prop-list" class="flex-1 overflow-auto p-2 space-y-1"></div>
-                <div class="p-4 border-t text-xs text-slate-400 flex justify-between"><div>Drag to reorder • Double-click in main area to split</div><button onclick="clearAll()" class="text-red-500 hover:text-red-600">Clear All</button></div>
+                <div id="sidebar-prop-list" class="flex-1 overflow-auto p-2 space-y-1"><div class="px-6 py-12 text-center text-slate-400 text-sm">No propositions yet.<br>Paste and split above.</div></div>
+                <div class="p-4 border-t text-xs text-slate-400 flex justify-between"><div>Drag ⋮⋮ to reorder • Double-click in main area to split</div><button onclick="clearAll()" class="text-red-500 hover:text-red-600">Clear All</button></div>
             </div>
-			
-			<!-- After the left sidebar's closing </div> -->
+				<!-- After the left sidebar's closing </div> -->
 				<div id="left-resizer" style="width:5px; cursor:col-resize; flex-shrink:0; background:transparent; hover:background:#cbd5e1; position:relative; z-index:10;"
 				  onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='transparent'"></div>
-			
             <div class="flex-1 flex flex-col bg-white relative min-w-0" id="workspace">
                 <div id="diagram-container" class="flex-1 relative p-8 overflow-auto" style="position:relative; min-width:0">
                     <div class="overlay" onclick="deselectAll()" style="position:absolute;inset:0;z-index:0;"></div>
                     <div id="workspace-scaler" style="position:relative;z-index:1;">
-                        <svg id="bracket-svg" width="280" height="1200" class="canvas-container" style="background:transparent;"></svg>
-                        <div id="proposition-rows" class="pl-[280px] flex flex-col gap-1 min-h-full"></div>
+                        <svg id="bracket-svg" width="365" height="1200" class="canvas-container" style="background: transparent; left: 0px; right: auto; width: 365px;"></svg>
+                        <div id="proposition-rows" class="pl-[280px] flex flex-col gap-1 min-h-full" style="direction: ltr; padding-left: 340px; padding-right: 20px;"><div class="text-slate-400 text-center py-20">Propositions appear here<br>Double-click any row to split at exact click location<br>Designed for Chromium browsers</div></div>
                     </div>
                 </div>
             </div>
 
 			<div id="right-resizer" style="width:5px; cursor:col-resize; flex-shrink:0; background:transparent; position:relative; z-index:10;"
 			onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='transparent'"></div>
-
             <div id="right-sidebar" class="flex-shrink-0 bg-white border-l border-slate-200 p-6 flex flex-col" style="width:288px; min-width:180px; max-width:600px;">
                 <h2 class="uppercase text-xs font-semibold tracking-widest text-slate-500 mb-4">Tools</h2>
                 <button onclick="addBlankBracket()" class="w-full h-12 bg-[#1e40af] hover:bg-[#1a3a9e] text-white rounded-3xl text-sm font-medium mb-2 flex items-center justify-center gap-2">
@@ -179,9 +174,8 @@
 					Select 2 propositions/boxes → ADD SINGLE-NODE BRACKET<br><br>
 					<span class="font-bold underline text-slate-900">Operations:</span><br>
 					<span class="font-normal text-slate-900">
-					Double-click proposition = split proposition<br>
-					Double-click box = edit label<br>
-					Right-click box = delete bracket<br>
+					Right-click box = edit label<br>
+					Select spine + delete = remove bracket<br>
 					Tab = indent selected proposition<br>
 					Shift + Tab = decrease indent on selected proposition<br>
                     Click whitespace (anywhere in work area) = deselect<br>
@@ -196,8 +190,7 @@
         </div>
     </div>
 	
-<script id="project-data" type="application/json">
-</script>
+<script id="project-data" type="application/json">{"propositions":[],"brackets":[],"zoomLevel":1,"isRTL":false,"timestamp":"2026-05-05T13:11:07.527Z"}</script>
 	
     <script>
         let propositions = [];
@@ -209,7 +202,10 @@
         let historyStack = [];
         let zoomLevel = 1;
         let isRTL = false;
-
+        let _lastCornerClickTime = 0;
+        let _lastCornerClickBracketId = null;
+        let _lastCornerClickIsTop = null;
+		
         function adjustZoom(delta) {
             const oldZoom = zoomLevel;
             zoomLevel = Math.min(3, Math.max(0.3, Math.round((zoomLevel + delta) * 10) / 10));
@@ -314,7 +310,22 @@
                 const data = JSON.parse(saved);
                 propositions = data.propositions || [];
                 brackets = data.brackets || [];
+                migrateSingleNodeBrackets();
             }
+        }
+
+        // Migrate old singleNode brackets to the new format.
+        function migrateSingleNodeBrackets() {
+            brackets.forEach(b => {
+                if (!b.singleNode) return;
+                if (!b.nodes) {
+                    b.nodes = [b.start, b.end];
+                }
+                if (!b.parentBracketIds) {
+                    const ids = [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
+                    b.parentBracketIds = ids;
+                }
+            });
         }
 
         let dragSrcIndex = null;
@@ -336,8 +347,8 @@
                 dragHandle.title = 'Drag to reorder';
                 dragHandle.addEventListener('mousedown', e => e.stopPropagation());
 
-                // Make the row draggable via the handle
-                row.draggable = false; // row itself not draggable by default
+                // Only make row draggable when grabbing the handle
+                row.draggable = false;
                 dragHandle.addEventListener('mousedown', () => { row.draggable = true; });
                 row.addEventListener('dragend', () => { row.draggable = false; });
 
@@ -394,7 +405,6 @@
 
                     saveToHistory();
 
-                    // Remap bracket indices after move
                     const moved = propositions.splice(dragSrcIndex, 1)[0];
                     propositions.splice(insertIndex, 0, moved);
 
@@ -455,7 +465,7 @@
             propositions.forEach((prop, i) => {
                 const isSelected = selectedIndices.includes(i);
                 const indentStyle = `margin-inline-start: ${prop.level * 48}px;`;
-                const rowHTML = `<div class="flex items-start gap-0 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onclick="handleMainRowClick(${i}); event.stopImmediatePropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 w-6 pt-1">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-[15px] leading-tight outline-none min-h-[22px]">${prop.text}</div><button onclick="deleteProposition(${i}); event.stopImmediatePropagation();" style="margin-left: 6px;" class="text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
+                const rowHTML = `<div class="flex items-start gap-0 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onclick="handleMainRowClick(${i}); event.stopImmediatePropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 w-6 pt-1">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-[15px] leading-tight outline-none min-h-[22px]">${prop.text}</div><button onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
                 container.innerHTML += rowHTML;
             });
         }
@@ -697,7 +707,10 @@ const bracketLeftX = (() => {
             });
 
             brackets.forEach((b, i) => {
-                if (b.parentBracketId === undefined && b.parentBracketId2 === undefined) return;
+                const allParentIds = b.parentBracketIds && b.parentBracketIds.length
+                    ? b.parentBracketIds
+                    : [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
+                if (allParentIds.length === 0) return;
 
                 function snapEndpointToParentCenter(parentId) {
                     if (parentId === undefined) return;
@@ -713,8 +726,7 @@ const bracketLeftX = (() => {
                     nodeY[i].center = (nodeY[i].top + nodeY[i].bot) / 2;
                 }
 
-                snapEndpointToParentCenter(b.parentBracketId);
-                snapEndpointToParentCenter(b.parentBracketId2);
+                allParentIds.forEach(snapEndpointToParentCenter);
             });
 
             function armEndX(bracketIdx, isTop) {
@@ -759,6 +771,49 @@ const bracketLeftX = (() => {
                 }
             }
 
+            // Like armEndX but for an arbitrary row on a singleNode bracket.
+            function armEndXForRow(bracketIdx, row) {
+                const b = brackets[bracketIdx];
+
+                // Check if a parent bracket's spine owns this row
+                const parentIds = (b.parentBracketIds && b.parentBracketIds.length)
+                    ? b.parentBracketIds
+                    : [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
+                for (const pid of parentIds) {
+                    const pi = brackets.findIndex(x => x.id === pid);
+                    if (pi < 0) continue;
+                    const parent = brackets[pi];
+                    let parentOwns = false;
+                    if (parent.singleNode) {
+                        parentOwns = row >= parent.start && row <= parent.end;
+                    } else {
+                        const parentTopRow = (parent.attachToRow !== undefined) ? parent.attachToRow : parent.start;
+                        parentOwns = row === parentTopRow || row === parent.end;
+                    }
+                    if (parentOwns) return bracketLeftX[pi];
+                }
+
+                // Check if a child bracket's spine starts at this row
+                for (let j = 0; j < brackets.length; j++) {
+                    if (j === bracketIdx) continue;
+                    const child = brackets[j];
+                    if (child.parentBracketId !== b.id && child.parentBracketId2 !== b.id) continue;
+                    if (isRTL ? (bracketLeftX[j] >= bracketLeftX[bracketIdx]) : (bracketLeftX[j] <= bracketLeftX[bracketIdx])) continue;
+                    const childTopRow = (child.attachToRow !== undefined) ? child.attachToRow : child.start;
+                    if (childTopRow === row) return bracketLeftX[j];
+                    if (!child.singleNode && child.end === row) return bracketLeftX[j];
+                }
+
+                // Default: reach to the proposition's indent level
+                const prop = propositions[Math.round(row)];
+                const indent = (prop ? prop.level : 0) * 48;
+                if (!isRTL) {
+                    return bracketPadding + indent - 4;
+                } else {
+                    return 30 - indent - 4;
+                }
+            }
+
             const bracketOrder = brackets.map((b, i) => ({i, col: colOf[i]}))
                 .sort((a, b) => b.col - a.col);
 
@@ -774,8 +829,6 @@ const bracketLeftX = (() => {
 
                 if (b.singleNode) {
                     const yCenter = nodeY[i].center;
-                    const aRight1 = armEndX(i, true);
-                    const aRight2 = armEndX(i, false);
 
                     const spineHit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                     spineHit.setAttribute("x", leftX - 12);
@@ -793,17 +846,17 @@ const bracketLeftX = (() => {
                     vertical.setAttribute("stroke", "#64748b"); vertical.setAttribute("stroke-width", "2.5");
                     group.appendChild(vertical);
 
-                    const topArm = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                    topArm.setAttribute("x1", leftX); topArm.setAttribute("y1", y1);
-                    topArm.setAttribute("x2", aRight1); topArm.setAttribute("y2", y1);
-                    topArm.setAttribute("stroke", "#64748b"); topArm.setAttribute("stroke-width", "2.5");
-                    group.appendChild(topArm);
-
-                    const bottomArm = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                    bottomArm.setAttribute("x1", leftX); bottomArm.setAttribute("y1", y2);
-                    bottomArm.setAttribute("x2", aRight2); bottomArm.setAttribute("y2", y2);
-                    bottomArm.setAttribute("stroke", "#64748b"); bottomArm.setAttribute("stroke-width", "2.5");
-                    group.appendChild(bottomArm);
+                    // Draw one horizontal arm for every node row
+                    const nodeRows = (b.nodes && b.nodes.length >= 2) ? b.nodes : [b.start, b.end];
+                    nodeRows.forEach(row => {
+                        const armY = getInterpolatedRowY(rowYs, row);
+                        const aRightX = armEndXForRow(i, row);
+                        const arm = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        arm.setAttribute("x1", leftX); arm.setAttribute("y1", armY);
+                        arm.setAttribute("x2", aRightX); arm.setAttribute("y2", armY);
+                        arm.setAttribute("stroke", "#64748b"); arm.setAttribute("stroke-width", "2.5");
+                        group.appendChild(arm);
+                    });
 
                     createCornerBox(group, b.centerLabel || "", leftX, yCenter, true, b.id);
 
@@ -891,49 +944,30 @@ const bracketLeftX = (() => {
             rect.setAttribute("stroke-width", isSelected ? "2.5" : "1.5");
             rect.setAttribute("pointer-events", "all");
 
-            rect.addEventListener('click', (e) => {
-                e.stopImmediatePropagation();
-                const cornerObj = {bracketId: bracketId, isTop: isTop};
-                const existingIndex = selectedCorners.findIndex(c => c.bracketId === cornerObj.bracketId && c.isTop === cornerObj.isTop);
-                if (existingIndex !== -1) {
-                    selectedCorners.splice(existingIndex, 1);
-                } else if (selectedCorners.length < 2) {
-                    selectedCorners.push(cornerObj);
-                } else {
-                    selectedCorners = [cornerObj];
-                }
-                selectedBracketId = null;
-                renderCanvas();
-            });
+			// Single click → selection (unchanged logic)
+				rect.addEventListener('click', (e) => {
+					e.stopImmediatePropagation();
+					const cornerObj = { bracketId, isTop };
+					const existingIndex = selectedCorners.findIndex(c => c.bracketId === bracketId && c.isTop === isTop);
+					
+					if (existingIndex !== -1) {
+						// If already selected, deselect it
+						selectedCorners.splice(existingIndex, 1);
+					} else {
+						// Otherwise, just push it to the array (no upper limit)
+						selectedCorners.push(cornerObj);
+					}
+					
+					selectedBracketId = null;
+					renderCanvas();
+				});
 
-            rect.addEventListener('dblclick', (e) => {
-                e.stopImmediatePropagation();
-                const newLabel = prompt("Label:", text || "");
-                if (newLabel !== null) {
-                    saveToHistory();
-                    const bracket = brackets.find(b => b.id === bracketId);
-                    if (bracket) {
-                        if (bracket.singleNode) bracket.centerLabel = newLabel.trim();
-                        else if (isTop) bracket.topLabel = newLabel.trim();
-                        else bracket.bottomLabel = newLabel.trim();
-                    }
-                    selectedCorners = [];
-                    renderCanvas();
-                }
-            });
-
-            rect.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                if (confirm('Delete this bracket?')) {
-                    saveToHistory();
-                    brackets = brackets.filter(b => b.id !== bracketId);
-                    selectedBracketId = null;
-                    selectedCorners = [];
-                    renderCanvas();
-                }
-            });
-
+			// Right-click → open label editor  (replaces old delete-confirm)
+			rect.addEventListener('contextmenu', (e) => {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				showLabelEditor(e.clientX, e.clientY, text, bracketId, isTop);
+			});
             group.appendChild(rect);
 
             if (text) {
@@ -945,7 +979,8 @@ const bracketLeftX = (() => {
                 txt.setAttribute("fill", "#1e40af");
                 txt.setAttribute("font-size", "12");
                 txt.setAttribute("font-weight", "700");
-                txt.textContent = text;
+                txt.setAttribute("pointer-events", "none");
+				txt.textContent = text;
                 group.appendChild(txt);
             }
 
@@ -958,6 +993,63 @@ const bracketLeftX = (() => {
             connector.setAttribute("stroke-width", "1.5");
             group.appendChild(connector);
         }
+
+		function showLabelEditor(clientX, clientY, currentText, bracketId, isTop) {
+			const panel  = document.getElementById('label-editor');
+			const input  = document.getElementById('lei');
+
+			input.value = currentText || '';
+			panel.style.display = 'block';
+
+			// Position near the right-click, nudge on-screen if needed
+			let lx = clientX + 10, ly = clientY + 10;
+			panel.style.left = lx + 'px';
+			panel.style.top  = ly + 'px';
+			requestAnimationFrame(() => {
+				const r = panel.getBoundingClientRect();
+				if (r.right  > window.innerWidth)  panel.style.left = (clientX - r.width  - 10) + 'px';
+				if (r.bottom > window.innerHeight) panel.style.top  = (clientY - r.height - 10) + 'px';
+			});
+			input.focus();
+			input.select();
+
+			// Fresh button nodes each time (clears any previous listener)
+			const oldOk  = document.getElementById('le-ok');
+			const oldCan = document.getElementById('le-cancel');
+			const newOk  = oldOk.cloneNode(true);
+			const newCan = oldCan.cloneNode(true);
+			oldOk.replaceWith(newOk);
+			oldCan.replaceWith(newCan);
+
+			function applyLabel() {
+				const newLabel = input.value.trim();
+				saveToHistory();
+				const bracket = brackets.find(b => b.id === bracketId);
+				if (bracket) {
+					if (bracket.singleNode)   bracket.centerLabel  = newLabel;
+					else if (isTop)           bracket.topLabel     = newLabel;
+					else                      bracket.bottomLabel  = newLabel;
+				}
+				selectedCorners = [];
+				panel.style.display = 'none';
+				input.removeEventListener('keydown', onKey);
+				renderCanvas();
+			}
+
+			function cancelLabel() {
+				panel.style.display = 'none';
+				input.removeEventListener('keydown', onKey);
+			}
+
+			function onKey(e) {
+				if (e.key === 'Enter')  { e.preventDefault(); applyLabel(); }
+				if (e.key === 'Escape') { cancelLabel(); }
+			}
+
+			document.getElementById('le-ok').addEventListener('click', applyLabel);
+			document.getElementById('le-cancel').addEventListener('click', cancelLabel);
+			input.addEventListener('keydown', onKey);
+		}
 
         function addBlankBracket() {
             const hasTwoProps = selectedIndices.length === 2;
@@ -1030,53 +1122,48 @@ const bracketLeftX = (() => {
         }
 
         function addSingleNodeBracket() {
-            const hasTwoProps = selectedIndices.length === 2 && selectedCorners.length === 0 && selectedBracketId === null;
-            const hasCornerAndProp = selectedCorners.length === 1 && selectedIndices.length === 1;
-            const hasTwoCorners = selectedCorners.length === 2 && selectedIndices.length === 0 && selectedBracketId === null;
-
-            if (!(hasTwoProps || hasCornerAndProp || hasTwoCorners)) {
-                alert("For a single-node bracket: select exactly TWO proposition rows, OR select one corner box and one proposition row, OR select two corner boxes.");
+            const totalSelected = selectedIndices.length + selectedCorners.length;
+            if (totalSelected < 2) {
+                alert("For a single-node bracket: select two or more propositions and/or corner boxes.");
                 return;
             }
+
+            // Guard: no two corners from the same bracket
+            const cornerBracketIds = selectedCorners.map(c => c.bracketId);
+            if (new Set(cornerBracketIds).size < cornerBracketIds.length) {
+                alert("Cannot connect two corners from the same bracket.");
+                return;
+            }
+
             saveToHistory();
 
-            let start, end, parentBracketId, parentBracketId2;
+            // Collect rows from propositions
+            const propRows = [...selectedIndices];
 
-            if (hasTwoProps) {
-                [start, end] = [...selectedIndices].sort((x, y) => x - y);
-            } else if (hasCornerAndProp) {
-                const parentBracket = brackets.find(b => b.id === selectedCorners[0].bracketId);
-                if (!parentBracket) return;
-                const cornerRow = getCornerRow(parentBracket, selectedCorners[0].isTop);
-                const propRow = selectedIndices[0];
-                start = Math.min(cornerRow, propRow);
-                end = Math.max(cornerRow, propRow);
-                parentBracketId = parentBracket.id;
-            } else if (hasTwoCorners) {
-                const corner1 = selectedCorners[0];
-                const corner2 = selectedCorners[1];
-                const b1 = brackets.find(b => b.id === corner1.bracketId);
-                const b2 = brackets.find(b => b.id === corner2.bracketId);
-                if (!b1 || !b2 || b1.id === b2.id) {
-                    return;
-                }
-                const row1 = getCornerRow(b1, corner1.isTop);
-                const row2 = getCornerRow(b2, corner2.isTop);
-                start = Math.min(row1, row2);
-                end = Math.max(row1, row2);
-                parentBracketId = b1.id;
-                parentBracketId2 = b2.id;
-            }
+            // Collect rows and parent IDs from corners
+            const parentBracketIds = [];
+            const cornerRows = selectedCorners.map(c => {
+                const parentBracket = brackets.find(b => b.id === c.bracketId);
+                if (!parentBracket) return null;
+                parentBracketIds.push(parentBracket.id);
+                return getCornerRow(parentBracket, c.isTop);
+            }).filter(r => r !== null);
+
+            const allRows = [...propRows, ...cornerRows].sort((x, y) => x - y);
+            if (allRows.length < 2) return;
+
+            const start = allRows[0];
+            const end   = allRows[allRows.length - 1];
 
             const newBracket = {
                 id: Date.now(),
                 start,
                 end,
+                nodes: allRows,
+                parentBracketIds,
                 singleNode: true,
                 centerLabel: "",
             };
-            if (parentBracketId !== undefined) newBracket.parentBracketId = parentBracketId;
-            if (parentBracketId2 !== undefined) newBracket.parentBracketId2 = parentBracketId2;
 
             brackets.push(newBracket);
 
@@ -1089,8 +1176,7 @@ const bracketLeftX = (() => {
 
         function handleMainRowClick(i) {
             if (selectedIndices.includes(i)) selectedIndices = selectedIndices.filter(idx => idx !== i);
-            else if (selectedIndices.length < 2) selectedIndices.push(i);
-            else selectedIndices = [i];
+            else selectedIndices.push(i);
             renderMainRows();
         }
 
@@ -1150,9 +1236,20 @@ const bracketLeftX = (() => {
             if (confirm('Delete this proposition?')) {
                 saveToHistory();
                 propositions.splice(i, 1);
-                brackets = brackets.filter(b => b.start !== i && b.end !== i);
-                if (sidebarSelected >= i) sidebarSelected = -1;
-                selectedIndices = selectedIndices.filter(idx => idx !== i);
+                // Remove any bracket whose start or end lands on the deleted row,
+                // then shift all remaining bracket indices down past the deletion point.
+                brackets = brackets
+                    .filter(b => b.start !== i && b.end !== i)
+                    .map(b => {
+                        if (b.start > i) b.start--;
+                        if (b.end   > i) b.end--;
+                        if (b.attachToRow !== undefined && b.attachToRow > i) b.attachToRow--;
+                        return b;
+                    });
+                if (sidebarSelected >= i) sidebarSelected = Math.max(-1, sidebarSelected - 1);
+                selectedIndices = selectedIndices
+                    .filter(idx => idx !== i)
+                    .map(idx => idx > i ? idx - 1 : idx);
                 renderSidebarList();
                 renderMainRows();
                 renderCanvas();
@@ -1330,25 +1427,66 @@ function exportPNG() {
         function clearAll() { resetAll(); }
 
         function initialize() {
-		    const hasEmbedded = loadEmbeddedProjectData();
-		    if (!hasEmbedded) {
-		        loadFromStorage();
-		        renderSidebarList();
-		        renderMainRows();
-		        renderCanvas();
-		    }
-		    initializeCanvasClick();
+			(function buildLabelEditor() {
+				if (document.getElementById('label-editor')) return;
+				const panel = document.createElement('div');
+				panel.id = 'label-editor';
+				panel.style.cssText = [
+					'display:none', 'position:fixed', 'z-index:99999',
+					'background:#fff', 'border:2px solid #1e40af', 'border-radius:8px',
+					'padding:12px 14px', 'box-shadow:0 6px 24px rgba(0,0,0,0.18)',
+					'min-width:200px', 'font-family:inherit'
+				].join(';');
+				panel.innerHTML = `
+					<div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:600;letter-spacing:.04em;">EDIT LABEL</div>
+					<input id="lei" type="text" style="width:100%;box-sizing:border-box;border:1.5px solid #cbd5e1;
+						   border-radius:4px;padding:5px 8px;font-size:14px;outline:none;">
+					<div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;">
+						<button id="le-cancel" style="padding:4px 12px;font-size:12px;border-radius:4px;
+								border:1px solid #cbd5e1;cursor:pointer;background:#fff;color:#64748b;">Cancel</button>
+						<button id="le-ok" style="padding:4px 12px;font-size:12px;border-radius:4px;
+								border:none;cursor:pointer;background:#1e40af;color:#fff;">OK</button>
+					</div>`;
+				document.body.appendChild(panel);
+			})();
+			    const hasEmbedded = loadEmbeddedProjectData();
+				if (!hasEmbedded) {
+					loadFromStorage();
+					renderSidebarList();
+					renderMainRows();
+					renderCanvas();
+				}
+				initializeCanvasClick();
             
             document.addEventListener('keydown', e => {
-                if (e.key === 'Tab' && (selectedIndices.length === 1 || sidebarSelected >= 0)) {
+                if (e.key === 'Tab' && (selectedIndices.length >= 1 || sidebarSelected >= 0)) {
                     e.preventDefault();
-                    const idx = selectedIndices.length === 1 ? selectedIndices[0] : sidebarSelected;
-                    if (propositions[idx] !== undefined) {
+                    if (selectedIndices.length >= 1) {
                         saveToHistory();
-                        propositions[idx].level = Math.max(0, propositions[idx].level + (e.shiftKey ? -1 : 1));
+                        selectedIndices.forEach(idx => {
+                            if (propositions[idx] !== undefined) {
+                                propositions[idx].level = Math.max(0, propositions[idx].level + (e.shiftKey ? -1 : 1));
+                            }
+                        });
+                        renderSidebarList(); renderMainRows(); renderCanvas();
+                    } else if (sidebarSelected >= 0 && propositions[sidebarSelected] !== undefined) {
+                        saveToHistory();
+                        propositions[sidebarSelected].level = Math.max(0, propositions[sidebarSelected].level + (e.shiftKey ? -1 : 1));
                         renderSidebarList(); renderMainRows(); renderCanvas();
                     }
                 }
+				if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBracketId !== null) {
+					const active = document.activeElement;
+					if (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA' && active.contentEditable !== 'true') {
+						e.preventDefault();
+						saveToHistory();
+						brackets = brackets.filter(b => b.id !== selectedBracketId);
+						selectedBracketId = null;
+						selectedCorners = [];
+						renderCanvas();
+					}
+				}
+				
                 if (e.ctrlKey && e.key === 'z') {
                     e.preventDefault();
                     undoLastAction();
@@ -1485,7 +1623,7 @@ diagramContainer.addEventListener('mousedown', function(e) {
 
   makeResizable('left-resizer', 'left-sidebar', 'left');
   makeResizable('right-resizer', 'right-sidebar', 'right');
-		
+
 function loadEmbeddedProjectData() {
     const dataNode = document.getElementById('project-data');
 
@@ -1502,6 +1640,7 @@ function loadEmbeddedProjectData() {
         brackets = saved.brackets || [];
         zoomLevel = saved.zoomLevel || 1;
         isRTL = saved.isRTL || false;
+        migrateSingleNodeBrackets();
 
         renderSidebarList();
         renderMainRows();
@@ -1520,54 +1659,63 @@ function loadEmbeddedProjectData() {
 
 		
 		// Save project as standalone HTML file
-function saveProjectAsHTML() {
-    const projectData = {
-        propositions,
-        brackets,
-        zoomLevel,
-        isRTL,
-        timestamp: new Date().toISOString()
-    };
+		function saveProjectAsHTML() {
+			const projectData = {
+				propositions,
+				brackets,
+				zoomLevel,
+				isRTL,
+				timestamp: new Date().toISOString()
+			};
 
-    // Clone current document
-    const clonedDoc = document.documentElement.cloneNode(true);
+			// 1. Clone the document
+			const clonedDoc = document.documentElement.cloneNode(true);
 
-    // Find or create project-data script
-    let dataNode = clonedDoc.querySelector('#project-data');
+			// 2. CLEANUP: Find the containers where your brackets and propositions live 
+			// and empty them in the CLONE. This prevents the "double-render" flicker.
+			// Replace these selectors with your actual container IDs/Classes
+			const bracketContainer = clonedDoc.querySelector('#brackets-container');
+			const propContainer = clonedDoc.querySelector('#propositions-container');
+			if (bracketContainer) bracketContainer.innerHTML = '';
+			if (propContainer) propContainer.innerHTML = '';
 
-    if (!dataNode) {
-        dataNode = document.createElement('script');
-        dataNode.id = 'project-data';
-        dataNode.type = 'application/json';
+			// 3. Create the data node specifically for the cloned document
+			let dataNode = clonedDoc.querySelector('#project-data');
 
-        const head = clonedDoc.querySelector('head');
-        if (head) {
-            head.appendChild(dataNode);
-        } else {
-            clonedDoc.insertBefore(dataNode, clonedDoc.firstChild);
-        }
-    }
+			if (!dataNode) {
+				// Use clonedDoc to create the element, not the global document
+				dataNode = clonedDoc.createElement('script');
+				dataNode.id = 'project-data';
+				dataNode.type = 'application/json';
 
-    // Overwrite saved data (never append)
-    dataNode.textContent = JSON.stringify(projectData);
+				const head = clonedDoc.querySelector('head');
+				if (head) {
+					head.appendChild(dataNode);
+				} else {
+					clonedDoc.insertBefore(dataNode, clonedDoc.firstChild);
+				}
+			}
 
-    // Serialize full HTML
-    const finalHTML = '<!DOCTYPE html>\n' + clonedDoc.outerHTML;
+			const jsonString = JSON.stringify(projectData).replace(/<\/script>/g, '<\\/script>');
+			dataNode.textContent = jsonString;
 
-    // Download
-    const blob = new Blob([finalHTML], {
-        type: 'text/html;charset=utf-8'
-    });
+			// 5. Serialize full HTML
+			const finalHTML = '<!DOCTYPE html>\n' + clonedDoc.outerHTML;
 
-    const link = document.createElement('a');
-    const filename = `discourse-analysis-${new Date().toISOString().split('T')[0]}.html`;
+			// 6. Download Logic
+			const blob = new Blob([finalHTML], {
+				type: 'text/html;charset=utf-8'
+			});
 
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.click();
+			const link = document.createElement('a');
+			const filename = `discourse-analysis-${new Date().toISOString().split('T')[0]}.html`;
 
-    URL.revokeObjectURL(link.href);
-}
+			link.href = URL.createObjectURL(blob);
+			link.download = filename;
+			link.click();
+
+			URL.revokeObjectURL(link.href);
+		}
     </script>
 
     <!-- Logical Relationships Modal -->
@@ -1728,22 +1876,22 @@ function saveProjectAsHTML() {
         </div>
         <div class="overflow-auto p-8 flex-1 min-h-0">
             <div class="w-full rounded-2xl overflow-hidden shadow-lg" style="aspect-ratio: 16/9;">
-                <iframe width="560" height="315" src="https://www.youtube.com/embed/videoseries?si=r6RdCwzI3MgUnvlX&amp;list=PLMcXGoRTAIpZApAOJBP-M0BeMdDU_02Rk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/videoseries?si=r6RdCwzI3MgUnvlX&amp;list=PLMcXGoRTAIpZApAOJBP-M0BeMdDU_02Rk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe>
             </div>
 			<div class="w-full rounded-2xl overflow-hidden shadow-lg" style="aspect-ratio: 16/9;">
-				<iframe width="100%" height="100%" src="https://www.youtube.com/embed/videoseries?si=0xciDPsqyCsKt1GZ&amp;list=PLNbOazQtvR8fzM2-UhQRJicFMuf1VSoJO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+				<iframe width="100%" height="100%" src="https://www.youtube.com/embed/videoseries?si=0xciDPsqyCsKt1GZ&amp;list=PLNbOazQtvR8fzM2-UhQRJicFMuf1VSoJO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe>
 				</div>
 			<div class="px-4 py-3">
-				<button onclick="window.open(&#39;https://equip.biblearc.com/course/bible-logic;, &#39;_blank&#39;)" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">Bible Logic Course (Free)</button>
+				<button onclick="window.open('https://equip.biblearc.com/course/bible-logic;, '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">Bible Logic Course (Free)</button>
 				</div>
             <div class="px-4 py-3">
-				<button onclick="window.open(&#39;https://wels.net/ptw-discourse-analysis-for-preaching/;, &#39;_blank&#39;)" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">Discourse Analysis for Preaching</button>
+				<button onclick="window.open('https://wels.net/ptw-discourse-analysis-for-preaching/;, '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">Discourse Analysis for Preaching</button>
 				</div>
 			<div class="px-4 py-3">
-				<button onclick="window.open(&#39;https://www.gkbeale.com/post/a-classic-method-for-new-testament-exegesis;, &#39;_blank&#39;)" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">A Classic Method for New Testament Exegesis (Podcast with G. K. Beale)</button>
+				<button onclick="window.open('https://www.gkbeale.com/post/a-classic-method-for-new-testament-exegesis;, '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">A Classic Method for New Testament Exegesis (Podcast with G. K. Beale)</button>
 				</div>
 			<div class="px-4 py-3">
-				<button onclick="window.open(&#39;https://cdn.desiringgod.org/pdf/booklets/BTBX.pdf;, &#39;_blank&#39;)" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">Biblical Exegesis by John Piper</button>
+				<button onclick="window.open('https://cdn.desiringgod.org/pdf/booklets/BTBX.pdf;, '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">Biblical Exegesis by John Piper</button>
 			</div>
 			<p class="text-center text-xs text-slate-400 mt-6 italic"></p>
         </div>
@@ -1751,5 +1899,6 @@ function saveProjectAsHTML() {
 </div>
 	
 <div id="synofoto-browser-extension-loaded"></div>
-</body>
-</html>
+
+
+<div id="synofoto-browser-extension-loaded"></div></body></html>
