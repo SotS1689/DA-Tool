@@ -192,7 +192,7 @@
 	
 <script id="project-data" type="application/json">{"propositions":[],"brackets":[],"zoomLevel":1,"isRTL":false,"timestamp":"2026-05-05T13:11:07.527Z"}</script>
 	
-    <script>
+        <script>
         let propositions = [];
         let brackets = [];
         let selectedIndices = [];
@@ -522,6 +522,18 @@
 		                const pi = idToIdx[b.parentBracketId2];
 		                if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
 		            }
+
+		            // Containment-based ordering: if this bracket's row-span strictly
+		            // contains an already-assigned bracket's row-span (even without an
+		            // explicit parent link), it must sit in a strictly outer column so
+		            // its spine doesn't collide with the bracket(s) it encloses.
+		            brackets.forEach((other, j) => {
+		                if (j === i || colOf[j] === -1) return;
+		                const s1 = b.start, e1 = b.end;
+		                const s2 = other.start, e2 = other.end;
+		                const strictlyContains = s1 <= s2 && e1 >= e2 && (s1 < s2 || e1 > e2);
+		                if (strictlyContains) minCol = Math.max(minCol, colOf[j] + 1);
+		            });
 		
 		            for (let col = minCol; ; col++) {
 		                const effPos_i = col * COL_STEP - minIndents[i] * INDENT_STEP;
@@ -664,6 +676,23 @@ const bracketLeftX = (() => {
         if (b.parentBracketId2 !== undefined) {
             const pi = idToIdx[b.parentBracketId2];
             if (pi !== undefined && result[pi] !== null) parentXs.push(result[pi]);
+        }
+
+        // A bracket with no explicit parent link may still fully contain other
+        // already-positioned brackets (e.g. a single-node "bridge" bracket
+        // spanning two unrelated sections). Treat its containment the same way
+        // an explicit parent relationship is treated: sit exactly COL_STEP
+        // outward from the leftmost contained spine, rather than falling back
+        // to the indentOffset formula (which doesn't compensate for the
+        // inflated column number these brackets receive during collision
+        // avoidance, and would otherwise place them far too far out).
+        if (parentXs.length === 0) {
+            brackets.forEach((other, j) => {
+                if (j === i || result[j] === null) return;
+                const strictlyContains = b.start <= other.start && b.end >= other.end &&
+                    (b.start < other.start || b.end > other.end);
+                if (strictlyContains) parentXs.push(result[j]);
+            });
         }
 
         if (parentXs.length > 0) {
@@ -1899,6 +1928,9 @@ function loadEmbeddedProjectData() {
 </div>
 	
 <div id="synofoto-browser-extension-loaded"></div>
+
+
+<div id="synofoto-browser-extension-loaded"></div></body></html>
 
 
 <div id="synofoto-browser-extension-loaded"></div></body></html>
