@@ -486,10 +486,18 @@
             });
         }
 
+		// A bracket's parent ids, regardless of whether they were recorded in the
+		// older singular parentBracketId/parentBracketId2 fields (two-node brackets)
+		// or the parentBracketIds array (single-node brackets, which can have >2 parents).
+		function getParentIds(b) {
+		    if (b.parentBracketIds && b.parentBracketIds.length) return b.parentBracketIds;
+		    return [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
+		}
+
 		function assignColumns() {
 		    const n = brackets.length;
 		    if (n === 0) return [];
-		
+
 		    const idToIdx = {};
 		    brackets.forEach((b, i) => { idToIdx[b.id] = i; });
 		
@@ -511,12 +519,8 @@
 		    const remaining = new Set(brackets.map((_, i) => i));
 		
 		    function parentsAssigned(b) {
-		        if (b.parentBracketId !== undefined) {
-		            const pi = idToIdx[b.parentBracketId];
-		            if (pi === undefined || colOf[pi] === -1) return false;
-		        }
-		        if (b.parentBracketId2 !== undefined) {
-		            const pi = idToIdx[b.parentBracketId2];
+		        for (const pid of getParentIds(b)) {
+		            const pi = idToIdx[pid];
 		            if (pi === undefined || colOf[pi] === -1) return false;
 		        }
 		        return true;
@@ -530,12 +534,8 @@
 		            if (!parentsAssigned(b)) continue;
 		
 		            let minCol = 0;
-		            if (b.parentBracketId !== undefined) {
-		                const pi = idToIdx[b.parentBracketId];
-		                if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
-		            }
-		            if (b.parentBracketId2 !== undefined) {
-		                const pi = idToIdx[b.parentBracketId2];
+		            for (const pid of getParentIds(b)) {
+		                const pi = idToIdx[pid];
 		                if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
 		            }
 
@@ -685,12 +685,8 @@ const bracketLeftX = (() => {
 
         // Collect already-computed parent spine positions
         const parentXs = [];
-        if (b.parentBracketId !== undefined) {
-            const pi = idToIdx[b.parentBracketId];
-            if (pi !== undefined && result[pi] !== null) parentXs.push(result[pi]);
-        }
-        if (b.parentBracketId2 !== undefined) {
-            const pi = idToIdx[b.parentBracketId2];
+        for (const pid of getParentIds(b)) {
+            const pi = idToIdx[pid];
             if (pi !== undefined && result[pi] !== null) parentXs.push(result[pi]);
         }
 
@@ -752,9 +748,7 @@ const bracketLeftX = (() => {
             });
 
             brackets.forEach((b, i) => {
-                const allParentIds = b.parentBracketIds && b.parentBracketIds.length
-                    ? b.parentBracketIds
-                    : [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
+                const allParentIds = getParentIds(b);
                 if (allParentIds.length === 0) return;
 
                 function snapEndpointToParentCenter(parentId) {
@@ -778,9 +772,7 @@ const bracketLeftX = (() => {
                 const b = brackets[bracketIdx];
                 const endRow = isTop ? b.start : b.end;
 
-                const parentIds = [];
-                if (b.parentBracketId  !== undefined) parentIds.push(b.parentBracketId);
-                if (b.parentBracketId2 !== undefined) parentIds.push(b.parentBracketId2);
+                const parentIds = getParentIds(b);
 
                 for (const pid of parentIds) {
                     const pi = brackets.findIndex(x => x.id === pid);
@@ -799,7 +791,7 @@ const bracketLeftX = (() => {
                 for (let j = 0; j < brackets.length; j++) {
                     if (j === bracketIdx) continue;
                     const child = brackets[j];
-                    if (child.parentBracketId !== b.id && child.parentBracketId2 !== b.id) continue;
+                    if (!getParentIds(child).includes(b.id)) continue;
                     // FIXED: RTL-aware inner-child check (preserves exact LTR behavior)
                     if (isRTL ? (bracketLeftX[j] >= bracketLeftX[bracketIdx]) : (bracketLeftX[j] <= bracketLeftX[bracketIdx])) continue;
                     const childTopRow = (child.attachToRow !== undefined) ? child.attachToRow : child.start;
@@ -821,9 +813,7 @@ const bracketLeftX = (() => {
                 const b = brackets[bracketIdx];
 
                 // Check if a parent bracket's spine owns this row
-                const parentIds = (b.parentBracketIds && b.parentBracketIds.length)
-                    ? b.parentBracketIds
-                    : [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
+                const parentIds = getParentIds(b);
                 for (const pid of parentIds) {
                     const pi = brackets.findIndex(x => x.id === pid);
                     if (pi < 0) continue;
@@ -842,7 +832,7 @@ const bracketLeftX = (() => {
                 for (let j = 0; j < brackets.length; j++) {
                     if (j === bracketIdx) continue;
                     const child = brackets[j];
-                    if (child.parentBracketId !== b.id && child.parentBracketId2 !== b.id) continue;
+                    if (!getParentIds(child).includes(b.id)) continue;
                     if (isRTL ? (bracketLeftX[j] >= bracketLeftX[bracketIdx]) : (bracketLeftX[j] <= bracketLeftX[bracketIdx])) continue;
                     const childTopRow = (child.attachToRow !== undefined) ? child.attachToRow : child.start;
                     if (childTopRow === row) return bracketLeftX[j];

@@ -1,0 +1,10 @@
+{
+	"id": "da-tool",
+	"name": "Discourse Analysis Tool",
+	"version": "0.1.0",
+	"minAppVersion": "1.4.0",
+	"description": "Create and edit visual discourse-analysis bracket diagrams for biblical texts, natively in your vault.",
+	"author": "SotS1689",
+	"authorUrl": "https://github.com/SotS1689",
+	"isDesktopOnly": false
+}
