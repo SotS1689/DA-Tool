@@ -1261,20 +1261,72 @@ const bracketLeftX = (() => {
             renderCanvas();
         }
 
+        // Clears any parentBracketId/parentBracketId2/parentBracketIds entries that
+        // point at a bracket id which no longer exists, so a child bracket falls
+        // back to being an unattached root bracket instead of permanently dangling
+        // on a stale id (which previously left it stuck rendering at column 0).
+        function deparentReferencesTo(removedIds) {
+            if (!removedIds || removedIds.length === 0) return;
+            const removedSet = new Set(removedIds);
+            brackets.forEach(b => {
+                if (b.parentBracketId !== undefined && removedSet.has(b.parentBracketId)) {
+                    delete b.parentBracketId;
+                    delete b.attachToRow;
+                }
+                if (b.parentBracketId2 !== undefined && removedSet.has(b.parentBracketId2)) {
+                    delete b.parentBracketId2;
+                }
+                if (b.parentBracketIds) {
+                    b.parentBracketIds = b.parentBracketIds.filter(id => !removedSet.has(id));
+                }
+            });
+        }
+
         function deleteProposition(i) {
             if (confirm('Delete this proposition?')) {
                 saveToHistory();
                 propositions.splice(i, 1);
-                // Remove any bracket whose start or end lands on the deleted row,
-                // then shift all remaining bracket indices down past the deletion point.
+
+                // Single-node brackets track their connected rows in `nodes[]`
+                // separately from `start`/`end`; keep it in sync with the deleted
+                // row (previously nodes[] was left stale, so arms could end up
+                // pointing at the wrong proposition, or a deleted one, after any
+                // edit).
+                brackets.forEach(b => {
+                    if (!b.singleNode) return;
+                    b.nodes = (b.nodes || [b.start, b.end])
+                        .filter(r => r !== i)
+                        .map(r => r > i ? r - 1 : r);
+                    if (b.nodes.length >= 2) {
+                        b.start = Math.min(...b.nodes);
+                        b.end = Math.max(...b.nodes);
+                    }
+                });
+
+                // A bracket is invalidated when the row it anchors to is removed:
+                // a two-node bracket whose start or end lands on the deleted row,
+                // or a single-node bracket that dropped below 2 remaining nodes.
+                const removedIds = brackets
+                    .filter(b => b.singleNode ? b.nodes.length < 2 : (b.start === i || b.end === i))
+                    .map(b => b.id);
+
+                // Remove those brackets, then shift all remaining bracket indices
+                // down past the deletion point.
                 brackets = brackets
-                    .filter(b => b.start !== i && b.end !== i)
+                    .filter(b => !removedIds.includes(b.id))
                     .map(b => {
-                        if (b.start > i) b.start--;
-                        if (b.end   > i) b.end--;
+                        if (!b.singleNode) {
+                            if (b.start > i) b.start--;
+                            if (b.end   > i) b.end--;
+                        }
                         if (b.attachToRow !== undefined && b.attachToRow > i) b.attachToRow--;
                         return b;
                     });
+
+                // Any bracket that pointed at one of the brackets just removed
+                // above would otherwise be left dangling on a stale parent id.
+                deparentReferencesTo(removedIds);
+
                 if (sidebarSelected >= i) sidebarSelected = Math.max(-1, sidebarSelected - 1);
                 selectedIndices = selectedIndices
                     .filter(idx => idx !== i)
@@ -1317,6 +1369,17 @@ const bracketLeftX = (() => {
             saveToHistory();
             [propositions[i], propositions[j]] = [propositions[j], propositions[i]];
             brackets.forEach(b => {
+                if (b.singleNode && b.nodes) {
+                    // Same swap as start/end below, but applied to every tracked
+                    // row so arms keep following the proposition they're attached
+                    // to instead of staying pinned to the old row index.
+                    b.nodes = b.nodes.map(r => r === i ? j : r === j ? i : r);
+                    b.start = Math.min(...b.nodes);
+                    b.end = Math.max(...b.nodes);
+                    if (b.attachToRow === i) b.attachToRow = j;
+                    else if (b.attachToRow === j) b.attachToRow = i;
+                    return;
+                }
                 if (b.start === i) b.start = j; else if (b.start === j) b.start = i;
                 if (b.end   === i) b.end   = j; else if (b.end   === j) b.end   = i;
                 if (b.attachToRow === i) b.attachToRow = j;
@@ -1508,11 +1571,17 @@ function exportPNG() {
 					const active = document.activeElement;
 					if (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA' && active.contentEditable !== 'true') {
 						e.preventDefault();
-						saveToHistory();
-						brackets = brackets.filter(b => b.id !== selectedBracketId);
-						selectedBracketId = null;
-						selectedCorners = [];
-						renderCanvas();
+						if (confirm('Delete this bracket?')) {
+							saveToHistory();
+							brackets = brackets.filter(b => b.id !== selectedBracketId);
+							// Any bracket that was attached to this one (via a corner
+							// link) would otherwise be left dangling on a stale parent
+							// id — it falls back to an unattached root bracket instead.
+							deparentReferencesTo([selectedBracketId]);
+							selectedBracketId = null;
+							selectedCorners = [];
+							renderCanvas();
+						}
 					}
 				}
 				
