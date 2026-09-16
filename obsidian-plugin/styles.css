@@ -56,6 +56,7 @@
 	background: var(--da-bg);
 	color: var(--da-text);
 	font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	position: relative;
 }
 
 /* ---- theme coloring: adopt the active Obsidian theme's palette ----
@@ -600,7 +601,7 @@
 /* ---------- label editor popup ---------- */
 
 .da-tool-view .da-label-editor {
-	position: fixed;
+	position: absolute;
 	z-index: 99999;
 	background: var(--da-surface);
 	border: 2px solid var(--da-accent);
@@ -758,4 +759,166 @@
 
 .da-tool-view .da-resource-link-wrap {
 	padding: 6px 0;
+}
+
+/* ---------- custom color picker (plugin settings tab) ---------- */
+
+.da-color-swatch-btn {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+}
+
+.da-cp-popover {
+	position: fixed;
+	z-index: 1000;
+	width: 240px;
+	padding: 12px;
+	border-radius: 10px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: var(--shadow-l, 0 8px 24px rgba(0,0,0,0.3));
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.da-cp-sv {
+	position: relative;
+	width: 100%;
+	height: 130px;
+	border-radius: 6px;
+	background-image:
+		linear-gradient(to top, #000, transparent),
+		linear-gradient(to right, #fff, transparent);
+	cursor: crosshair;
+	touch-action: none;
+}
+
+.da-cp-sv-thumb {
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	border: 2px solid #fff;
+	box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+}
+
+.da-cp-hue {
+	position: relative;
+	width: 100%;
+	height: 12px;
+	border-radius: 6px;
+	background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+	cursor: pointer;
+	touch-action: none;
+}
+
+.da-cp-hue-thumb {
+	position: absolute;
+	top: 50%;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	border: 2px solid #fff;
+	box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+}
+
+.da-cp-main-row {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+}
+
+.da-cp-swatches {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+}
+
+.da-cp-circle {
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.da-cp-square {
+	width: 20px;
+	height: 20px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.da-cp-input-col {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.da-cp-input {
+	width: 100%;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	padding: 4px 8px;
+	font-size: 0.85rem;
+}
+
+.da-cp-tabs {
+	display: flex;
+	gap: 6px;
+}
+
+.da-cp-tab {
+	flex: 1;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	padding: 4px 0;
+	font-size: 0.75rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.da-cp-tab-active {
+	background: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.da-cp-actions {
+	display: flex;
+	gap: 6px;
+}
+
+.da-cp-btn {
+	flex: 1;
+	border-radius: 6px;
+	border: none;
+	padding: 6px 0;
+	font-size: 0.8rem;
+	font-weight: 600;
+	cursor: pointer;
+	color: #fff;
+}
+
+.da-cp-btn-save {
+	background: var(--interactive-accent);
+}
+
+.da-cp-btn-cancel {
+	background: var(--color-red, #e03131);
 }

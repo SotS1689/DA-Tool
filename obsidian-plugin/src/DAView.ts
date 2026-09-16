@@ -313,6 +313,15 @@ export class DAView extends TextFileView {
 			this.renderCanvas();
 			this.applyZoom();
 		}
+
+		// Edits call this.save() without waiting for the write to finish, so a
+		// quit that lands right after the last action can race the file write
+		// and lose it. Obsidian holds app quit open for any promise registered
+		// here, so make sure the in-memory state is actually flushed to disk
+		// before quitting proceeds.
+		this.registerEvent(this.app.workspace.on("quit", (tasks) => {
+			tasks.addPromise(this.save());
+		}));
 	}
 
 	// renderCanvas() measures proposition row positions from the live DOM to lay
@@ -320,17 +329,22 @@ export class DAView extends TextFileView {
 	// it), the leaf isn't always laid out/painted yet — Obsidian can finish
 	// sizing/revealing the leaf's container after onOpen/setViewData return, on
 	// a timeline a fixed number of animation frames can't reliably catch — so
-	// those measurements come back as zero and the canvas renders empty until
-	// something else (e.g. a click causing a reflow) forces a re-render. Watch
-	// the container's real size instead of guessing a delay: this also keeps
-	// the diagram correctly laid out across later resizes (split panes, sidebar
-	// toggles, window resize).
+	// those measurements come back as zero (or based on not-yet-final row
+	// metrics, e.g. before fonts finish loading) and the canvas renders empty
+	// or misaligned until something else (e.g. a click causing a reflow, via
+	// deselectAll()) forces a re-render. Watch both the container's own size
+	// (catches pane resizes: split panes, sidebar toggles, window resize) and
+	// the row list's content size (catches the row metrics themselves settling
+	// independently of the container, e.g. font/CSS load) instead of guessing
+	// a delay.
 	private watchContainerResize(): void {
 		this.resizeObserver?.disconnect();
 		const container = this.byId("diagram-container");
+		const propRows = this.byId("proposition-rows");
 		if (!container) return;
 		this.resizeObserver = new ResizeObserver(() => this.renderCanvas());
 		this.resizeObserver.observe(container);
+		if (propRows) this.resizeObserver.observe(propRows);
 	}
 
 	async onClose(): Promise<void> {
@@ -354,15 +368,15 @@ export class DAView extends TextFileView {
 		<h1 class="da-title">Discourse Analysis</h1>
 	</div>
 	<div class="da-header-right">
-		<button data-action="force-save" class="da-btn da-btn-primary">💾 Save</button>
-		<button data-action="show-lr" class="da-btn">🔗 Logical Relations</button>
-		<button data-action="show-resources" class="da-btn">📖 Resources</button>
-		<button data-action="export-png" class="da-btn">📷 Export PNG</button>
-		<span class="da-label">Theme Colors</span>
+		<button data-action="force-save" class="da-btn da-btn-primary" title="Save" aria-label="Save">💾</button>
+		<button data-action="show-lr" class="da-btn" title="Logical Relations" aria-label="Logical Relations">🔗</button>
+		<button data-action="show-resources" class="da-btn" title="Resources" aria-label="Resources">📖</button>
+		<button data-action="export-png" class="da-btn" title="Export PNG" aria-label="Export PNG">📷</button>
+		<span class="da-label">Colors</span>
 		<button id="theme-toggle" class="da-switch" role="switch" aria-checked="false">
 			<span id="theme-thumb" class="da-switch-thumb"></span>
 		</button>
-		<span class="da-label">Hebrew Mode</span>
+		<span class="da-label">RTL</span>
 		<button id="rtl-toggle" class="da-switch" role="switch" aria-checked="false">
 			<span id="rtl-thumb" class="da-switch-thumb"></span>
 		</button>
@@ -408,17 +422,17 @@ export class DAView extends TextFileView {
 				<line x1="16" y1="5" x2="19" y2="5" />
 				<line x1="16" y1="17" x2="19" y2="17" />
 			</svg>
-			ADD TWO-NODE BRACKET
+			TWO-NODE BRACKET
 		</button>
 		<button data-action="add-single-node-bracket" class="da-btn da-btn-primary da-btn-block">
 			<svg class="da-btn-icon" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
 				<rect x="2" y="8" width="6" height="6" rx="1.5" />
 				<line x1="8" y1="11" x2="16" y2="11" />
-				<line x1="16" y1="8" x2="16" y2="14" />
-				<line x1="16" y1="8" x2="19" y2="8" />
-				<line x1="16" y1="14" x2="19" y2="14" />
+				<line x1="16" y1="3" x2="16" y2="19" />
+				<line x1="16" y1="3" x2="19" y2="3" />
+				<line x1="16" y1="19" x2="19" y2="19" />
 			</svg>
-			ADD SINGLE-NODE BRACKET
+			SINGLE-NODE BRACKET
 		</button>
 		<div class="da-zoom-row">
 			<span class="da-label">Zoom</span>
@@ -500,7 +514,7 @@ export class DAView extends TextFileView {
 			this.qsa(`[data-action="${action}"]`).forEach(el => this.registerDomEvent(el as HTMLElement, "click", handler));
 		};
 
-		on("force-save", () => { this.requestSave(); new Notice("Saved."); });
+		on("force-save", () => { void this.save().then(() => new Notice("Saved.")); });
 		on("show-lr", () => this.showLogicalRelationships());
 		on("hide-lr", () => this.hideLogicalRelationships());
 		on("show-resources", () => this.showResources());
@@ -663,7 +677,7 @@ export class DAView extends TextFileView {
 		this.renderSidebarList();
 		this.renderMainRows();
 		this.renderCanvas();
-		this.requestSave();
+		void this.save();
 	}
 
 	// ---------- theme coloring ----------
@@ -720,7 +734,7 @@ export class DAView extends TextFileView {
 			selectedCorners: this.selectedCorners,
 		}));
 		if (this.historyStack.length > 20) this.historyStack.shift();
-		this.requestSave();
+		void this.save();
 	}
 
 	undoLastAction(): void {
@@ -734,7 +748,7 @@ export class DAView extends TextFileView {
 		this.renderSidebarList();
 		this.renderMainRows();
 		this.renderCanvas();
-		this.requestSave();
+		void this.save();
 	}
 
 	migrateSingleNodeBrackets(): void {
@@ -1437,13 +1451,19 @@ export class DAView extends TextFileView {
 		input.value = currentText || "";
 		panel.style.display = "block";
 
-		let lx = clientX + 10, ly = clientY + 10;
+		// The panel is positioned absolute within the view root rather than
+		// fixed to the viewport, since Obsidian sometimes applies a CSS
+		// transform to ancestors (e.g. during tab animations), which would
+		// otherwise make `position: fixed` coordinates resolve against that
+		// transformed ancestor instead of the viewport.
+		const rootRect = this.contentEl.getBoundingClientRect();
+		let lx = clientX - rootRect.left, ly = clientY - rootRect.top;
 		panel.style.left = lx + "px";
 		panel.style.top = ly + "px";
 		requestAnimationFrame(() => {
 			const r = panel.getBoundingClientRect();
-			if (r.right > window.innerWidth) panel.style.left = (clientX - r.width - 10) + "px";
-			if (r.bottom > window.innerHeight) panel.style.top = (clientY - r.height - 10) + "px";
+			if (r.right > window.innerWidth) panel.style.left = (lx - r.width) + "px";
+			if (r.bottom > window.innerHeight) panel.style.top = (ly - r.height) + "px";
 		});
 		input.focus();
 		input.select();

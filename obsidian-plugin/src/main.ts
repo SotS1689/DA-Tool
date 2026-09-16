@@ -1,5 +1,6 @@
 import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
 import { COLOR_TOKENS, DAToolSettings, DAView, VIEW_TYPE_DA } from "./DAView";
+import { openColorPickerPopover } from "./ColorPicker";
 
 const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 
@@ -244,11 +245,17 @@ class DAToolSettingTab extends PluginSettingTab {
 				.setName(token.label);
 			if (token.desc) setting.setDesc(token.desc);
 
-			setting.addColorPicker(picker => {
-				picker.setValue(effective).onChange(async (value) => {
-					this.plugin.settings.colorOverrides[token.id] = value;
-					await this.plugin.saveSettings();
-					this.plugin.refreshAllViews();
+			setting.addButton(button => {
+				const swatchEl = button.buttonEl;
+				swatchEl.addClass("da-color-swatch-btn");
+				swatchEl.style.backgroundColor = effective;
+				button.onClick(() => {
+					openColorPickerPopover(swatchEl, effective, async (value) => {
+						this.plugin.settings.colorOverrides[token.id] = value;
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllViews();
+						this.display();
+					});
 				});
 			});
 
