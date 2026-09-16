@@ -1,7 +1,44 @@
-import { App, Modal, Notice, Plugin, TFile, TFolder } from "obsidian";
-import { DAView, VIEW_TYPE_DA } from "./DAView";
+import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
+import { COLOR_TOKENS, DAToolSettings, DAView, VIEW_TYPE_DA } from "./DAView";
 
 const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
+
+function defaultSettings(): DAToolSettings {
+	return {
+		useThemeColors: false,
+		colorOverrides: {},
+	};
+}
+
+// Resolves a token's current effective color (standard default, or the
+// active Obsidian theme's mapped color when useThemeColors is on) as a hex
+// string, by rendering it off-screen and letting the browser normalize
+// whatever the CSS custom property resolves to (a literal hex, var(...), or
+// a color-mix(...) expression) into an rgb() we can parse.
+function resolveEffectiveColor(cssVar: string, useThemeColors: boolean): string {
+	const probe = document.createElement("div");
+	probe.className = "da-tool-view" + (useThemeColors ? " da-theme-adopt" : "");
+	probe.style.position = "fixed";
+	probe.style.top = "-9999px";
+	probe.style.left = "-9999px";
+	document.body.appendChild(probe);
+	const raw = getComputedStyle(probe).getPropertyValue(cssVar).trim();
+	document.body.removeChild(probe);
+	return cssColorToHex(raw) || "#000000";
+}
+
+function cssColorToHex(cssColor: string): string {
+	if (!cssColor) return "";
+	const span = document.createElement("span");
+	span.style.color = cssColor;
+	document.body.appendChild(span);
+	const rgb = getComputedStyle(span).color;
+	document.body.removeChild(span);
+	const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+	if (!m) return "";
+	const toHex = (n: string) => Number(n).toString(16).padStart(2, "0");
+	return `#${toHex(m[1])}${toHex(m[2])}${toHex(m[3])}`;
+}
 
 class NewDAFileModal extends Modal {
 	private titleValue = "Untitled";
@@ -82,9 +119,17 @@ class NewDAFileModal extends Modal {
 }
 
 export default class DAToolPlugin extends Plugin {
+	settings: DAToolSettings = defaultSettings();
+
 	async onload() {
-		this.registerView(VIEW_TYPE_DA, (leaf) => new DAView(leaf));
+		const loaded = await this.loadData();
+		this.settings = Object.assign(defaultSettings(), loaded, {
+			colorOverrides: Object.assign({}, loaded?.colorOverrides),
+		});
+
+		this.registerView(VIEW_TYPE_DA, (leaf) => new DAView(leaf, this));
 		this.registerExtensions(["da"], VIEW_TYPE_DA);
+		this.addSettingTab(new DAToolSettingTab(this.app, this));
 
 		this.addRibbonIcon("brackets", "Create new Discourse Analysis", async () => {
 			this.openCreateFileModal();
@@ -101,6 +146,19 @@ export default class DAToolPlugin extends Plugin {
 
 	onunload() {
 		// Obsidian automatically detaches views registered via registerView.
+	}
+
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings);
+	}
+
+	// Re-applies theme mode + color overrides to every currently open DA view.
+	// Called after any settings-tab change, so open files update live without
+	// needing to be closed and reopened.
+	refreshAllViews(): void {
+		this.app.workspace.getLeavesOfType(VIEW_TYPE_DA).forEach(leaf => {
+			if (leaf.view instanceof DAView) leaf.view.refreshTheming();
+		});
 	}
 
 	private openCreateFileModal() {
@@ -144,6 +202,67 @@ export default class DAToolPlugin extends Plugin {
 		} catch (err) {
 			console.error("Failed to create new Discourse Analysis file:", err);
 			new Notice("Failed to create new Discourse Analysis file.");
+		}
+	}
+}
+
+class DAToolSettingTab extends PluginSettingTab {
+	private plugin: DAToolPlugin;
+
+	constructor(app: App, plugin: DAToolPlugin) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
+
+	display(): void {
+		const { containerEl } = this;
+		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName("Adopt Obsidian theme colors")
+			.setDesc("When on, the tool follows your current Obsidian theme instead of its own standard palette. Also toggleable per-file from the toolbar.")
+			.addToggle(toggle => {
+				toggle.setValue(this.plugin.settings.useThemeColors).onChange(async (value) => {
+					this.plugin.settings.useThemeColors = value;
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllViews();
+					this.display();
+				});
+			});
+
+		containerEl.createEl("h3", { text: "Custom colors" });
+		containerEl.createEl("p", {
+			text: "Override any individual color. Colors left alone follow the standard/theme setting above; use the reset button to remove an override.",
+			cls: "setting-item-description",
+		});
+
+		for (const token of COLOR_TOKENS) {
+			const override = this.plugin.settings.colorOverrides[token.id];
+			const effective = override || resolveEffectiveColor(token.cssVar, this.plugin.settings.useThemeColors);
+
+			const setting = new Setting(containerEl)
+				.setName(token.label);
+			if (token.desc) setting.setDesc(token.desc);
+
+			setting.addColorPicker(picker => {
+				picker.setValue(effective).onChange(async (value) => {
+					this.plugin.settings.colorOverrides[token.id] = value;
+					await this.plugin.saveSettings();
+					this.plugin.refreshAllViews();
+				});
+			});
+
+			setting.addExtraButton(btn => {
+				btn.setIcon("rotate-ccw")
+					.setTooltip("Reset to default")
+					.setDisabled(!override)
+					.onClick(async () => {
+						delete this.plugin.settings.colorOverrides[token.id];
+						await this.plugin.saveSettings();
+						this.plugin.refreshAllViews();
+						this.display();
+					});
+			});
 		}
 	}
 }

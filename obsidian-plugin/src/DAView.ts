@@ -3,6 +3,54 @@ import html2canvas from "html2canvas";
 
 export const VIEW_TYPE_DA = "da-tool-view";
 
+// Every color token the view's stylesheet exposes as a CSS custom property
+// (see styles.css, both the standard and .da-theme-adopt token blocks). The
+// settings tab (main.ts) renders one color picker per entry here so every
+// color can be overridden manually, regardless of standard/theme mode.
+export interface ColorToken {
+	id: string;
+	cssVar: string;
+	label: string;
+	desc: string;
+}
+
+export const COLOR_TOKENS: ColorToken[] = [
+	{ id: "bg", cssVar: "--da-bg", label: "Page background", desc: "Main canvas/workspace background." },
+	{ id: "surface", cssVar: "--da-surface", label: "Panel background", desc: "Header, sidebars, modals, and buttons." },
+	{ id: "rowBg", cssVar: "--da-row-bg", label: "Row background", desc: "Proposition rows in the sidebar list and unlabeled bracket nodes." },
+	{ id: "text", cssVar: "--da-text", label: "Primary text", desc: "Main text and button labels." },
+	{ id: "muted", cssVar: "--da-muted", label: "Muted text", desc: "Secondary labels and bracket lines." },
+	{ id: "faint", cssVar: "--da-faint", label: "Faint text", desc: "Row numbers and least-prominent text." },
+	{ id: "border", cssVar: "--da-border", label: "Border (light)", desc: "Subtle dividers and panel borders." },
+	{ id: "borderStrong", cssVar: "--da-border-strong", label: "Border (strong)", desc: "Input borders and default button borders." },
+	{ id: "accent", cssVar: "--da-accent", label: "Accent", desc: "Primary buttons, selection, and highlighted bracket lines." },
+	{ id: "accentHover", cssVar: "--da-accent-hover", label: "Accent (hover)", desc: "Primary buttons on hover." },
+	{ id: "accentSoftBg", cssVar: "--da-accent-soft-bg", label: "Accent (soft background)", desc: "Selected proposition/row background." },
+	{ id: "onAccent", cssVar: "--da-on-accent", label: "Text on accent", desc: "Text drawn on top of accent-colored buttons." },
+	{ id: "secondary", cssVar: "--da-secondary", label: "Secondary button", desc: "The single-node bracket / secondary action color." },
+	{ id: "secondaryHover", cssVar: "--da-secondary-hover", label: "Secondary button (hover)", desc: "" },
+	{ id: "success", cssVar: "--da-success", label: "Success", desc: "Support button and RTL/theme switch (on state)." },
+	{ id: "successHover", cssVar: "--da-success-hover", label: "Success (hover)", desc: "" },
+	{ id: "warnBg", cssVar: "--da-warn-bg", label: "Warning background", desc: "Clear All Brackets button." },
+	{ id: "warnHover", cssVar: "--da-warn-hover", label: "Warning (hover)", desc: "" },
+	{ id: "danger", cssVar: "--da-danger", label: "Danger", desc: "Delete icons and Clear All link." },
+	{ id: "dangerHover", cssVar: "--da-danger-hover", label: "Danger (hover)", desc: "" },
+	{ id: "dangerBg", cssVar: "--da-danger-bg", label: "Danger background", desc: "Reset Everything button." },
+];
+
+export interface DAToolSettings {
+	useThemeColors: boolean;
+	// Maps ColorToken.id -> a manual hex override. Absent/empty means "use the
+	// standard or theme-adopted default for that token".
+	colorOverrides: Record<string, string>;
+}
+
+export interface DAToolPluginHost {
+	settings: DAToolSettings;
+	saveSettings(): Promise<void>;
+	refreshAllViews(): void;
+}
+
 interface Proposition {
 	id: number;
 	text: string;
@@ -132,9 +180,13 @@ export class DAView extends TextFileView {
 	dragSrcIndex: number | null = null;
 
 	private loaded = false;
+	private domBuilt = false;
+	private resizeObserver: ResizeObserver | null = null;
+	private plugin: DAToolPluginHost;
 
-	constructor(leaf: WorkspaceLeaf) {
+	constructor(leaf: WorkspaceLeaf, plugin: DAToolPluginHost) {
 		super(leaf);
+		this.plugin = plugin;
 	}
 
 	getViewType(): string {
@@ -151,7 +203,7 @@ export class DAView extends TextFileView {
 
 	// ---------- scoped DOM helpers ----------
 
-	private byId<T extends HTMLElement = HTMLElement>(id: string): T | null {
+	private byId<T extends Element = HTMLElement>(id: string): T | null {
 		return this.contentEl.querySelector("#" + id) as T | null;
 	}
 
@@ -194,7 +246,7 @@ export class DAView extends TextFileView {
 		this.historyStack = [];
 		this.loaded = true;
 
-		if (this.contentEl.querySelector(".da-tool-view")) {
+		if (this.domBuilt) {
 			this.syncRtlToggleUi();
 			this.renderSidebarList();
 			this.renderMainRows();
@@ -219,6 +271,8 @@ export class DAView extends TextFileView {
 	async onOpen(): Promise<void> {
 		this.buildDom();
 		this.wireStaticEvents();
+		this.watchContainerResize();
+		this.refreshTheming();
 		if (this.loaded) {
 			this.syncRtlToggleUi();
 			this.renderSidebarList();
@@ -228,7 +282,28 @@ export class DAView extends TextFileView {
 		}
 	}
 
+	// renderCanvas() measures proposition row positions from the live DOM to lay
+	// out the bracket SVG. Right after the view attaches (or a file loads into
+	// it), the leaf isn't always laid out/painted yet — Obsidian can finish
+	// sizing/revealing the leaf's container after onOpen/setViewData return, on
+	// a timeline a fixed number of animation frames can't reliably catch — so
+	// those measurements come back as zero and the canvas renders empty until
+	// something else (e.g. a click causing a reflow) forces a re-render. Watch
+	// the container's real size instead of guessing a delay: this also keeps
+	// the diagram correctly laid out across later resizes (split panes, sidebar
+	// toggles, window resize).
+	private watchContainerResize(): void {
+		this.resizeObserver?.disconnect();
+		const container = this.byId("diagram-container");
+		if (!container) return;
+		this.resizeObserver = new ResizeObserver(() => this.renderCanvas());
+		this.resizeObserver.observe(container);
+	}
+
 	async onClose(): Promise<void> {
+		this.resizeObserver?.disconnect();
+		this.resizeObserver = null;
+		this.domBuilt = false;
 		this.contentEl.empty();
 	}
 
@@ -237,6 +312,7 @@ export class DAView extends TextFileView {
 	private buildDom(): void {
 		this.contentEl.empty();
 		this.contentEl.addClass("da-tool-view");
+		this.domBuilt = true;
 
 		this.contentEl.innerHTML = `
 <div class="da-header">
@@ -249,11 +325,15 @@ export class DAView extends TextFileView {
 		<button data-action="show-lr" class="da-btn">🔗 Logical Relations</button>
 		<button data-action="show-resources" class="da-btn">📖 Resources</button>
 		<button data-action="export-png" class="da-btn">📷 Export PNG</button>
-		<button data-action="load-example" class="da-btn">Load 1 Thess. 2:13</button>
+		<span class="da-label">Theme Colors</span>
+		<button id="theme-toggle" class="da-switch" role="switch" aria-checked="false">
+			<span id="theme-thumb" class="da-switch-thumb"></span>
+		</button>
 		<span class="da-label">Hebrew Mode</span>
 		<button id="rtl-toggle" class="da-switch" role="switch" aria-checked="false">
 			<span id="rtl-thumb" class="da-switch-thumb"></span>
 		</button>
+		<button data-action="open-external" data-url="https://buymeacoffee.com/reformedretrieval" class="da-btn da-btn-support">☕ Support</button>
 	</div>
 </div>
 <div class="da-body">
@@ -285,8 +365,28 @@ export class DAView extends TextFileView {
 	<div id="right-resizer" class="da-resizer"></div>
 	<div id="right-sidebar" class="da-sidebar da-sidebar-right" style="width:288px;min-width:180px;max-width:600px;">
 		<h2 class="da-section-title">Tools</h2>
-		<button data-action="add-blank-bracket" class="da-btn da-btn-primary da-btn-block">⎇ ADD TWO-NODE BRACKET</button>
-		<button data-action="add-single-node-bracket" class="da-btn da-btn-secondary da-btn-block">⊣ ADD SINGLE-NODE BRACKET</button>
+		<button data-action="add-blank-bracket" class="da-btn da-btn-primary da-btn-block">
+			<svg class="da-btn-icon" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+				<rect x="2" y="2" width="6" height="6" rx="1.5" />
+				<rect x="2" y="14" width="6" height="6" rx="1.5" />
+				<line x1="8" y1="5" x2="16" y2="5" />
+				<line x1="8" y1="17" x2="16" y2="17" />
+				<line x1="16" y1="5" x2="16" y2="17" />
+				<line x1="16" y1="5" x2="19" y2="5" />
+				<line x1="16" y1="17" x2="19" y2="17" />
+			</svg>
+			ADD TWO-NODE BRACKET
+		</button>
+		<button data-action="add-single-node-bracket" class="da-btn da-btn-primary da-btn-block">
+			<svg class="da-btn-icon" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+				<rect x="2" y="8" width="6" height="6" rx="1.5" />
+				<line x1="8" y1="11" x2="16" y2="11" />
+				<line x1="16" y1="8" x2="16" y2="14" />
+				<line x1="16" y1="8" x2="19" y2="8" />
+				<line x1="16" y1="14" x2="19" y2="14" />
+			</svg>
+			ADD SINGLE-NODE BRACKET
+		</button>
 		<div class="da-zoom-row">
 			<span class="da-label">Zoom</span>
 			<button data-action="zoom-out" class="da-btn da-flex1">−</button>
@@ -306,8 +406,8 @@ export class DAView extends TextFileView {
 			Click + drag = pan workspace
 		</div>
 		<div class="da-row-gap">
-			<button data-action="clear-brackets" class="da-btn da-flex1 da-btn-warn">Clear All Brackets</button>
-			<button data-action="reset-all" class="da-btn da-flex1 da-btn-danger">Reset Everything</button>
+			<button data-action="clear-brackets" class="da-btn da-flex1 da-btn-block da-btn-warn">Clear All Brackets</button>
+			<button data-action="reset-all" class="da-btn da-flex1 da-btn-block da-btn-danger">Reset Everything</button>
 		</div>
 	</div>
 </div>
@@ -375,7 +475,6 @@ export class DAView extends TextFileView {
 		on("show-resources", () => this.showResources());
 		on("hide-resources", () => this.hideResources());
 		on("export-png", () => this.exportPNG());
-		on("load-example", () => this.loadThessaloniansExample());
 		on("insert-props", () => this.splitIntoPropositions());
 		on("add-prop", () => this.addNewProposition());
 		on("clear-all", () => this.clearAll());
@@ -393,6 +492,9 @@ export class DAView extends TextFileView {
 
 		const rtlToggle = this.byId("rtl-toggle");
 		if (rtlToggle) this.registerDomEvent(rtlToggle, "click", () => this.toggleRTL());
+
+		const themeToggle = this.byId("theme-toggle");
+		if (themeToggle) this.registerDomEvent(themeToggle, "click", () => this.toggleThemeColors());
 
 		this.initializeCanvasClick();
 		this.initializePanning();
@@ -533,6 +635,49 @@ export class DAView extends TextFileView {
 		this.requestSave();
 	}
 
+	// ---------- theme coloring ----------
+
+	// Applies the vault-wide theme-coloring preference and any manual color
+	// overrides to this view's DOM and toggle switch. Called on open and after
+	// any view/settings tab changes either setting, so every open DA view
+	// stays in sync with the shared plugin settings.
+	refreshTheming(): void {
+		this.contentEl.classList.toggle("da-theme-adopt", this.plugin.settings.useThemeColors);
+		this.syncThemeToggleUi();
+		this.applyColorOverrides();
+	}
+
+	private applyColorOverrides(): void {
+		const overrides = this.plugin.settings.colorOverrides;
+		for (const token of COLOR_TOKENS) {
+			const value = overrides[token.id];
+			if (value) {
+				this.contentEl.style.setProperty(token.cssVar, value);
+			} else {
+				this.contentEl.style.removeProperty(token.cssVar);
+			}
+		}
+	}
+
+	private syncThemeToggleUi(): void {
+		const btn = this.byId("theme-toggle");
+		const thumb = this.byId("theme-thumb");
+		if (!btn || !thumb) return;
+		if (this.plugin.settings.useThemeColors) {
+			btn.classList.add("da-switch-on");
+			btn.setAttribute("aria-checked", "true");
+		} else {
+			btn.classList.remove("da-switch-on");
+			btn.setAttribute("aria-checked", "false");
+		}
+	}
+
+	toggleThemeColors(): void {
+		this.plugin.settings.useThemeColors = !this.plugin.settings.useThemeColors;
+		void this.plugin.saveSettings();
+		this.plugin.refreshAllViews();
+	}
+
 	// ---------- history / persistence ----------
 
 	saveToHistory(): void {
@@ -631,8 +776,8 @@ export class DAView extends TextFileView {
 					(r as HTMLElement).style.borderTop = "";
 					(r as HTMLElement).style.borderBottom = "";
 				});
-				if (e.clientY < midY) row.style.borderTop = "2px solid #1e40af";
-				else row.style.borderBottom = "2px solid #1e40af";
+				if (e.clientY < midY) row.style.borderTop = "2px solid var(--da-accent)";
+				else row.style.borderBottom = "2px solid var(--da-accent)";
 			});
 
 			row.addEventListener("dragleave", () => {
@@ -1112,7 +1257,7 @@ export class DAView extends TextFileView {
 				const vertical = document.createElementNS("http://www.w3.org/2000/svg", "line");
 				vertical.setAttribute("x1", String(leftX)); vertical.setAttribute("y1", String(y1));
 				vertical.setAttribute("x2", String(leftX)); vertical.setAttribute("y2", String(y2));
-				vertical.setAttribute("stroke", "#64748b"); vertical.setAttribute("stroke-width", "2.5");
+				vertical.setAttribute("stroke", "var(--da-muted)"); vertical.setAttribute("stroke-width", "2.5");
 				group.appendChild(vertical);
 
 				const nodeRows = (b.nodes && b.nodes.length >= 2) ? b.nodes : [b.start, b.end];
@@ -1122,7 +1267,7 @@ export class DAView extends TextFileView {
 					const arm = document.createElementNS("http://www.w3.org/2000/svg", "line");
 					arm.setAttribute("x1", String(leftX)); arm.setAttribute("y1", String(armY));
 					arm.setAttribute("x2", String(aRightX)); arm.setAttribute("y2", String(armY));
-					arm.setAttribute("stroke", "#64748b"); arm.setAttribute("stroke-width", "2.5");
+					arm.setAttribute("stroke", "var(--da-muted)"); arm.setAttribute("stroke-width", "2.5");
 					group.appendChild(arm);
 				});
 
@@ -1132,7 +1277,7 @@ export class DAView extends TextFileView {
 					const highlight = document.createElementNS("http://www.w3.org/2000/svg", "line");
 					highlight.setAttribute("x1", String(leftX)); highlight.setAttribute("y1", String(y1));
 					highlight.setAttribute("x2", String(leftX)); highlight.setAttribute("y2", String(y2));
-					highlight.setAttribute("stroke", "#1e40af"); highlight.setAttribute("stroke-width", "4");
+					highlight.setAttribute("stroke", "var(--da-accent)"); highlight.setAttribute("stroke-width", "4");
 					group.appendChild(highlight);
 				}
 			} else {
@@ -1152,19 +1297,19 @@ export class DAView extends TextFileView {
 				const vertical = document.createElementNS("http://www.w3.org/2000/svg", "line");
 				vertical.setAttribute("x1", String(leftX)); vertical.setAttribute("y1", String(y1));
 				vertical.setAttribute("x2", String(leftX)); vertical.setAttribute("y2", String(y2));
-				vertical.setAttribute("stroke", "#64748b"); vertical.setAttribute("stroke-width", "2.5");
+				vertical.setAttribute("stroke", "var(--da-muted)"); vertical.setAttribute("stroke-width", "2.5");
 				group.appendChild(vertical);
 
 				const topArm = document.createElementNS("http://www.w3.org/2000/svg", "line");
 				topArm.setAttribute("x1", String(leftX)); topArm.setAttribute("y1", String(y1));
 				topArm.setAttribute("x2", String(aRight1)); topArm.setAttribute("y2", String(y1));
-				topArm.setAttribute("stroke", "#64748b"); topArm.setAttribute("stroke-width", "2.5");
+				topArm.setAttribute("stroke", "var(--da-muted)"); topArm.setAttribute("stroke-width", "2.5");
 				group.appendChild(topArm);
 
 				const bottomArm = document.createElementNS("http://www.w3.org/2000/svg", "line");
 				bottomArm.setAttribute("x1", String(leftX)); bottomArm.setAttribute("y1", String(y2));
 				bottomArm.setAttribute("x2", String(aRight2)); bottomArm.setAttribute("y2", String(y2));
-				bottomArm.setAttribute("stroke", "#64748b"); bottomArm.setAttribute("stroke-width", "2.5");
+				bottomArm.setAttribute("stroke", "var(--da-muted)"); bottomArm.setAttribute("stroke-width", "2.5");
 				group.appendChild(bottomArm);
 
 				this.createCornerBox(group, b.topLabel || "", leftX, y1, true, b.id);
@@ -1174,7 +1319,7 @@ export class DAView extends TextFileView {
 					const highlight = document.createElementNS("http://www.w3.org/2000/svg", "line");
 					highlight.setAttribute("x1", String(leftX)); highlight.setAttribute("y1", String(y1));
 					highlight.setAttribute("x2", String(leftX)); highlight.setAttribute("y2", String(y2));
-					highlight.setAttribute("stroke", "#1e40af"); highlight.setAttribute("stroke-width", "4");
+					highlight.setAttribute("stroke", "var(--da-accent)"); highlight.setAttribute("stroke-width", "4");
 					group.appendChild(highlight);
 				}
 			}
@@ -1204,8 +1349,8 @@ export class DAView extends TextFileView {
 		rect.setAttribute("height", String(size));
 		rect.setAttribute("rx", "4");
 		const isSelected = this.selectedCorners.some(c => c.bracketId === bracketId && c.isTop === isTop);
-		rect.setAttribute("fill", isSelected ? "#eff6ff" : (text ? "#ffffff" : "#f1f5f9"));
-		rect.setAttribute("stroke", isSelected ? "#1e40af" : (text ? "#64748b" : "#cbd5e1"));
+		rect.setAttribute("fill", isSelected ? "var(--da-accent-soft-bg)" : (text ? "var(--da-surface)" : "var(--da-row-bg)"));
+		rect.setAttribute("stroke", isSelected ? "var(--da-accent)" : (text ? "var(--da-muted)" : "var(--da-border-strong)"));
 		rect.setAttribute("stroke-width", isSelected ? "2.5" : "1.5");
 		rect.setAttribute("pointer-events", "all");
 
@@ -1235,7 +1380,7 @@ export class DAView extends TextFileView {
 			txt.setAttribute("y", String(y));
 			txt.setAttribute("text-anchor", "middle");
 			txt.setAttribute("dominant-baseline", "middle");
-			txt.setAttribute("fill", "#1e40af");
+			txt.setAttribute("fill", "var(--da-accent)");
 			txt.setAttribute("font-size", "12");
 			txt.setAttribute("font-weight", "700");
 			txt.setAttribute("pointer-events", "none");
@@ -1248,7 +1393,7 @@ export class DAView extends TextFileView {
 		connector.setAttribute("y1", String(y));
 		connector.setAttribute("x2", String(connX2));
 		connector.setAttribute("y2", String(y));
-		connector.setAttribute("stroke", "#94a3b8");
+		connector.setAttribute("stroke", "var(--da-faint)");
 		connector.setAttribute("stroke-width", "1.5");
 		group.appendChild(connector);
 	}

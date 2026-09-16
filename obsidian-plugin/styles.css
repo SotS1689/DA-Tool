@@ -2,13 +2,92 @@
 	box-sizing: border-box;
 }
 
+/* Obsidian's theme applies its own padding/border/background/shadow/min-height
+   to bare <button> elements. The original web tool sat on top of Tailwind's
+   preflight reset (margin/padding/border/background all zeroed on every
+   button); without that reset here, that theme chrome leaks in underneath
+   every button class below, which only override color/background/font-size —
+   not padding or min-height — so buttons render larger than their class
+   dimensions call for. Reset first, then let each button class opt back in. */
+.da-tool-view button {
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: none;
+	box-shadow: none;
+	border-radius: 0;
+	font: inherit;
+	color: inherit;
+	min-width: 0;
+	min-height: 0;
+	line-height: 1;
+	-webkit-appearance: none;
+	appearance: none;
+	cursor: pointer;
+}
+
 .da-tool-view {
+	/* ---- standard coloring (default design tokens) ---- */
+	--da-bg: #f8fafc;
+	--da-surface: #ffffff;
+	--da-row-bg: #f1f5f9;
+	--da-text: #0f172a;
+	--da-muted: #64748b;
+	--da-faint: #94a3b8;
+	--da-border: #e2e8f0;
+	--da-border-strong: #cbd5e1;
+	--da-accent: #1e40af;
+	--da-accent-hover: #1a3a9e;
+	--da-accent-soft-bg: #eff6ff;
+	--da-on-accent: #ffffff;
+	--da-secondary: #475569;
+	--da-secondary-hover: #334155;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #fef3c7;
+	--da-warn-hover: #fcd34d;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #fca5a5;
+
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: #f8fafc;
-	color: #0f172a;
+	background: var(--da-bg);
+	color: var(--da-text);
 	font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ---- theme coloring: adopt the active Obsidian theme's palette ----
+   --da-bg is the main canvas/page background; --da-surface is the slightly
+   contrasting chrome background (header, sidebars, modals, buttons) — the
+   same relationship Obsidian's own primary/secondary backgrounds have. */
+.da-tool-view.da-theme-adopt {
+	--da-bg: var(--background-primary);
+	--da-surface: var(--background-secondary);
+	--da-row-bg: var(--background-secondary-alt, var(--background-secondary));
+	--da-text: var(--text-normal);
+	--da-muted: var(--text-muted);
+	--da-faint: var(--text-faint);
+	--da-border: var(--background-modifier-border);
+	--da-border-strong: var(--background-modifier-border);
+	--da-accent: var(--interactive-accent);
+	--da-accent-hover: var(--interactive-accent-hover);
+	--da-accent-soft-bg: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+	--da-on-accent: var(--text-on-accent);
+	--da-secondary: var(--interactive-normal);
+	--da-secondary-hover: var(--interactive-hover);
+	--da-success: var(--color-green, #10b981);
+	--da-success-hover: color-mix(in srgb, var(--color-green, #10b981) 80%, black);
+	--da-warn-bg: color-mix(in srgb, var(--color-yellow, #eab308) 30%, var(--background-primary));
+	--da-warn-hover: color-mix(in srgb, var(--color-yellow, #eab308) 55%, var(--background-primary));
+	--da-danger: var(--color-red, #ef4444);
+	--da-danger-hover: color-mix(in srgb, var(--color-red, #ef4444) 80%, black);
+	--da-danger-bg: color-mix(in srgb, var(--color-red, #ef4444) 35%, var(--background-primary));
+}
+.da-tool-view.da-theme-adopt .da-workspace,
+.da-tool-view.da-theme-adopt .da-proposition-box {
+	background: var(--da-bg);
 }
 
 /* ---------- header ---------- */
@@ -20,8 +99,8 @@
 	justify-content: space-between;
 	gap: 12px;
 	padding: 14px 24px;
-	background: #ffffff;
-	border-bottom: 1px solid #e2e8f0;
+	background: var(--da-surface);
+	border-bottom: 1px solid var(--da-border);
 	flex-wrap: wrap;
 }
 
@@ -35,8 +114,8 @@
 	width: 34px;
 	height: 34px;
 	flex-shrink: 0;
-	background: #1e40af;
-	color: #fff;
+	background: var(--da-accent);
+	color: var(--da-on-accent);
 	border-radius: 10px;
 	display: flex;
 	align-items: center;
@@ -55,13 +134,15 @@
 .da-tool-view .da-header-right {
 	display: flex;
 	align-items: center;
+	justify-content: flex-end;
 	gap: 10px;
+	flex: 1 1 auto;
 	flex-wrap: wrap;
 	font-size: 0.85rem;
 }
 
 .da-tool-view .da-label {
-	color: #64748b;
+	color: var(--da-muted);
 	font-size: 0.85rem;
 }
 
@@ -72,86 +153,111 @@
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
-	height: 34px;
-	padding: 0 14px;
+	min-height: 34px;
+	padding: 6px 14px;
 	border-radius: 14px;
-	border: 1px solid #cbd5e1;
-	background: #ffffff;
-	color: #334155;
+	border: 1px solid var(--da-border-strong);
+	background: var(--da-surface);
+	color: var(--da-text);
 	font-size: 0.85rem;
+	line-height: 1.3;
+	white-space: normal;
+	text-align: center;
 	cursor: pointer;
 }
 
 .da-tool-view .da-btn:hover {
-	border-color: #94a3b8;
-	background: #f8fafc;
+	border-color: var(--da-faint);
+	background: var(--da-bg);
+}
+
+.da-tool-view .da-btn-icon {
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
 }
 
 .da-tool-view .da-btn-primary {
-	background: #1e40af;
-	border-color: #1e40af;
-	color: #fff;
+	background: var(--da-accent);
+	border-color: var(--da-accent);
+	color: var(--da-on-accent);
 	font-weight: 600;
 }
 .da-tool-view .da-btn-primary:hover {
-	background: #1a3a9e;
+	background: var(--da-accent-hover);
 }
 
 .da-tool-view .da-btn-secondary {
-	background: #475569;
-	border-color: #475569;
-	color: #fff;
+	background: var(--da-secondary);
+	border-color: var(--da-secondary);
+	color: var(--da-on-accent);
 	font-weight: 600;
 }
 .da-tool-view .da-btn-secondary:hover {
-	background: #334155;
+	background: var(--da-secondary-hover);
 }
 
 .da-tool-view .da-btn-accent {
-	background: #10b981;
-	border-color: #10b981;
-	color: #fff;
+	background: var(--da-success);
+	border-color: var(--da-success);
+	color: var(--da-on-accent);
 	font-weight: 600;
 }
 .da-tool-view .da-btn-accent:hover {
-	background: #059669;
+	background: var(--da-success-hover);
+}
+
+.da-tool-view .da-btn-support {
+	background: var(--da-success);
+	border-color: var(--da-border-strong);
+	color: var(--da-on-accent);
+	font-weight: 700;
+}
+.da-tool-view .da-btn-support:hover {
+	background: var(--da-success-hover);
+	border-color: var(--da-faint);
+	color: var(--da-on-accent);
 }
 
 .da-tool-view .da-btn-warn {
-	background: #fef3c7;
-	border-color: #cbd5e1;
+	background: var(--da-warn-bg);
+	border-color: var(--da-border-strong);
 }
 .da-tool-view .da-btn-warn:hover {
-	background: #fcd34d;
+	background: var(--da-warn-hover);
 }
 
 .da-tool-view .da-btn-danger {
-	background: #fca5a5;
-	border-color: #cbd5e1;
+	background: var(--da-danger-bg);
+	border-color: var(--da-border-strong);
 }
 .da-tool-view .da-btn-danger:hover {
-	background: #ef4444;
-	color: #fff;
+	background: var(--da-danger);
+	color: var(--da-on-accent);
 }
 
 .da-tool-view .da-btn-block {
 	width: 100%;
-	height: 44px;
+	min-height: 44px;
+	height: auto;
+	padding: 10px 14px;
 	border-radius: 18px;
 	margin-bottom: 8px;
+	white-space: normal;
+	line-height: 1.3;
 }
 
 .da-tool-view .da-btn-square {
 	width: 40px;
 	height: 40px;
 	border-radius: 18px;
-	border: 1px solid #cbd5e1;
-	background: #fff;
-	color: #475569;
+	border: 1px solid var(--da-border-strong);
+	background: var(--da-surface);
+	color: var(--da-text);
 	cursor: pointer;
 }
 .da-tool-view .da-btn-square:hover {
-	border-color: #94a3b8;
+	border-color: var(--da-faint);
 }
 
 .da-tool-view .da-flex1 { flex: 1 1 0%; }
@@ -162,38 +268,38 @@
 	margin-top: 8px;
 }
 
-/* ---------- RTL switch ---------- */
+/* ---------- RTL / theme switches ---------- */
 
 .da-tool-view .da-switch {
 	position: relative;
-	display: inline-flex;
-	align-items: center;
+	display: inline-block;
+	flex-shrink: 0;
 	height: 20px;
 	width: 36px;
-	flex-shrink: 0;
 	border-radius: 999px;
-	border: 2px solid transparent;
-	background: #cbd5e1;
+	border: none;
+	background: var(--da-border-strong);
 	cursor: pointer;
 	padding: 0;
 	transition: background-color 0.2s ease-in-out;
 }
 .da-tool-view .da-switch.da-switch-on {
-	background: #10b981;
+	background: var(--da-success);
 }
 .da-tool-view .da-switch-thumb {
 	pointer-events: none;
-	display: inline-block;
-	height: 16px;
-	width: 16px;
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	height: 14px;
+	width: 14px;
 	border-radius: 999px;
-	background: #fff;
+	background: var(--da-on-accent);
 	box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-	transform: translateX(0);
-	transition: transform 0.2s ease-in-out;
+	transition: left 0.2s ease-in-out;
 }
 .da-tool-view .da-switch.da-switch-on .da-switch-thumb {
-	transform: translateX(16px);
+	left: 19px;
 }
 
 /* ---------- body layout ---------- */
@@ -207,18 +313,18 @@
 
 .da-tool-view .da-sidebar {
 	flex-shrink: 0;
-	background: #ffffff;
+	background: var(--da-surface);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
 }
-.da-tool-view .da-sidebar-left { border-right: 1px solid #e2e8f0; }
-.da-tool-view .da-sidebar-right { border-left: 1px solid #e2e8f0; padding: 24px; overflow-y: auto; }
+.da-tool-view .da-sidebar-left { border-right: 1px solid var(--da-border); }
+.da-tool-view .da-sidebar-right { border-left: 1px solid var(--da-border); padding: 24px; overflow-y: auto; }
 
 .da-tool-view .da-sidebar-header {
 	padding: 16px 24px;
-	border-bottom: 1px solid #e2e8f0;
-	background: #f8fafc;
+	border-bottom: 1px solid var(--da-border);
+	background: var(--da-bg);
 }
 
 .da-tool-view .da-section-title {
@@ -226,22 +332,24 @@
 	font-size: 0.72rem;
 	font-weight: 600;
 	letter-spacing: 0.08em;
-	color: #64748b;
+	color: var(--da-muted);
 	margin: 0 0 8px 0;
 }
 
 .da-tool-view .da-textarea {
 	width: 100%;
 	resize: vertical;
-	border: 1px solid #cbd5e1;
+	border: 1px solid var(--da-border-strong);
 	border-radius: 18px;
 	padding: 10px 18px;
 	font-size: 0.85rem;
 	outline: none;
 	font-family: inherit;
+	background: var(--da-surface);
+	color: var(--da-text);
 }
 .da-tool-view .da-textarea:focus {
-	border-color: #1e40af;
+	border-color: var(--da-accent);
 }
 
 .da-tool-view .da-prop-list {
@@ -256,7 +364,7 @@
 .da-tool-view .da-empty-hint {
 	padding: 48px 24px;
 	text-align: center;
-	color: #94a3b8;
+	color: var(--da-faint);
 	font-size: 0.85rem;
 }
 .da-tool-view .da-empty-hint-main {
@@ -270,35 +378,35 @@
 	gap: 8px;
 	padding: 4px 16px;
 	border-radius: 18px;
-	background: #f1f5f9;
+	background: var(--da-row-bg);
 	border: 1px solid transparent;
 	cursor: default;
 }
 .da-tool-view .da-prop-row:hover {
-	border-color: #e2e8f0;
+	border-color: var(--da-border);
 }
 .da-tool-view .da-prop-row-selected {
-	border-color: #1e40af !important;
-	background: #eff6ff;
+	border-color: var(--da-accent) !important;
+	background: var(--da-accent-soft-bg);
 }
 
 .da-tool-view .da-drag-handle {
 	flex-shrink: 0;
-	color: #cbd5e1;
+	color: var(--da-border-strong);
 	cursor: grab;
 	font-size: 14px;
 	line-height: 1;
 	letter-spacing: -1px;
 	user-select: none;
 }
-.da-tool-view .da-drag-handle:hover { color: #94a3b8; }
+.da-tool-view .da-drag-handle:hover { color: var(--da-faint); }
 
 .da-tool-view .da-num-badge {
 	width: 22px;
 	height: 22px;
 	flex-shrink: 0;
-	background: #fff;
-	color: #475569;
+	background: var(--da-surface);
+	color: var(--da-faint);
 	border-radius: 12px;
 	display: flex;
 	align-items: center;
@@ -322,18 +430,18 @@
 	flex-shrink: 0;
 	border: none;
 	background: transparent;
-	color: #cbd5e1;
+	color: var(--da-border-strong);
 	font-size: 1.1rem;
 	line-height: 1;
 	cursor: pointer;
 }
-.da-tool-view .da-del-btn:hover { color: #ef4444; }
+.da-tool-view .da-del-btn:hover { color: var(--da-danger); }
 
 .da-tool-view .da-sidebar-footer {
 	padding: 12px 16px;
-	border-top: 1px solid #e2e8f0;
+	border-top: 1px solid var(--da-border);
 	font-size: 0.72rem;
-	color: #94a3b8;
+	color: var(--da-faint);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -343,11 +451,11 @@
 .da-tool-view .da-link-danger {
 	background: none;
 	border: none;
-	color: #ef4444;
+	color: var(--da-danger);
 	cursor: pointer;
 	font-size: 0.72rem;
 }
-.da-tool-view .da-link-danger:hover { color: #dc2626; }
+.da-tool-view .da-link-danger:hover { color: var(--da-danger-hover); }
 
 .da-tool-view .da-resizer {
 	width: 5px;
@@ -356,7 +464,7 @@
 	background: transparent;
 }
 .da-tool-view .da-resizer:hover {
-	background: #cbd5e1;
+	background: var(--da-border-strong);
 }
 
 /* ---------- workspace / canvas ---------- */
@@ -365,7 +473,7 @@
 	flex: 1 1 0%;
 	display: flex;
 	flex-direction: column;
-	background: #ffffff;
+	background: var(--da-surface);
 	position: relative;
 	min-width: 0;
 }
@@ -426,22 +534,22 @@
 	flex-shrink: 0;
 	align-self: flex-start;
 	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
+	background: var(--da-bg);
+	border: 1px solid var(--da-border);
 	border-radius: 12px;
 	box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 	cursor: pointer;
 }
 .da-tool-view .da-proposition-box.selected {
-	border-color: #1e40af;
-	background: #eff6ff;
+	border-color: var(--da-accent);
+	background: var(--da-accent-soft-bg);
 	box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.2);
 }
 
 .da-tool-view .da-row-num {
 	font-family: ui-monospace, monospace;
 	font-size: 0.72rem;
-	color: #94a3b8;
+	color: var(--da-faint);
 	width: 24px;
 	padding-top: 4px;
 	flex-shrink: 0;
@@ -458,14 +566,14 @@
 .da-tool-view .da-row-del {
 	border: none;
 	background: transparent;
-	color: #cbd5e1;
+	color: var(--da-border-strong);
 	font-size: 1.25rem;
 	line-height: 1;
 	margin-top: 1px;
 	cursor: pointer;
 	flex-shrink: 0;
 }
-.da-tool-view .da-row-del:hover { color: #ef4444; }
+.da-tool-view .da-row-del:hover { color: var(--da-danger); }
 
 /* ---------- right sidebar extras ---------- */
 
@@ -477,7 +585,7 @@
 }
 .da-tool-view .da-zoom-label {
 	font-size: 0.85rem;
-	color: #64748b;
+	color: var(--da-muted);
 	width: 40px;
 	text-align: center;
 }
@@ -485,7 +593,7 @@
 .da-tool-view .da-instructions {
 	font-size: 0.72rem;
 	line-height: 1.5;
-	color: #0f172a;
+	color: var(--da-text);
 	margin-bottom: 20px;
 }
 
@@ -494,8 +602,8 @@
 .da-tool-view .da-label-editor {
 	position: fixed;
 	z-index: 99999;
-	background: #fff;
-	border: 2px solid #1e40af;
+	background: var(--da-surface);
+	border: 2px solid var(--da-accent);
 	border-radius: 8px;
 	padding: 12px 14px;
 	box-shadow: 0 6px 24px rgba(0,0,0,0.18);
@@ -504,7 +612,7 @@
 }
 .da-tool-view .da-label-editor-title {
 	font-size: 11px;
-	color: #64748b;
+	color: var(--da-muted);
 	margin-bottom: 6px;
 	font-weight: 600;
 	letter-spacing: 0.04em;
@@ -512,11 +620,13 @@
 .da-tool-view .da-label-editor-input {
 	width: 100%;
 	box-sizing: border-box;
-	border: 1.5px solid #cbd5e1;
+	border: 1.5px solid var(--da-border-strong);
 	border-radius: 4px;
 	padding: 5px 8px;
 	font-size: 14px;
 	outline: none;
+	background: var(--da-surface);
+	color: var(--da-text);
 }
 .da-tool-view .da-label-editor-actions {
 	display: flex;
@@ -542,7 +652,8 @@
 }
 
 .da-tool-view .da-modal {
-	background: #fff;
+	background: var(--da-surface);
+	color: var(--da-text);
 	border-radius: 20px;
 	box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
 	width: 100%;
@@ -558,7 +669,7 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: 20px 28px;
-	border-bottom: 1px solid #e2e8f0;
+	border-bottom: 1px solid var(--da-border);
 	flex-shrink: 0;
 }
 .da-tool-view .da-modal-title {
@@ -574,14 +685,14 @@
 	align-items: center;
 	justify-content: center;
 	border-radius: 14px;
-	border: 1px solid #e2e8f0;
-	background: #fff;
-	color: #64748b;
+	border: 1px solid var(--da-border);
+	background: var(--da-surface);
+	color: var(--da-muted);
 	font-size: 1.2rem;
 	line-height: 1;
 	cursor: pointer;
 }
-.da-tool-view .da-modal-close:hover { background: #f1f5f9; }
+.da-tool-view .da-modal-close:hover { background: var(--da-row-bg); }
 
 .da-tool-view .da-modal-body {
 	overflow: auto;
@@ -607,26 +718,26 @@
 	border-radius: 16px 16px 0 0;
 }
 .da-tool-view .da-relationship-group-body {
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--da-border);
 	border-top: none;
 	border-radius: 0 0 16px 16px;
 }
 .da-tool-view .da-relationship-item {
 	padding: 12px 16px;
-	border-top: 1px solid #f1f5f9;
+	border-top: 1px solid var(--da-row-bg);
 }
 .da-tool-view .da-relationship-item:first-child { border-top: none; }
 .da-tool-view .da-relationship-item p { margin: 0; font-size: 0.85rem; }
 .da-tool-view .da-relationship-term { font-weight: 700; }
 .da-tool-view .da-relationship-conj {
 	font-size: 0.72rem;
-	color: #64748b;
+	color: var(--da-muted);
 	margin-top: 4px !important;
 }
 .da-tool-view .da-relationship-conj span { font-weight: 600; }
 .da-tool-view .da-relationship-example {
 	font-size: 0.72rem;
-	color: #94a3b8;
+	color: var(--da-faint);
 	margin-top: 2px !important;
 	font-style: italic;
 }
