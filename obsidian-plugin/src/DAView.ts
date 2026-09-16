@@ -428,8 +428,6 @@ export class DAView extends TextFileView {
 			<button data-action="zoom-reset" class="da-btn">↺</button>
 		</div>
 		<div class="da-instructions">
-			<strong>Two-node bracket:</strong> Select 2 propositions/boxes → ADD TWO-NODE BRACKET<br><br>
-			<strong>Single-node bracket:</strong> Select 2+ propositions/boxes → ADD SINGLE-NODE BRACKET<br><br>
 			<strong>Operations:</strong><br>
 			Right-click box = edit label<br>
 			Select spine + Delete = remove bracket<br>
@@ -1613,8 +1611,8 @@ export class DAView extends TextFileView {
 		if (!text) return;
 		this.saveToHistory();
 		const parts = text.split(/(?<=[.?!;])\s+|\n+/g).map(p => p.trim()).filter(p => p.length > 0);
-		this.propositions = parts.map((p, i) => ({ id: Date.now() + i, text: p, level: 0 }));
-		this.brackets = [];
+		const newProps = parts.map((p, i) => ({ id: Date.now() + i, text: p, level: 0 }));
+		this.propositions = this.propositions.concat(newProps);
 		this.selectedIndices = [];
 		this.sidebarSelected = -1;
 		this.renderSidebarList();
