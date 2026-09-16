@@ -1,8 +1,41 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import fs from "fs";
+import path from "path";
 
 const production = process.argv[2] === "production";
+
+// Where to copy the built plugin for live testing in a real vault, so you can
+// edit + rebuild and just reload Obsidian instead of manually copying files.
+// The vault's plugin folder can't itself be a symlink to this repo here
+// because it lives inside a BeeStation-synced folder, and cloud-placeholder
+// sync clients (BeeStation, OneDrive, etc.) don't reliably handle directory
+// symlinks/junctions — so we copy the built files out instead. Override with
+// the DA_TOOL_TEST_VAULT_PLUGIN_DIR env var if this path isn't yours.
+const testVaultPluginDir =
+	process.env.DA_TOOL_TEST_VAULT_PLUGIN_DIR ||
+	"C:\\Users\\11tdr\\Documents\\Obsidian\\CryptaMei\\.obsidian\\plugins\\DA-Tool";
+
+function copyToTestVault() {
+	if (!testVaultPluginDir) return;
+	try {
+		fs.mkdirSync(testVaultPluginDir, { recursive: true });
+		for (const file of ["main.js", "manifest.json", "styles.css"]) {
+			fs.copyFileSync(path.resolve(file), path.join(testVaultPluginDir, file));
+		}
+		console.log(`Copied build to ${testVaultPluginDir}`);
+	} catch (err) {
+		console.error(`Failed to copy build to test vault (${testVaultPluginDir}):`, err.message);
+	}
+}
+
+const copyToVaultPlugin = {
+	name: "copy-to-test-vault",
+	setup(build) {
+		build.onEnd(copyToTestVault);
+	},
+};
 
 const context = await esbuild.context({
 	banner: {
@@ -33,6 +66,7 @@ const context = await esbuild.context({
 	treeShaking: true,
 	outfile: "main.js",
 	minify: production,
+	plugins: [copyToVaultPlugin],
 });
 
 if (production) {
