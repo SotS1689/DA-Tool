@@ -55,7 +55,7 @@
 	height: 100%;
 	background: var(--da-bg);
 	color: var(--da-text);
-	font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 	position: relative;
 }
 
@@ -386,8 +386,8 @@
 .da-tool-view .da-prop-row:hover {
 	border-color: var(--da-border);
 }
-.da-tool-view .da-prop-row-selected {
-	border-color: var(--da-accent) !important;
+.da-tool-view .da-prop-row.da-prop-row-selected {
+	border-color: var(--da-accent);
 	background: var(--da-accent-soft-bg);
 }
 
@@ -413,7 +413,7 @@
 	align-items: center;
 	justify-content: center;
 	font-size: 0.72rem;
-	font-family: ui-monospace, monospace;
+	font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 .da-tool-view .da-prop-text {
@@ -548,7 +548,7 @@
 }
 
 .da-tool-view .da-row-num {
-	font-family: ui-monospace, monospace;
+	font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 	font-size: 0.72rem;
 	color: var(--da-faint);
 	width: 24px;
@@ -728,16 +728,16 @@
 .da-tool-view .da-relationship-item:first-child { border-top: none; }
 .da-tool-view .da-relationship-item p { margin: 0; font-size: 0.85rem; }
 .da-tool-view .da-relationship-term { font-weight: 700; }
-.da-tool-view .da-relationship-conj {
+.da-tool-view .da-relationship-item p.da-relationship-conj {
 	font-size: 0.72rem;
 	color: var(--da-muted);
-	margin-top: 4px !important;
+	margin-top: 4px;
 }
 .da-tool-view .da-relationship-conj span { font-weight: 600; }
-.da-tool-view .da-relationship-example {
+.da-tool-view .da-relationship-item p.da-relationship-example {
 	font-size: 0.72rem;
 	color: var(--da-faint);
-	margin-top: 2px !important;
+	margin-top: 2px;
 	font-style: italic;
 }
 

@@ -104,8 +104,7 @@ export function openColorPickerPopover(anchorEl: HTMLElement, initialHex: string
 	let hsv = rgbToHsv(hexToRgb(initialHex));
 	let mode: Mode = "hex";
 
-	const popover = doc.createElement("div");
-	popover.className = "da-cp-popover";
+	const popover = doc.body.createDiv({ cls: "da-cp-popover" });
 
 	const svBox = popover.createDiv({ cls: "da-cp-sv" });
 	const svThumb = svBox.createDiv({ cls: "da-cp-sv-thumb" });
@@ -128,8 +127,6 @@ export function openColorPickerPopover(anchorEl: HTMLElement, initialHex: string
 	const hslTab = actionsRow.createEl("button", { text: "HSL", cls: "da-cp-tab" });
 	const saveBtn = actionsRow.createEl("button", { text: "Save", cls: "da-cp-btn da-cp-btn-save" });
 	const cancelBtn = actionsRow.createEl("button", { text: "Cancel", cls: "da-cp-btn da-cp-btn-cancel" });
-
-	doc.body.appendChild(popover);
 
 	function currentRgb(): RGB {
 		return hsvToRgb(hsv);

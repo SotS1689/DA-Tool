@@ -111,7 +111,7 @@ interface Corner {
 // or the parentBracketIds array (single-node brackets, which can have >2 parents).
 function getParentIds(b: Bracket): number[] {
 	if (b.parentBracketIds && b.parentBracketIds.length) return b.parentBracketIds;
-	return [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined) as number[];
+	return [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
 }
 
 interface ProjectData {
@@ -533,7 +533,7 @@ export class DAView extends TextFileView {
 
 	private wireStaticEvents(): void {
 		const on = (action: string, handler: (e: Event) => void) => {
-			this.qsa(`[data-action="${action}"]`).forEach(el => this.registerDomEvent(el as HTMLElement, "click", handler));
+			this.qsa(`[data-action="${action}"]`).forEach(el => this.registerDomEvent(el, "click", handler));
 		};
 
 		on("force-save", () => { void this.save().then(() => new Notice("Saved.")); });
@@ -541,7 +541,7 @@ export class DAView extends TextFileView {
 		on("hide-lr", () => this.hideLogicalRelationships());
 		on("show-resources", () => this.showResources());
 		on("hide-resources", () => this.hideResources());
-		on("export-png", () => this.exportPNG());
+		on("export-png", () => { void this.exportPNG(); });
 		on("insert-props", () => this.splitIntoPropositions());
 		on("add-prop", () => this.addNewProposition());
 		on("clear-all", () => this.clearAll());
@@ -611,7 +611,7 @@ export class DAView extends TextFileView {
 					this.saveToHistory();
 					const removedId = this.selectedBracketId;
 					this.brackets = this.brackets.filter(b => b.id !== removedId);
-					this.deparentReferencesTo([removedId as number]);
+					this.deparentReferencesTo([removedId]);
 					this.selectedBracketId = null;
 					this.selectedCorners = [];
 					this.renderCanvas();
@@ -761,7 +761,7 @@ export class DAView extends TextFileView {
 
 	undoLastAction(): void {
 		if (this.historyStack.length === 0) return;
-		const prev = JSON.parse(this.historyStack.pop() as string);
+		const prev = JSON.parse(this.historyStack.pop());
 		this.propositions = prev.propositions || [];
 		this.brackets = prev.brackets || [];
 		this.selectedIndices = prev.selectedIndices || [];
@@ -780,7 +780,7 @@ export class DAView extends TextFileView {
 				b.nodes = [b.start, b.end];
 			}
 			if (!b.parentBracketIds) {
-				const ids = [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined) as number[];
+				const ids = [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
 				b.parentBracketIds = ids;
 			}
 		});
@@ -822,8 +822,7 @@ export class DAView extends TextFileView {
 		}
 
 		this.propositions.forEach((prop, i) => {
-			const row = document.createElement("div");
-			row.className = `da-prop-row${i === this.sidebarSelected ? " da-prop-row-selected" : ""}`;
+			const row = createDiv({ cls: `da-prop-row${i === this.sidebarSelected ? " da-prop-row-selected" : ""}` });
 			row.dataset.index = String(i);
 			row.addEventListener("click", e => {
 				e.stopImmediatePropagation();
@@ -832,10 +831,7 @@ export class DAView extends TextFileView {
 				this.refreshSelectionHighlighting();
 			});
 
-			const dragHandle = document.createElement("div");
-			dragHandle.className = "da-drag-handle";
-			dragHandle.textContent = "⋮⋮";
-			dragHandle.title = "Drag to reorder";
+			const dragHandle = createDiv({ cls: "da-drag-handle", text: "⋮⋮", attr: { title: "Drag to reorder" } });
 			dragHandle.addEventListener("mousedown", e => e.stopPropagation());
 
 			row.draggable = false;
@@ -850,13 +846,13 @@ export class DAView extends TextFileView {
 					e.dataTransfer.effectAllowed = "move";
 					e.dataTransfer.setData("text/plain", String(i));
 				}
-				setTimeout(() => { row.setCssStyles({ opacity: "0.4" }); }, 0);
+				window.setTimeout(() => { row.setCssStyles({ opacity: "0.4" }); }, 0);
 			});
 
 			row.addEventListener("dragend", () => {
 				row.setCssStyles({ opacity: "" });
 				row.draggable = false;
-				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => clearDragBorders(r as HTMLElement));
+				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => clearDragBorders(r));
 			});
 
 			row.addEventListener("dragover", e => {
@@ -864,7 +860,7 @@ export class DAView extends TextFileView {
 				if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 				const rect = row.getBoundingClientRect();
 				const midY = rect.top + rect.height / 2;
-				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => clearDragBorders(r as HTMLElement));
+				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => clearDragBorders(r));
 				if (e.clientY < midY) row.setCssStyles({ borderTop: "2px solid var(--da-accent)" });
 				else row.setCssStyles({ borderBottom: "2px solid var(--da-accent)" });
 			});
@@ -889,15 +885,21 @@ export class DAView extends TextFileView {
 				this.propositions.splice(insertIndex, 0, moved);
 
 				this.brackets.forEach(b => {
-					b.start = this.remapIndex(b.start, this.dragSrcIndex as number, insertIndex);
-					b.end = this.remapIndex(b.end, this.dragSrcIndex as number, insertIndex);
+					b.start = this.remapIndex(b.start, this.dragSrcIndex, insertIndex);
+					b.end = this.remapIndex(b.end, this.dragSrcIndex, insertIndex);
 					if (b.attachToRow !== undefined) {
-						b.attachToRow = this.remapIndex(b.attachToRow, this.dragSrcIndex as number, insertIndex);
+						b.attachToRow = this.remapIndex(b.attachToRow, this.dragSrcIndex, insertIndex);
+					}
+					// Single-node brackets render from `nodes`, not start/end
+					// (see renderCanvas's nodeRows), so it has to be remapped
+					// in lockstep or the drawn anchors go stale after a drag.
+					if (b.nodes) {
+						b.nodes = b.nodes.map(r => this.remapIndex(r, this.dragSrcIndex, insertIndex));
 					}
 				});
 
 				if (this.sidebarSelected === this.dragSrcIndex) this.sidebarSelected = insertIndex;
-				this.selectedIndices = this.selectedIndices.map(idx => this.remapIndex(idx, this.dragSrcIndex as number, insertIndex));
+				this.selectedIndices = this.selectedIndices.map(idx => this.remapIndex(idx, this.dragSrcIndex, insertIndex));
 
 				this.dragSrcIndex = null;
 				this.renderSidebarList();
@@ -905,16 +907,12 @@ export class DAView extends TextFileView {
 				this.renderCanvas();
 			});
 
-			const numBadge = document.createElement("div");
-			numBadge.className = "da-num-badge";
-			numBadge.textContent = String(i + 1);
+			const numBadge = createDiv({ cls: "da-num-badge", text: String(i + 1) });
 
-			const textEl = document.createElement("div");
+			const textEl = createDiv({ cls: "da-prop-text", text: prop.text });
 			textEl.contentEditable = "true";
 			textEl.spellcheck = false;
 			textEl.dir = this.isRTL ? "rtl" : "ltr";
-			textEl.className = "da-prop-text";
-			textEl.textContent = prop.text;
 			textEl.addEventListener("click", e => e.stopImmediatePropagation());
 			textEl.addEventListener("focus", () => {
 				this.sidebarSelected = i;
@@ -923,9 +921,7 @@ export class DAView extends TextFileView {
 			});
 			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl.innerText));
 
-			const delBtn = document.createElement("button");
-			delBtn.className = "da-del-btn";
-			delBtn.textContent = "✕";
+			const delBtn = createEl("button", { cls: "da-del-btn", text: "✕" });
 			delBtn.addEventListener("click", e => { e.stopImmediatePropagation(); this.deleteProposition(i); });
 
 			row.appendChild(dragHandle);
@@ -944,6 +940,23 @@ export class DAView extends TextFileView {
 			if (idx >= to && idx < from) return idx + 1;
 		}
 		return idx;
+	}
+
+	// Inserting a proposition at `insertedAt` shifts every proposition from
+	// that position onward up by one - brackets (start/end/attachToRow/nodes,
+	// the latter used directly by single-node bracket rendering, see
+	// renderCanvas's nodeRows) and the current selection have to shift with
+	// them or they end up pointing at the wrong row.
+	private shiftReferencesForInsertion(insertedAt: number): void {
+		const shift = (idx: number) => (idx >= insertedAt ? idx + 1 : idx);
+		this.brackets.forEach(b => {
+			b.start = shift(b.start);
+			b.end = shift(b.end);
+			if (b.attachToRow !== undefined) b.attachToRow = shift(b.attachToRow);
+			if (b.nodes) b.nodes = b.nodes.map(shift);
+		});
+		this.selectedIndices = this.selectedIndices.map(shift);
+		if (this.sidebarSelected >= insertedAt) this.sidebarSelected = shift(this.sidebarSelected);
 	}
 
 	// ---------- main rows ----------
@@ -979,22 +992,17 @@ export class DAView extends TextFileView {
 
 		this.propositions.forEach((prop, i) => {
 			const isSelected = this.selectedIndices.includes(i);
-			const row = document.createElement("div");
-			row.className = `da-proposition-box${isSelected ? " selected" : ""}`;
+			const row = createDiv({ cls: `da-proposition-box${isSelected ? " selected" : ""}` });
 			row.setCssStyles({ marginInlineStart: `${prop.level * 48}px` });
 			row.addEventListener("click", e => { e.stopImmediatePropagation(); this.handleMainRowClick(i); });
-			row.addEventListener("dblclick", e => { e.stopImmediatePropagation(); this.splitProposition(i, e as MouseEvent); });
+			row.addEventListener("dblclick", e => { e.stopImmediatePropagation(); this.splitProposition(i, e); });
 
-			const numEl = document.createElement("div");
-			numEl.className = "da-row-num";
-			numEl.textContent = String(i + 1);
+			const numEl = createDiv({ cls: "da-row-num", text: String(i + 1) });
 
-			const textEl = document.createElement("div");
+			const textEl = createDiv({ cls: "da-row-text", text: prop.text });
 			textEl.contentEditable = "true";
 			textEl.spellcheck = false;
 			textEl.dir = this.isRTL ? "rtl" : "ltr";
-			textEl.className = "da-row-text";
-			textEl.textContent = prop.text;
 			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl.innerText));
 
 			// Focusing a contenteditable element makes the browser auto-scroll
@@ -1025,9 +1033,7 @@ export class DAView extends TextFileView {
 				window.requestAnimationFrame(restore);
 			});
 
-			const delBtn = document.createElement("button");
-			delBtn.className = "da-row-del";
-			delBtn.textContent = "×";
+			const delBtn = createEl("button", { cls: "da-row-del", text: "×" });
 			delBtn.addEventListener("click", e => { e.stopImmediatePropagation(); this.deleteProposition(i); });
 
 			row.appendChild(numEl);
@@ -1230,14 +1236,14 @@ export class DAView extends TextFileView {
 			const parentXs: number[] = [];
 			for (const pid of getParentIds(b)) {
 				const pi = idToIdx[pid];
-				if (pi !== undefined && bracketLeftX[pi] !== null) parentXs.push(bracketLeftX[pi] as number);
+				if (pi !== undefined && bracketLeftX[pi] !== null) parentXs.push(bracketLeftX[pi]);
 			}
 
 			if (parentXs.length === 0) {
 				brackets.forEach((other, j) => {
 					if (j === i || bracketLeftX[j] === null) return;
 					const strictlyContains = b.start <= other.start && b.end >= other.end && (b.start < other.start || b.end > other.end);
-					if (strictlyContains) parentXs.push(bracketLeftX[j] as number);
+					if (strictlyContains) parentXs.push(bracketLeftX[j]);
 				});
 			}
 
@@ -1311,17 +1317,17 @@ export class DAView extends TextFileView {
 					const parentTopRow = parent.attachToRow !== undefined ? parent.attachToRow : parent.start;
 					parentOwns = endRow === parentTopRow || endRow === parent.end;
 				}
-				if (parentOwns) return bracketLeftX[pi] as number;
+				if (parentOwns) return bracketLeftX[pi];
 			}
 
 			for (let j = 0; j < brackets.length; j++) {
 				if (j === bracketIdx) continue;
 				const child = brackets[j];
 				if (!getParentIds(child).includes(b.id)) continue;
-				if (isRTL ? ((bracketLeftX[j] as number) >= (bracketLeftX[bracketIdx] as number)) : ((bracketLeftX[j] as number) <= (bracketLeftX[bracketIdx] as number))) continue;
+				if (isRTL ? ((bracketLeftX[j]) >= (bracketLeftX[bracketIdx])) : ((bracketLeftX[j]) <= (bracketLeftX[bracketIdx]))) continue;
 				const childTopRow = child.attachToRow !== undefined ? child.attachToRow : child.start;
-				if (childTopRow === endRow) return bracketLeftX[j] as number;
-				if (!child.singleNode && child.end === endRow) return bracketLeftX[j] as number;
+				if (childTopRow === endRow) return bracketLeftX[j];
+				if (!child.singleNode && child.end === endRow) return bracketLeftX[j];
 			}
 
 			const prop = propositions[Math.round(endRow)];
@@ -1348,17 +1354,17 @@ export class DAView extends TextFileView {
 					const parentTopRow = parent.attachToRow !== undefined ? parent.attachToRow : parent.start;
 					parentOwns = row === parentTopRow || row === parent.end;
 				}
-				if (parentOwns) return bracketLeftX[pi] as number;
+				if (parentOwns) return bracketLeftX[pi];
 			}
 
 			for (let j = 0; j < brackets.length; j++) {
 				if (j === bracketIdx) continue;
 				const child = brackets[j];
 				if (!getParentIds(child).includes(b.id)) continue;
-				if (isRTL ? ((bracketLeftX[j] as number) >= (bracketLeftX[bracketIdx] as number)) : ((bracketLeftX[j] as number) <= (bracketLeftX[bracketIdx] as number))) continue;
+				if (isRTL ? ((bracketLeftX[j]) >= (bracketLeftX[bracketIdx])) : ((bracketLeftX[j]) <= (bracketLeftX[bracketIdx]))) continue;
 				const childTopRow = child.attachToRow !== undefined ? child.attachToRow : child.start;
-				if (childTopRow === row) return bracketLeftX[j] as number;
-				if (!child.singleNode && child.end === row) return bracketLeftX[j] as number;
+				if (childTopRow === row) return bracketLeftX[j];
+				if (!child.singleNode && child.end === row) return bracketLeftX[j];
 			}
 
 			const prop = propositions[Math.round(row)];
@@ -1376,7 +1382,7 @@ export class DAView extends TextFileView {
 			const b = brackets[i];
 			if (b.start >= rowYs.length || b.end >= rowYs.length) return;
 
-			const leftX = bracketLeftX[i] as number;
+			const leftX = bracketLeftX[i];
 			const y1 = nodeY[i].top;
 			const y2 = nodeY[i].bot;
 
@@ -1511,7 +1517,7 @@ export class DAView extends TextFileView {
 		rect.addEventListener("contextmenu", e => {
 			e.preventDefault();
 			e.stopImmediatePropagation();
-			this.showLabelEditor((e as MouseEvent).clientX, (e as MouseEvent).clientY, text, bracketId, isTop);
+			this.showLabelEditor(e.clientX, e.clientY, text, bracketId, isTop);
 		});
 		group.appendChild(rect);
 
@@ -1563,8 +1569,8 @@ export class DAView extends TextFileView {
 		input.focus();
 		input.select();
 
-		const oldOk = this.byId("le-ok") as HTMLButtonElement;
-		const oldCan = this.byId("le-cancel") as HTMLButtonElement;
+		const oldOk = this.byId<HTMLButtonElement>("le-ok");
+		const oldCan = this.byId<HTMLButtonElement>("le-cancel");
 		const newOk = oldOk.cloneNode(true) as HTMLButtonElement;
 		const newCan = oldCan.cloneNode(true) as HTMLButtonElement;
 		oldOk.replaceWith(newOk);
@@ -1749,8 +1755,10 @@ export class DAView extends TextFileView {
 		this.saveToHistory();
 		const newProp: Proposition = { id: Date.now(), text: "New proposition…", level: 0 };
 		if (this.sidebarSelected >= 0) {
-			this.propositions.splice(this.sidebarSelected + 1, 0, newProp);
-			this.sidebarSelected++;
+			const insertedAt = this.sidebarSelected + 1;
+			this.propositions.splice(insertedAt, 0, newProp);
+			this.shiftReferencesForInsertion(insertedAt);
+			this.sidebarSelected = insertedAt;
 		} else {
 			this.propositions.push(newProp);
 			this.sidebarSelected = this.propositions.length - 1;
@@ -1822,7 +1830,7 @@ export class DAView extends TextFileView {
 			});
 
 			const removedIds = this.brackets
-				.filter(b => (b.singleNode ? (b.nodes as number[]).length < 2 : (b.start === i || b.end === i)))
+				.filter(b => (b.singleNode ? (b.nodes ?? []).length < 2 : (b.start === i || b.end === i)))
 				.map(b => b.id);
 
 			this.brackets = this.brackets
@@ -1850,8 +1858,13 @@ export class DAView extends TextFileView {
 		this.saveToHistory();
 		const text = this.propositions[index].text;
 		let splitPos = Math.floor(text.length / 2);
-		if (event && (document as any).caretRangeFromPoint) {
-			const range = (document as any).caretRangeFromPoint(event.clientX, event.clientY);
+		// caretRangeFromPoint is a legacy WebKit/Blink API (Electron/Obsidian
+		// runs on Chromium) with no standard TS lib declaration.
+		const docWithCaretRange = document as Document & {
+			caretRangeFromPoint?: (x: number, y: number) => Range | null;
+		};
+		if (event && docWithCaretRange.caretRangeFromPoint) {
+			const range = docWithCaretRange.caretRangeFromPoint(event.clientX, event.clientY);
 			if (range) {
 				const rowDiv = this.qsa("#proposition-rows > div")[index];
 				if (rowDiv && rowDiv.contains(range.commonAncestorContainer)) splitPos = range.startOffset;
@@ -1867,6 +1880,9 @@ export class DAView extends TextFileView {
 			this.propositions[index].text = text.substring(0, mid).trim();
 			this.propositions.splice(index + 1, 0, { id: Date.now(), text: text.substring(mid).trim(), level: this.propositions[index].level });
 		}
+
+		this.shiftReferencesForInsertion(index + 1);
+
 		this.renderSidebarList();
 		this.renderMainRows();
 		this.renderCanvas();
@@ -1945,7 +1961,7 @@ export class DAView extends TextFileView {
 		const container = this.byId("diagram-container");
 		const scaler = this.byId("workspace-scaler");
 		if (!container || !scaler) return;
-		const svg = scaler.querySelector("svg") as SVGSVGElement | null;
+		const svg = scaler.querySelector("svg");
 		const savedZoom = this.zoomLevel;
 
 		const savedOverflow = container.style.overflow;
@@ -1987,7 +2003,7 @@ export class DAView extends TextFileView {
 				windowHeight: document.documentElement.scrollHeight,
 				scrollX: 0,
 				scrollY: 0,
-			} as any);
+			});
 
 			const dataUrl = canvas.toDataURL("image/png");
 			const base64 = dataUrl.split(",")[1];
@@ -2001,9 +2017,9 @@ export class DAView extends TextFileView {
 
 			const existing = this.app.vault.getAbstractFileByPath(path);
 			if (existing instanceof TFile) {
-				await this.app.vault.modifyBinary(existing, bytes.buffer as ArrayBuffer);
+				await this.app.vault.modifyBinary(existing, bytes.buffer);
 			} else {
-				await this.app.vault.createBinary(path, bytes.buffer as ArrayBuffer);
+				await this.app.vault.createBinary(path, bytes.buffer);
 			}
 			new Notice(`Exported ${path}`);
 		} catch (err) {

@@ -17,8 +17,7 @@ function defaultSettings(): DAToolSettings {
 // whatever the CSS custom property resolves to (a literal hex, var(...), or
 // a color-mix(...) expression) into an rgb() we can parse.
 function resolveEffectiveColor(cssVar: string, useThemeColors: boolean): string {
-	const probe = document.createElement("div");
-	probe.className = "da-tool-view" + (useThemeColors ? " da-theme-adopt" : "");
+	const probe = createDiv({ cls: "da-tool-view" + (useThemeColors ? " da-theme-adopt" : "") });
 	probe.setCssStyles({ position: "fixed", top: "-9999px", left: "-9999px" });
 	document.body.appendChild(probe);
 	const raw = getComputedStyle(probe).getPropertyValue(cssVar).trim();
@@ -28,7 +27,7 @@ function resolveEffectiveColor(cssVar: string, useThemeColors: boolean): string 
 
 function cssColorToHex(cssColor: string): string {
 	if (!cssColor) return "";
-	const span = document.createElement("span");
+	const span = createSpan();
 	span.setCssStyles({ color: cssColor });
 	document.body.appendChild(span);
 	const rgb = getComputedStyle(span).color;
@@ -248,11 +247,13 @@ class DAToolSettingTab extends PluginSettingTab {
 				swatchEl.addClass("da-color-swatch-btn");
 				swatchEl.setCssStyles({ backgroundColor: effective });
 				button.onClick(() => {
-					openColorPickerPopover(swatchEl, effective, async (value) => {
-						this.plugin.settings.colorOverrides[token.id] = value;
-						await this.plugin.saveSettings();
-						this.plugin.refreshAllViews();
-						this.display();
+					openColorPickerPopover(swatchEl, effective, (value) => {
+						void (async () => {
+							this.plugin.settings.colorOverrides[token.id] = value;
+							await this.plugin.saveSettings();
+							this.plugin.refreshAllViews();
+							this.display();
+						})();
 					});
 				});
 			});
