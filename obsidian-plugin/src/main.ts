@@ -231,7 +231,7 @@ class DAToolSettingTab extends PluginSettingTab {
 				});
 			});
 
-		containerEl.createEl("h3", { text: "Custom colors" });
+		new Setting(containerEl).setName("Custom colors").setHeading();
 		containerEl.createEl("p", {
 			text: "Override any individual color. Colors left alone follow the standard/theme setting above; use the reset button to remove an override.",
 			cls: "setting-item-description",

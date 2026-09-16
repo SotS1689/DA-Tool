@@ -356,155 +356,177 @@ export class DAView extends TextFileView {
 
 	// ---------- DOM construction ----------
 
+	private appendBracketIcon(button: HTMLElement, shapes: Array<{ tag: keyof SVGElementTagNameMap; attr: Record<string, string> }>): void {
+		button.createSvg("svg", {
+			cls: "da-btn-icon",
+			attr: { viewBox: "0 0 22 22", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" },
+		}, svg => {
+			for (const shape of shapes) svg.createSvg(shape.tag, { attr: shape.attr });
+		});
+	}
+
 	private buildDom(): void {
 		this.contentEl.empty();
 		this.contentEl.addClass("da-tool-view");
 		this.domBuilt = true;
 
-		this.contentEl.innerHTML = `
-<div class="da-header">
-	<div class="da-header-left">
-		<div class="da-logo">∴</div>
-		<h1 class="da-title">Discourse Analysis</h1>
-	</div>
-	<div class="da-header-right">
-		<button data-action="force-save" class="da-btn da-btn-primary" title="Save" aria-label="Save">💾</button>
-		<button data-action="show-lr" class="da-btn" title="Logical Relations" aria-label="Logical Relations">🔗</button>
-		<button data-action="show-resources" class="da-btn" title="Resources" aria-label="Resources">📖</button>
-		<button data-action="export-png" class="da-btn" title="Export PNG" aria-label="Export PNG">📷</button>
-		<span class="da-label">Colors</span>
-		<button id="theme-toggle" class="da-switch" role="switch" aria-checked="false">
-			<span id="theme-thumb" class="da-switch-thumb"></span>
-		</button>
-		<span class="da-label">RTL</span>
-		<button id="rtl-toggle" class="da-switch" role="switch" aria-checked="false">
-			<span id="rtl-thumb" class="da-switch-thumb"></span>
-		</button>
-		<button data-action="open-external" data-url="https://buymeacoffee.com/reformedretrieval" class="da-btn da-btn-support">☕ Support</button>
-	</div>
-</div>
-<div class="da-body">
-	<div id="left-sidebar" class="da-sidebar da-sidebar-left" style="width:288px;min-width:180px;max-width:600px;">
-		<div class="da-sidebar-header">
-			<h2 class="da-section-title">Propositions</h2>
-			<textarea id="paste-area" rows="3" class="da-textarea" placeholder="Paste full passage here…"></textarea>
-			<div class="da-row-gap">
-				<button data-action="insert-props" class="da-btn da-btn-primary da-flex1">Insert Propositions</button>
-				<button data-action="add-prop" class="da-btn-square">+</button>
-			</div>
-		</div>
-		<div id="sidebar-prop-list" class="da-prop-list"></div>
-		<div class="da-sidebar-footer">
-			<div>Drag ⋮⋮ to reorder • Double-click in main area to split</div>
-			<button data-action="clear-all" class="da-link-danger">Clear All</button>
-		</div>
-	</div>
-	<div id="left-resizer" class="da-resizer"></div>
-	<div class="da-workspace" id="workspace">
-		<div id="diagram-container" class="da-diagram-container">
-			<div class="da-overlay" data-action="deselect"></div>
-			<div id="workspace-scaler" class="da-workspace-scaler">
-				<svg id="bracket-svg" class="da-bracket-svg" width="365" height="1200"></svg>
-				<div id="proposition-rows" class="da-proposition-rows"></div>
-			</div>
-		</div>
-	</div>
-	<div id="right-resizer" class="da-resizer"></div>
-	<div id="right-sidebar" class="da-sidebar da-sidebar-right" style="width:288px;min-width:180px;max-width:600px;">
-		<h2 class="da-section-title">Tools</h2>
-		<button data-action="add-blank-bracket" class="da-btn da-btn-primary da-btn-block">
-			<svg class="da-btn-icon" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-				<rect x="2" y="2" width="6" height="6" rx="1.5" />
-				<rect x="2" y="14" width="6" height="6" rx="1.5" />
-				<line x1="8" y1="5" x2="16" y2="5" />
-				<line x1="8" y1="17" x2="16" y2="17" />
-				<line x1="16" y1="5" x2="16" y2="17" />
-				<line x1="16" y1="5" x2="19" y2="5" />
-				<line x1="16" y1="17" x2="19" y2="17" />
-			</svg>
-			TWO-NODE BRACKET
-		</button>
-		<button data-action="add-single-node-bracket" class="da-btn da-btn-primary da-btn-block">
-			<svg class="da-btn-icon" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-				<rect x="2" y="8" width="6" height="6" rx="1.5" />
-				<line x1="8" y1="11" x2="16" y2="11" />
-				<line x1="16" y1="3" x2="16" y2="19" />
-				<line x1="16" y1="3" x2="19" y2="3" />
-				<line x1="16" y1="19" x2="19" y2="19" />
-			</svg>
-			SINGLE-NODE BRACKET
-		</button>
-		<div class="da-zoom-row">
-			<span class="da-label">Zoom</span>
-			<button data-action="zoom-out" class="da-btn da-flex1">−</button>
-			<span id="zoom-label" class="da-zoom-label">100%</span>
-			<button data-action="zoom-in" class="da-btn da-flex1">+</button>
-			<button data-action="zoom-reset" class="da-btn">↺</button>
-		</div>
-		<div class="da-instructions">
-			<strong>Operations:</strong><br>
-			Right-click box = edit label<br>
-			Select spine + Delete = remove bracket<br>
-			Tab = indent selected proposition<br>
-			Shift+Tab = decrease indent on selected proposition<br>
-			Click whitespace (anywhere in work area) = deselect<br>
-			Click + drag = pan workspace
-		</div>
-		<div class="da-row-gap">
-			<button data-action="clear-brackets" class="da-btn da-flex1 da-btn-block da-btn-warn">Clear All Brackets</button>
-			<button data-action="reset-all" class="da-btn da-flex1 da-btn-block da-btn-danger">Reset Everything</button>
-		</div>
-	</div>
-</div>
-<div id="label-editor" class="da-label-editor" style="display:none;">
-	<div class="da-label-editor-title">EDIT LABEL</div>
-	<input id="lei" type="text" class="da-label-editor-input">
-	<div class="da-label-editor-actions">
-		<button id="le-cancel" class="da-btn">Cancel</button>
-		<button id="le-ok" class="da-btn da-btn-primary">OK</button>
-	</div>
-</div>
-<div id="lr-modal" class="da-modal-backdrop hidden">
-	<div class="da-modal">
-		<div class="da-modal-header">
-			<h2 class="da-modal-title">The 18 Logical Relationships</h2>
-			<button data-action="hide-lr" class="da-modal-close">×</button>
-		</div>
-		<div class="da-modal-body">
-			<div class="da-relationship-grid">
-				${RELATIONSHIP_GROUPS.map(g => `
-				<div>
-					<div class="da-relationship-group-title" style="background:${g.color};">${g.title}</div>
-					<div class="da-relationship-group-body">
-						${g.items.map(it => `
-						<div class="da-relationship-item">
-							<p><span class="da-relationship-term">${it.term} <span style="color:${g.color};">(${it.abbr})</span>:</span> ${it.def}</p>
-							<p class="da-relationship-conj"><span>Conjunctions:</span> ${it.conj}</p>
-							<p class="da-relationship-example">${it.example}</p>
-						</div>`).join("")}
-					</div>
-				</div>`).join("")}
-			</div>
-		</div>
-	</div>
-</div>
-<div id="resource-modal" class="da-modal-backdrop hidden">
-	<div class="da-modal">
-		<div class="da-modal-header">
-			<h2 class="da-modal-title">Discourse Analysis Resources</h2>
-			<button data-action="hide-resources" class="da-modal-close">×</button>
-		</div>
-		<div class="da-modal-body">
-			<div class="da-video-wrap">
-				<iframe width="560" height="315" src="https://www.youtube.com/embed/videoseries?si=r6RdCwzI3MgUnvlX&amp;list=PLMcXGoRTAIpZApAOJBP-M0BeMdDU_02Rk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-			</div>
-			<div class="da-video-wrap">
-				<iframe width="100%" height="100%" src="https://www.youtube.com/embed/videoseries?si=0xciDPsqyCsKt1GZ&amp;list=PLNbOazQtvR8fzM2-UhQRJicFMuf1VSoJO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-			</div>
-			${RESOURCE_LINKS.map(l => `<div class="da-resource-link-wrap"><button class="da-btn da-btn-accent" data-url="${l.url}" data-action="open-external">${l.label}</button></div>`).join("")}
-		</div>
-	</div>
-</div>`;
+		const header = this.contentEl.createDiv({ cls: "da-header" });
+		const headerLeft = header.createDiv({ cls: "da-header-left" });
+		headerLeft.createDiv({ cls: "da-logo", text: "∴" });
+		headerLeft.createEl("h1", { cls: "da-title", text: "Discourse Analysis" });
+
+		const headerRight = header.createDiv({ cls: "da-header-right" });
+		headerRight.createEl("button", { cls: "da-btn da-btn-primary", text: "💾", attr: { "data-action": "force-save", title: "Save", "aria-label": "Save" } });
+		headerRight.createEl("button", { cls: "da-btn", text: "🔗", attr: { "data-action": "show-lr", title: "Logical Relations", "aria-label": "Logical Relations" } });
+		headerRight.createEl("button", { cls: "da-btn", text: "📖", attr: { "data-action": "show-resources", title: "Resources", "aria-label": "Resources" } });
+		headerRight.createEl("button", { cls: "da-btn", text: "📷", attr: { "data-action": "export-png", title: "Export PNG", "aria-label": "Export PNG" } });
+		headerRight.createSpan({ cls: "da-label", text: "Colors" });
+		headerRight.createEl("button", { cls: "da-switch", attr: { id: "theme-toggle", role: "switch", "aria-checked": "false" } }, btn => {
+			btn.createSpan({ cls: "da-switch-thumb", attr: { id: "theme-thumb" } });
+		});
+		headerRight.createSpan({ cls: "da-label", text: "RTL" });
+		headerRight.createEl("button", { cls: "da-switch", attr: { id: "rtl-toggle", role: "switch", "aria-checked": "false" } }, btn => {
+			btn.createSpan({ cls: "da-switch-thumb", attr: { id: "rtl-thumb" } });
+		});
+		headerRight.createEl("button", { cls: "da-btn da-btn-support", text: "☕ Support", attr: { "data-action": "open-external", "data-url": "https://buymeacoffee.com/reformedretrieval" } });
+
+		const bodyEl = this.contentEl.createDiv({ cls: "da-body" });
+
+		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left", attr: { id: "left-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
+		const sidebarHeader = leftSidebar.createDiv({ cls: "da-sidebar-header" });
+		sidebarHeader.createEl("h2", { cls: "da-section-title", text: "Propositions" });
+		sidebarHeader.createEl("textarea", { cls: "da-textarea", attr: { id: "paste-area", rows: "3", placeholder: "Paste full passage here…" } });
+		const insertRow = sidebarHeader.createDiv({ cls: "da-row-gap" });
+		insertRow.createEl("button", { cls: "da-btn da-btn-primary da-flex1", text: "Insert Propositions", attr: { "data-action": "insert-props" } });
+		insertRow.createEl("button", { cls: "da-btn-square", text: "+", attr: { "data-action": "add-prop" } });
+		leftSidebar.createDiv({ cls: "da-prop-list", attr: { id: "sidebar-prop-list" } });
+		const leftFooter = leftSidebar.createDiv({ cls: "da-sidebar-footer" });
+		leftFooter.createDiv({ text: "Drag ⋮⋮ to reorder • Double-click in main area to split" });
+		leftFooter.createEl("button", { cls: "da-link-danger", text: "Clear All", attr: { "data-action": "clear-all" } });
+
+		bodyEl.createDiv({ cls: "da-resizer", attr: { id: "left-resizer" } });
+
+		const workspace = bodyEl.createDiv({ cls: "da-workspace", attr: { id: "workspace" } });
+		const diagramContainer = workspace.createDiv({ cls: "da-diagram-container", attr: { id: "diagram-container" } });
+		diagramContainer.createDiv({ cls: "da-overlay", attr: { "data-action": "deselect" } });
+		const workspaceScaler = diagramContainer.createDiv({ cls: "da-workspace-scaler", attr: { id: "workspace-scaler" } });
+		workspaceScaler.createSvg("svg", { cls: "da-bracket-svg", attr: { id: "bracket-svg", width: "365", height: "1200" } });
+		workspaceScaler.createDiv({ cls: "da-proposition-rows", attr: { id: "proposition-rows" } });
+
+		bodyEl.createDiv({ cls: "da-resizer", attr: { id: "right-resizer" } });
+
+		const rightSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-right", attr: { id: "right-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
+		rightSidebar.createEl("h2", { cls: "da-section-title", text: "Tools" });
+
+		const twoNodeBtn = rightSidebar.createEl("button", { cls: "da-btn da-btn-primary da-btn-block", attr: { "data-action": "add-blank-bracket" } });
+		this.appendBracketIcon(twoNodeBtn, [
+			{ tag: "rect", attr: { x: "2", y: "2", width: "6", height: "6", rx: "1.5" } },
+			{ tag: "rect", attr: { x: "2", y: "14", width: "6", height: "6", rx: "1.5" } },
+			{ tag: "line", attr: { x1: "8", y1: "5", x2: "16", y2: "5" } },
+			{ tag: "line", attr: { x1: "8", y1: "17", x2: "16", y2: "17" } },
+			{ tag: "line", attr: { x1: "16", y1: "5", x2: "16", y2: "17" } },
+			{ tag: "line", attr: { x1: "16", y1: "5", x2: "19", y2: "5" } },
+			{ tag: "line", attr: { x1: "16", y1: "17", x2: "19", y2: "17" } },
+		]);
+		twoNodeBtn.appendText("TWO-NODE BRACKET");
+
+		const singleNodeBtn = rightSidebar.createEl("button", { cls: "da-btn da-btn-primary da-btn-block", attr: { "data-action": "add-single-node-bracket" } });
+		this.appendBracketIcon(singleNodeBtn, [
+			{ tag: "rect", attr: { x: "2", y: "8", width: "6", height: "6", rx: "1.5" } },
+			{ tag: "line", attr: { x1: "8", y1: "11", x2: "16", y2: "11" } },
+			{ tag: "line", attr: { x1: "16", y1: "3", x2: "16", y2: "19" } },
+			{ tag: "line", attr: { x1: "16", y1: "3", x2: "19", y2: "3" } },
+			{ tag: "line", attr: { x1: "16", y1: "19", x2: "19", y2: "19" } },
+		]);
+		singleNodeBtn.appendText("SINGLE-NODE BRACKET");
+
+		const zoomRow = rightSidebar.createDiv({ cls: "da-zoom-row" });
+		zoomRow.createSpan({ cls: "da-label", text: "Zoom" });
+		zoomRow.createEl("button", { cls: "da-btn da-flex1", text: "−", attr: { "data-action": "zoom-out" } });
+		zoomRow.createSpan({ cls: "da-zoom-label", text: "100%", attr: { id: "zoom-label" } });
+		zoomRow.createEl("button", { cls: "da-btn da-flex1", text: "+", attr: { "data-action": "zoom-in" } });
+		zoomRow.createEl("button", { cls: "da-btn", text: "↺", attr: { "data-action": "zoom-reset" } });
+
+		const instructions = rightSidebar.createDiv({ cls: "da-instructions" });
+		instructions.createEl("strong", { text: "Operations:" });
+		instructions.createEl("br");
+		instructions.appendText("Right-click box = edit label");
+		instructions.createEl("br");
+		instructions.appendText("Select spine + Delete = remove bracket");
+		instructions.createEl("br");
+		instructions.appendText("Tab = indent selected proposition");
+		instructions.createEl("br");
+		instructions.appendText("Shift+Tab = decrease indent on selected proposition");
+		instructions.createEl("br");
+		instructions.appendText("Click whitespace (anywhere in work area) = deselect");
+		instructions.createEl("br");
+		instructions.appendText("Click + drag = pan workspace");
+
+		const bottomRow = rightSidebar.createDiv({ cls: "da-row-gap" });
+		bottomRow.createEl("button", { cls: "da-btn da-flex1 da-btn-block da-btn-warn", text: "Clear All Brackets", attr: { "data-action": "clear-brackets" } });
+		bottomRow.createEl("button", { cls: "da-btn da-flex1 da-btn-block da-btn-danger", text: "Reset Everything", attr: { "data-action": "reset-all" } });
+
+		const labelEditor = this.contentEl.createDiv({ cls: "da-label-editor", attr: { id: "label-editor", style: "display:none;" } });
+		labelEditor.createDiv({ cls: "da-label-editor-title", text: "EDIT LABEL" });
+		labelEditor.createEl("input", { cls: "da-label-editor-input", attr: { id: "lei", type: "text" } });
+		const labelEditorActions = labelEditor.createDiv({ cls: "da-label-editor-actions" });
+		labelEditorActions.createEl("button", { cls: "da-btn", text: "Cancel", attr: { id: "le-cancel" } });
+		labelEditorActions.createEl("button", { cls: "da-btn da-btn-primary", text: "OK", attr: { id: "le-ok" } });
+
+		const lrModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "lr-modal" } });
+		const lrModalInner = lrModal.createDiv({ cls: "da-modal" });
+		const lrModalHeader = lrModalInner.createDiv({ cls: "da-modal-header" });
+		lrModalHeader.createEl("h2", { cls: "da-modal-title", text: "The 18 Logical Relationships" });
+		lrModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-lr" } });
+		const lrModalBody = lrModalInner.createDiv({ cls: "da-modal-body" });
+		const relationshipGrid = lrModalBody.createDiv({ cls: "da-relationship-grid" });
+		for (const group of RELATIONSHIP_GROUPS) {
+			const groupEl = relationshipGrid.createDiv();
+			groupEl.createDiv({ cls: "da-relationship-group-title", text: group.title, attr: { style: `background:${group.color};` } });
+			const groupBody = groupEl.createDiv({ cls: "da-relationship-group-body" });
+			for (const item of group.items) {
+				const itemEl = groupBody.createDiv({ cls: "da-relationship-item" });
+				const termPara = itemEl.createEl("p");
+				const termSpan = termPara.createSpan({ cls: "da-relationship-term" });
+				termSpan.appendText(`${item.term} `);
+				termSpan.createSpan({ text: `(${item.abbr})`, attr: { style: `color:${group.color};` } });
+				termSpan.appendText(":");
+				termPara.appendText(` ${item.def}`);
+				const conjPara = itemEl.createEl("p", { cls: "da-relationship-conj" });
+				conjPara.createEl("span", { text: "Conjunctions:" });
+				conjPara.appendText(` ${item.conj}`);
+				itemEl.createEl("p", { cls: "da-relationship-example", text: item.example });
+			}
+		}
+
+		const resourceModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "resource-modal" } });
+		const resourceModalInner = resourceModal.createDiv({ cls: "da-modal" });
+		const resourceModalHeader = resourceModalInner.createDiv({ cls: "da-modal-header" });
+		resourceModalHeader.createEl("h2", { cls: "da-modal-title", text: "Discourse Analysis Resources" });
+		resourceModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-resources" } });
+		const resourceModalBody = resourceModalInner.createDiv({ cls: "da-modal-body" });
+		resourceModalBody.createDiv({ cls: "da-video-wrap" }).createEl("iframe", {
+			attr: {
+				width: "560", height: "315",
+				src: "https://www.youtube.com/embed/videoseries?si=r6RdCwzI3MgUnvlX&list=PLMcXGoRTAIpZApAOJBP-M0BeMdDU_02Rk",
+				title: "YouTube video player", frameborder: "0",
+				allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
+				referrerpolicy: "strict-origin-when-cross-origin", allowfullscreen: "true",
+			},
+		});
+		resourceModalBody.createDiv({ cls: "da-video-wrap" }).createEl("iframe", {
+			attr: {
+				width: "100%", height: "100%",
+				src: "https://www.youtube.com/embed/videoseries?si=0xciDPsqyCsKt1GZ&list=PLNbOazQtvR8fzM2-UhQRJicFMuf1VSoJO",
+				title: "YouTube video player", frameborder: "0",
+				allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
+				referrerpolicy: "strict-origin-when-cross-origin", allowfullscreen: "true",
+			},
+		});
+		for (const link of RESOURCE_LINKS) {
+			resourceModalBody.createDiv({ cls: "da-resource-link-wrap" })
+				.createEl("button", { cls: "da-btn da-btn-accent", text: link.label, attr: { "data-url": link.url, "data-action": "open-external" } });
+		}
 	}
 
 	// ---------- static event wiring (buttons that always exist) ----------
@@ -769,7 +791,13 @@ export class DAView extends TextFileView {
 	renderSidebarList(): void {
 		const container = this.byId("sidebar-prop-list");
 		if (!container) return;
-		container.innerHTML = this.propositions.length ? "" : `<div class="da-empty-hint">No propositions yet.<br>Paste and split above.</div>`;
+		container.empty();
+		if (this.propositions.length === 0) {
+			const hint = container.createDiv({ cls: "da-empty-hint" });
+			hint.createSpan({ text: "No propositions yet." });
+			hint.createEl("br");
+			hint.createSpan({ text: "Paste and split above." });
+		}
 
 		this.propositions.forEach((prop, i) => {
 			const row = document.createElement("div");
@@ -907,9 +935,12 @@ export class DAView extends TextFileView {
 	renderMainRows(): void {
 		const container = this.byId("proposition-rows");
 		if (!container) return;
-		container.innerHTML = "";
+		container.empty();
 		if (this.propositions.length === 0) {
-			container.innerHTML = `<div class="da-empty-hint da-empty-hint-main">Propositions appear here<br>Double-click any row to split at exact click location</div>`;
+			const hint = container.createDiv({ cls: "da-empty-hint da-empty-hint-main" });
+			hint.createSpan({ text: "Propositions appear here" });
+			hint.createEl("br");
+			hint.createSpan({ text: "Double-click any row to split at exact click location" });
 			return;
 		}
 
@@ -1076,7 +1107,7 @@ export class DAView extends TextFileView {
 
 		const h = Math.max(1200, scaler.scrollHeight);
 		svg.setAttribute("height", String(h));
-		svg.innerHTML = "";
+		svg.empty();
 
 		svg.style.left = this.isRTL ? "auto" : "0";
 		svg.style.right = this.isRTL ? "0" : "auto";
@@ -1630,7 +1661,16 @@ export class DAView extends TextFileView {
 		const text = ta.value.trim();
 		if (!text) return;
 		this.saveToHistory();
-		const parts = text.split(/(?<=[.?!;])\s+|\n+/g).map(p => p.trim()).filter(p => p.length > 0);
+		// Split after sentence-ending punctuation, or on line breaks. Written
+		// without a lookbehind (unsupported on iOS < 16.4) by first marking the
+		// split points, then splitting on the marker.
+		const SPLIT_MARKER = " ";
+		const parts = text
+			.replace(/([.?!;])\s+/g, `$1${SPLIT_MARKER}`)
+			.replace(/\n+/g, SPLIT_MARKER)
+			.split(SPLIT_MARKER)
+			.map(p => p.trim())
+			.filter(p => p.length > 0);
 		const newProps = parts.map((p, i) => ({ id: Date.now() + i, text: p, level: 0 }));
 		this.propositions = this.propositions.concat(newProps);
 		this.selectedIndices = [];
