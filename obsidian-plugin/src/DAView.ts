@@ -788,23 +788,31 @@ export class DAView extends TextFileView {
 
 	// ---------- sidebar list ----------
 
-	// Removing a focused contenteditable row from the DOM (in container.empty()
-	// below) fires a synchronous 'blur' event, whose handler
-	// (updatePropositionText) re-enters render*() to commit the edit. Doing
-	// that mid-teardown corrupts the in-progress DOM removal ("NotFoundError:
-	// node no longer a child") and aborts the outer render before it finishes
-	// (including, further up the call stack, any renderCanvas()/save() that
-	// was scheduled to run after it) - so force the blur to happen up front
-	// instead, on a clean call stack, before any DOM is touched.
-	private commitPendingEditWithin(container: HTMLElement): void {
-		const active = document.activeElement;
-		if (active instanceof HTMLElement && container.contains(active)) active.blur();
+	// Toggling which proposition is selected doesn't change any row's text or
+	// layout, only its highlight - so update that in place instead of going
+	// through a full render*() rebuild. A full rebuild replaces every row's
+	// DOM node, which always steals focus away from whatever the user just
+	// clicked into (breaking mid-click selection, or immediately un-focusing
+	// a row you meant to start editing) whether it runs synchronously or
+	// deferred a tick.
+	private refreshSelectionHighlighting(): void {
+		const sidebarContainer = this.byId("sidebar-prop-list");
+		if (sidebarContainer) {
+			Array.from(sidebarContainer.children).forEach((child, i) => {
+				child.classList.toggle("da-prop-row-selected", i === this.sidebarSelected);
+			});
+		}
+		const mainContainer = this.byId("proposition-rows");
+		if (mainContainer) {
+			Array.from(mainContainer.children).forEach((child, i) => {
+				child.classList.toggle("selected", this.selectedIndices.includes(i));
+			});
+		}
 	}
 
 	renderSidebarList(): void {
 		const container = this.byId("sidebar-prop-list");
 		if (!container) return;
-		this.commitPendingEditWithin(container);
 		container.empty();
 		if (this.propositions.length === 0) {
 			const hint = container.createDiv({ cls: "da-empty-hint" });
@@ -820,10 +828,8 @@ export class DAView extends TextFileView {
 			row.addEventListener("click", e => {
 				e.stopImmediatePropagation();
 				this.sidebarSelected = i;
-				this.renderSidebarList();
 				this.selectedIndices = [i];
-				this.renderMainRows();
-				this.renderCanvas();
+				this.refreshSelectionHighlighting();
 			});
 
 			const dragHandle = document.createElement("div");
@@ -910,7 +916,11 @@ export class DAView extends TextFileView {
 			textEl.className = "da-prop-text";
 			textEl.textContent = prop.text;
 			textEl.addEventListener("click", e => e.stopImmediatePropagation());
-			textEl.addEventListener("focus", () => { this.sidebarSelected = i; this.selectedIndices = [i]; });
+			textEl.addEventListener("focus", () => {
+				this.sidebarSelected = i;
+				this.selectedIndices = [i];
+				this.refreshSelectionHighlighting();
+			});
 			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl.innerText));
 
 			const delBtn = document.createElement("button");
@@ -941,7 +951,6 @@ export class DAView extends TextFileView {
 	renderMainRows(): void {
 		const container = this.byId("proposition-rows");
 		if (!container) return;
-		this.commitPendingEditWithin(container);
 
 		// Emptying the container mid-rebuild briefly collapses its height,
 		// which can make the scrollable workspace clamp its scroll position
@@ -1697,14 +1706,14 @@ export class DAView extends TextFileView {
 	handleMainRowClick(i: number): void {
 		if (this.selectedIndices.includes(i)) this.selectedIndices = this.selectedIndices.filter(idx => idx !== i);
 		else this.selectedIndices.push(i);
-		this.renderMainRows();
+		this.refreshSelectionHighlighting();
 	}
 
 	deselectAll(): void {
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
 		this.selectedCorners = [];
-		this.renderMainRows();
+		this.refreshSelectionHighlighting();
 		this.renderCanvas();
 	}
 
@@ -1755,9 +1764,21 @@ export class DAView extends TextFileView {
 		if (this.propositions[index]) {
 			this.saveToHistory();
 			this.propositions[index].text = newText.trim();
-			this.renderSidebarList();
-			this.renderMainRows();
-			this.renderCanvas();
+			// This runs from a 'blur' handler, which can itself fire
+			// synchronously in the middle of the browser's native
+			// mousedown -> focus-change -> mouseup -> click sequence for
+			// whatever the user clicked next (e.g. a different proposition).
+			// Rebuilding the row lists right here would replace the very DOM
+			// node that sequence is still tracking, silently dropping that
+			// click (its own selection update never runs, since the click
+			// event no longer has anywhere to land). Defer the rebuild past
+			// the current event so the in-flight click resolves normally
+			// first, on stable DOM.
+			window.setTimeout(() => {
+				this.renderSidebarList();
+				this.renderMainRows();
+				this.renderCanvas();
+			}, 0);
 		}
 	}
 
