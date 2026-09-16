@@ -526,7 +526,7 @@
 
 .da-tool-view .da-proposition-box {
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	gap: 0;
 	padding: 6px 12px;
 	width: max-content;
@@ -552,7 +552,6 @@
 	font-size: 0.72rem;
 	color: var(--da-faint);
 	width: 24px;
-	padding-top: 4px;
 	flex-shrink: 0;
 }
 
@@ -570,7 +569,6 @@
 	color: var(--da-border-strong);
 	font-size: 1.25rem;
 	line-height: 1;
-	margin-top: 1px;
 	cursor: pointer;
 	flex-shrink: 0;
 }
