@@ -1,7 +1,36 @@
-import { TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
+import { App, Modal, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import html2canvas from "html2canvas";
 
 export const VIEW_TYPE_DA = "da-tool-view";
+
+// Obsidian runs in Electron, where the blocking native window.confirm()
+// dialog can leave the workspace's keyboard focus broken afterward (typing
+// stops working anywhere in the app until it's reloaded). Use this instead
+// of confirm() for anything destructive.
+class ConfirmModal extends Modal {
+	constructor(app: App, private message: string, private onConfirm: () => void) {
+		super(app);
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.createEl("p", { text: this.message });
+		const buttonRow = contentEl.createDiv({ attr: { style: "display:flex; justify-content:flex-end; gap:8px; margin-top:12px;" } });
+
+		const cancelBtn = buttonRow.createEl("button", { text: "Cancel" });
+		cancelBtn.addEventListener("click", () => this.close());
+
+		const confirmBtn = buttonRow.createEl("button", { text: "Confirm", cls: "mod-warning" });
+		confirmBtn.addEventListener("click", () => {
+			this.close();
+			this.onConfirm();
+		});
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
 
 // Every color token the view's stylesheet exposes as a CSS custom property
 // (see styles.css, both the standard and .da-theme-adopt token blocks). The
@@ -209,6 +238,10 @@ export class DAView extends TextFileView {
 
 	private qsa<T extends Element = HTMLElement>(selector: string): T[] {
 		return Array.from(this.contentEl.querySelectorAll(selector)) as T[];
+	}
+
+	private confirmAction(message: string, onConfirm: () => void): void {
+		new ConfirmModal(this.app, message, onConfirm).open();
 	}
 
 	// ---------- TextFileView contract ----------
@@ -540,7 +573,7 @@ export class DAView extends TextFileView {
 			const isEditable = active ? active.isContentEditable : false;
 			if (tag !== "INPUT" && tag !== "TEXTAREA" && !isEditable) {
 				e.preventDefault();
-				if (confirm("Delete this bracket?")) {
+				this.confirmAction("Delete this bracket?", () => {
 					this.saveToHistory();
 					const removedId = this.selectedBracketId;
 					this.brackets = this.brackets.filter(b => b.id !== removedId);
@@ -548,7 +581,7 @@ export class DAView extends TextFileView {
 					this.selectedBracketId = null;
 					this.selectedCorners = [];
 					this.renderCanvas();
-				}
+				});
 			}
 		}
 
@@ -1462,7 +1495,7 @@ export class DAView extends TextFileView {
 		const hasBracketAndProp = this.selectedBracketId !== null && this.selectedIndices.length === 1;
 
 		if (!(hasTwoProps || hasCornerAndProp || hasBracketAndProp || this.selectedCorners.length === 2)) {
-			alert("Select two propositions, OR select a corner box and one proposition, OR select two corner boxes, then click ADD BLANK BRACKET.");
+			new Notice("Select two propositions, OR select a corner box and one proposition, OR select two corner boxes, then click ADD BLANK BRACKET.");
 			return;
 		}
 		this.saveToHistory();
@@ -1517,13 +1550,13 @@ export class DAView extends TextFileView {
 	addSingleNodeBracket(): void {
 		const totalSelected = this.selectedIndices.length + this.selectedCorners.length;
 		if (totalSelected < 2) {
-			alert("For a single-node bracket: select two or more propositions and/or corner boxes.");
+			new Notice("For a single-node bracket: select two or more propositions and/or corner boxes.");
 			return;
 		}
 
 		const cornerBracketIds = this.selectedCorners.map(c => c.bracketId);
 		if (new Set(cornerBracketIds).size < cornerBracketIds.length) {
-			alert("Cannot connect two corners from the same bracket.");
+			new Notice("Cannot connect two corners from the same bracket.");
 			return;
 		}
 
@@ -1641,41 +1674,42 @@ export class DAView extends TextFileView {
 	}
 
 	deleteProposition(i: number): void {
-		if (!confirm("Delete this proposition?")) return;
-		this.saveToHistory();
-		this.propositions.splice(i, 1);
+		this.confirmAction("Delete this proposition?", () => {
+			this.saveToHistory();
+			this.propositions.splice(i, 1);
 
-		this.brackets.forEach(b => {
-			if (!b.singleNode) return;
-			b.nodes = (b.nodes || [b.start, b.end]).filter(r => r !== i).map(r => (r > i ? r - 1 : r));
-			if (b.nodes.length >= 2) {
-				b.start = Math.min(...b.nodes);
-				b.end = Math.max(...b.nodes);
-			}
-		});
-
-		const removedIds = this.brackets
-			.filter(b => (b.singleNode ? (b.nodes as number[]).length < 2 : (b.start === i || b.end === i)))
-			.map(b => b.id);
-
-		this.brackets = this.brackets
-			.filter(b => !removedIds.includes(b.id))
-			.map(b => {
-				if (!b.singleNode) {
-					if (b.start > i) b.start--;
-					if (b.end > i) b.end--;
+			this.brackets.forEach(b => {
+				if (!b.singleNode) return;
+				b.nodes = (b.nodes || [b.start, b.end]).filter(r => r !== i).map(r => (r > i ? r - 1 : r));
+				if (b.nodes.length >= 2) {
+					b.start = Math.min(...b.nodes);
+					b.end = Math.max(...b.nodes);
 				}
-				if (b.attachToRow !== undefined && b.attachToRow > i) b.attachToRow--;
-				return b;
 			});
 
-		this.deparentReferencesTo(removedIds);
+			const removedIds = this.brackets
+				.filter(b => (b.singleNode ? (b.nodes as number[]).length < 2 : (b.start === i || b.end === i)))
+				.map(b => b.id);
 
-		if (this.sidebarSelected >= i) this.sidebarSelected = Math.max(-1, this.sidebarSelected - 1);
-		this.selectedIndices = this.selectedIndices.filter(idx => idx !== i).map(idx => (idx > i ? idx - 1 : idx));
-		this.renderSidebarList();
-		this.renderMainRows();
-		this.renderCanvas();
+			this.brackets = this.brackets
+				.filter(b => !removedIds.includes(b.id))
+				.map(b => {
+					if (!b.singleNode) {
+						if (b.start > i) b.start--;
+						if (b.end > i) b.end--;
+					}
+					if (b.attachToRow !== undefined && b.attachToRow > i) b.attachToRow--;
+					return b;
+				});
+
+			this.deparentReferencesTo(removedIds);
+
+			if (this.sidebarSelected >= i) this.sidebarSelected = Math.max(-1, this.sidebarSelected - 1);
+			this.selectedIndices = this.selectedIndices.filter(idx => idx !== i).map(idx => (idx > i ? idx - 1 : idx));
+			this.renderSidebarList();
+			this.renderMainRows();
+			this.renderCanvas();
+		});
 	}
 
 	splitProposition(index: number, event?: MouseEvent): void {
@@ -1732,28 +1766,30 @@ export class DAView extends TextFileView {
 	}
 
 	clearBracketsOnly(): void {
-		if (!confirm("Clear ALL brackets (propositions stay)?")) return;
-		this.saveToHistory();
-		this.brackets = [];
-		this.selectedBracketId = null;
-		this.selectedCorners = [];
-		this.renderCanvas();
+		this.confirmAction("Clear ALL brackets (propositions stay)?", () => {
+			this.saveToHistory();
+			this.brackets = [];
+			this.selectedBracketId = null;
+			this.selectedCorners = [];
+			this.renderCanvas();
+		});
 	}
 
 	resetAll(): void {
-		if (!confirm("Reset EVERYTHING (propositions + brackets)?")) return;
-		this.saveToHistory();
-		this.propositions = [];
-		this.brackets = [];
-		this.selectedIndices = [];
-		this.selectedBracketId = null;
-		this.selectedCorners = [];
-		this.sidebarSelected = -1;
-		const ta = this.byId<HTMLTextAreaElement>("paste-area");
-		if (ta) ta.value = "";
-		this.renderSidebarList();
-		this.renderMainRows();
-		this.renderCanvas();
+		this.confirmAction("Reset EVERYTHING (propositions + brackets)?", () => {
+			this.saveToHistory();
+			this.propositions = [];
+			this.brackets = [];
+			this.selectedIndices = [];
+			this.selectedBracketId = null;
+			this.selectedCorners = [];
+			this.sidebarSelected = -1;
+			const ta = this.byId<HTMLTextAreaElement>("paste-area");
+			if (ta) ta.value = "";
+			this.renderSidebarList();
+			this.renderMainRows();
+			this.renderCanvas();
+		});
 	}
 
 	clearAll(): void {
