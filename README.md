@@ -29,7 +29,7 @@ etc.).
 A discourse analysis diagram for 1 Thessalonians 2:13, showing nested brackets with logical
 relationship labels (G = ground, A = amplification, T = temporal, etc.):
 
-![Discourse analysis diagram for 1 Thessalonians 2:13, showing propositions connected by nested labeled brackets](assets/screenshot-diagram.png)
+![Discourse analysis diagram for 1 Thessalonians 2:13, showing propositions connected by nested labeled brackets](obsidian-plugin/assets/screenshot-diagram.png)
 
 ## Usage
 
@@ -56,13 +56,14 @@ The file saves automatically as part of Obsidian's normal save behavior — ther
 ## Development
 
 ```bash
+cd obsidian-plugin
 npm install
 npm run dev    # esbuild watch mode
 npm run build  # production build
 ```
 
-See the source in [`src/`](src/) — `main.ts` registers the `.da` view and commands, `DAView.ts`
-contains the diagramming engine.
+See the source in [`obsidian-plugin/src/`](obsidian-plugin/src/) — `main.ts` registers the `.da`
+view and commands, `DAView.ts` contains the diagramming engine.
 
 ## License
 
