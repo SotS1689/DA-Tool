@@ -1579,7 +1579,7 @@ export class DAView extends TextFileView {
 		const text = ta.value.trim();
 		if (!text) return;
 		this.saveToHistory();
-		const parts = text.split(/(?<=[.?!;])\s+|\n+/g).map(p => p.trim()).filter(p => p.length > 5);
+		const parts = text.split(/(?<=[.?!;])\s+|\n+/g).map(p => p.trim()).filter(p => p.length > 0);
 		this.propositions = parts.map((p, i) => ({ id: Date.now() + i, text: p, level: 0 }));
 		this.brackets = [];
 		this.selectedIndices = [];
