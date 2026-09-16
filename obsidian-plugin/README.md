@@ -24,6 +24,13 @@ Everything is stored as plain JSON inside the `.da` file itself, so diagrams are
 diffable, and work with whatever sync method you already use for your vault (Obsidian Sync, git,
 etc.).
 
+## Example
+
+A discourse analysis diagram for 1 Thessalonians 2:13, showing nested brackets with logical
+relationship labels (G = ground, A = amplification, T = temporal, etc.):
+
+![Discourse analysis diagram for 1 Thessalonians 2:13, showing propositions connected by nested labeled brackets](assets/screenshot-diagram.png)
+
 ## Usage
 
 1. Click the bracket icon in the ribbon (or run **Create new Discourse Analysis** from the command
