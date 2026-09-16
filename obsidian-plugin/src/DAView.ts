@@ -964,6 +964,26 @@ export class DAView extends TextFileView {
 			textEl.textContent = prop.text;
 			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl.innerText));
 
+			// Focusing a contenteditable element makes the browser auto-scroll
+			// its nearest scrollable ancestor (the panned workspace) to bring
+			// it fully into view. That's disorienting when panned far from the
+			// origin, so snap the pan position back to what it was right
+			// before the click-triggered focus.
+			let scrollBeforeFocus: { left: number; top: number } | null = null;
+			textEl.addEventListener("mousedown", () => {
+				const container = this.byId("diagram-container");
+				scrollBeforeFocus = container ? { left: container.scrollLeft, top: container.scrollTop } : null;
+			});
+			textEl.addEventListener("focus", () => {
+				if (!scrollBeforeFocus) return;
+				const container = this.byId("diagram-container");
+				if (container) {
+					container.scrollLeft = scrollBeforeFocus.left;
+					container.scrollTop = scrollBeforeFocus.top;
+				}
+				scrollBeforeFocus = null;
+			});
+
 			const delBtn = document.createElement("button");
 			delBtn.className = "da-row-del";
 			delBtn.textContent = "×";
@@ -1664,7 +1684,7 @@ export class DAView extends TextFileView {
 		// Split after sentence-ending punctuation, or on line breaks. Written
 		// without a lookbehind (unsupported on iOS < 16.4) by first marking the
 		// split points, then splitting on the marker.
-		const SPLIT_MARKER = " ";
+		const SPLIT_MARKER = "\u0000";
 		const parts = text
 			.replace(/([.?!;])\s+/g, `$1${SPLIT_MARKER}`)
 			.replace(/\n+/g, SPLIT_MARKER)
