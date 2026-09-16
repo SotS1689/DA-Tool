@@ -788,9 +788,23 @@ export class DAView extends TextFileView {
 
 	// ---------- sidebar list ----------
 
+	// Removing a focused contenteditable row from the DOM (in container.empty()
+	// below) fires a synchronous 'blur' event, whose handler
+	// (updatePropositionText) re-enters render*() to commit the edit. Doing
+	// that mid-teardown corrupts the in-progress DOM removal ("NotFoundError:
+	// node no longer a child") and aborts the outer render before it finishes
+	// (including, further up the call stack, any renderCanvas()/save() that
+	// was scheduled to run after it) - so force the blur to happen up front
+	// instead, on a clean call stack, before any DOM is touched.
+	private commitPendingEditWithin(container: HTMLElement): void {
+		const active = document.activeElement;
+		if (active instanceof HTMLElement && container.contains(active)) active.blur();
+	}
+
 	renderSidebarList(): void {
 		const container = this.byId("sidebar-prop-list");
 		if (!container) return;
+		this.commitPendingEditWithin(container);
 		container.empty();
 		if (this.propositions.length === 0) {
 			const hint = container.createDiv({ cls: "da-empty-hint" });
@@ -927,12 +941,30 @@ export class DAView extends TextFileView {
 	renderMainRows(): void {
 		const container = this.byId("proposition-rows");
 		if (!container) return;
+		this.commitPendingEditWithin(container);
+
+		// Emptying the container mid-rebuild briefly collapses its height,
+		// which can make the scrollable workspace clamp its scroll position
+		// to fit the (temporarily) shorter content - showing up as the pan
+		// position jumping every time a row is clicked/edited/reordered.
+		// Save and restore it around the rebuild so panning is unaffected.
+		const scrollContainer = this.byId("diagram-container");
+		const savedScroll = scrollContainer ? { left: scrollContainer.scrollLeft, top: scrollContainer.scrollTop } : null;
+		const restoreScroll = () => {
+			if (scrollContainer && savedScroll) {
+				scrollContainer.scrollLeft = savedScroll.left;
+				scrollContainer.scrollTop = savedScroll.top;
+			}
+		};
+
 		container.empty();
 		if (this.propositions.length === 0) {
 			const hint = container.createDiv({ cls: "da-empty-hint da-empty-hint-main" });
 			hint.createSpan({ text: "Propositions appear here" });
 			hint.createEl("br");
 			hint.createSpan({ text: "Double-click any row to split at exact click location" });
+			restoreScroll();
+			window.requestAnimationFrame(restoreScroll);
 			return;
 		}
 
@@ -960,20 +992,28 @@ export class DAView extends TextFileView {
 			// its nearest scrollable ancestor (the panned workspace) to bring
 			// it fully into view. That's disorienting when panned far from the
 			// origin, so snap the pan position back to what it was right
-			// before the click-triggered focus.
+			// before the click-triggered focus. Some browsers apply that
+			// auto-scroll synchronously, others defer it a frame, so restore
+			// it both immediately and again on the next frame to catch either
+			// case.
 			let scrollBeforeFocus: { left: number; top: number } | null = null;
 			textEl.addEventListener("mousedown", () => {
 				const container = this.byId("diagram-container");
 				scrollBeforeFocus = container ? { left: container.scrollLeft, top: container.scrollTop } : null;
 			});
 			textEl.addEventListener("focus", () => {
-				if (!scrollBeforeFocus) return;
-				const container = this.byId("diagram-container");
-				if (container) {
-					container.scrollLeft = scrollBeforeFocus.left;
-					container.scrollTop = scrollBeforeFocus.top;
-				}
+				const saved = scrollBeforeFocus;
 				scrollBeforeFocus = null;
+				if (!saved) return;
+				const restore = () => {
+					const container = this.byId("diagram-container");
+					if (container) {
+						container.scrollLeft = saved.left;
+						container.scrollTop = saved.top;
+					}
+				};
+				restore();
+				window.requestAnimationFrame(restore);
 			});
 
 			const delBtn = document.createElement("button");
@@ -986,6 +1026,9 @@ export class DAView extends TextFileView {
 			row.appendChild(delBtn);
 			container.appendChild(row);
 		});
+
+		restoreScroll();
+		window.requestAnimationFrame(restoreScroll);
 	}
 
 	// ---------- column assignment ----------
