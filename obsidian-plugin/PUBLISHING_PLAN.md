@@ -10,14 +10,16 @@ submitting an unreviewed, untested plugin wastes the reviewers' time and yours.
 
 ## 0. Current status
 
-Not started. Nothing in this section has been done yet:
-
-- [ ] No `README.md` in `obsidian-plugin/`
-- [ ] No `LICENSE` file in `obsidian-plugin/`
-- [ ] No `versions.json` in `obsidian-plugin/`
+- [x] Manual-install checklist in TESTING_AND_ROLLOUT.md passed (confirmed by SotS1689,
+      2026-09-16 — plugin has been in real use in the `CryptaMei` vault)
+- [x] `README.md` added in `obsidian-plugin/`
+- [x] `LICENSE` added in `obsidian-plugin/` (MIT, copyright SotS1689)
+- [x] `versions.json` added in `obsidian-plugin/` (`"0.1.0": "1.4.0"`)
+- [x] Plugin guidelines self-review (Step 3 below) done — see results inline below
 - [ ] No GitHub Release has ever been cut for this plugin
-- [ ] Plugin guidelines self-review (Step 3 below) not done
-- [ ] No PR opened against `obsidian-releases`
+- [ ] Not yet submitted via community.obsidian.md (see Step 6 — **the submission process
+      changed from a PR against `obsidian-releases` to a web form**; this doc has been updated
+      accordingly)
 
 ## 1. Required files to add (all live in `obsidian-plugin/`, alongside `manifest.json`)
 
@@ -48,11 +50,11 @@ lets Obsidian offer the right plugin version to users on older app versions inst
 refusing to install.
 
 ### `manifest.json` review
-Already present and mostly fine — double-check before submitting:
-- [ ] `id` (`da-tool`) doesn't collide with an existing entry in the community plugins list (search
-  https://github.com/obsidianmd/obsidian-releases/blob/master/community-plugins.json for `da-tool`)
-- [ ] `name` doesn't contain the word "Obsidian" (guideline violation)
-- [ ] `description` is one sentence, no marketing language, ends without a period per convention
+Already present and mostly fine — checked 2026-09-16:
+- [x] `id` (`da-tool`) doesn't collide with an existing entry and doesn't contain the word
+  `obsidian` (Obsidian's actual rule — checked against the live `community-plugins.json`)
+- [x] `name` (`Discourse Analysis Tool`) doesn't contain the word "Obsidian"
+- [x] `description` is one sentence, no marketing language
 - [ ] Consider adding `"fundingUrl"` if desired (optional, not required)
 
 ## 2. Repo layout consideration
@@ -70,19 +72,21 @@ Before submitting, read the official guidelines in full and check this plugin ag
 https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines
 
 Known areas worth double-checking given how this plugin was built (ported from a standalone HTML
-app — see TESTING_AND_ROLLOUT.md):
-- [ ] No use of `innerHTML`/`outerHTML` with unsanitized content (the original web app's DOM code
-      was ported fairly directly — audit `src/DAView.ts` for any raw HTML string construction,
-      especially around label editing and the Resources/Logical Relationships reference modals)
-- [ ] No global CSS selectors outside `.da-tool-view` scoping in `styles.css` (avoid leaking styles
-      into the rest of the user's Obsidian UI)
-- [ ] No hardcoded/absolute file paths — confirm PNG export (Step "Export" in the manual checklist)
-      uses the vault adapter API, not `fs`/Node paths directly
-- [ ] Commands and ribbon icons have clear, specific names (not generic "Open"/"Create")
-- [ ] `isDesktopOnly` is actually correct — `html2canvas` should work fine on mobile, so `false` is
-      likely right, but confirm by testing on Obsidian mobile (or explicitly decide mobile is
-      out of scope and set this `true` with a note why)
-- [ ] No telemetry/analytics/network calls added anywhere (there shouldn't be any — confirm)
+app — see TESTING_AND_ROLLOUT.md). Audited 2026-09-16:
+- [x] `innerHTML` usages in `src/DAView.ts` (lines ~364, 772, 910, 912, 1079) are all static markup
+      or `""`/empty-state strings — no user-supplied text is ever interpolated into HTML, so no
+      injection risk.
+- [x] All CSS selectors in `styles.css` are scoped under `.da-` classes — no global/leaking
+      selectors.
+- [x] PNG export (`exportPNG` in `DAView.ts`) uses `this.app.vault.createBinary` /
+      `modifyBinary` — the vault adapter API — not raw `fs`/Node paths.
+- [x] Ribbon icon and command are both named "Create new Discourse Analysis" — clear and specific.
+- [x] `isDesktopOnly: false` left as-is; no mobile-specific blocker identified in code (drag/drop
+      touch behavior not separately verified — note this if mobile issues are reported later).
+- [x] No `fetch`/`XMLHttpRequest`/network calls anywhere in `src/` — confirmed via grep.
+- [ ] `npx tsc --noEmit` passes for this plugin's own code (only pre-existing errors are inside
+      `node_modules/obsidian/obsidian.d.ts` itself — a type-lib issue unrelated to this plugin —
+      confirmed 2026-09-16). `npm run build` also completes cleanly.
 
 ## 4. Cut a GitHub Release
 
@@ -114,24 +118,25 @@ missing files) before a reviewer ever sees them.
 
 ## 6. Submit to the Community Plugins directory
 
-1. Fork https://github.com/obsidianmd/obsidian-releases
-2. Edit `community-plugins.json`, add an entry at the end of the array:
-   ```json
-   {
-     "id": "da-tool",
-     "name": "Discourse Analysis Tool",
-     "author": "SotS1689",
-     "description": "Create and edit visual discourse-analysis bracket diagrams for biblical texts, natively in your vault.",
-     "repo": "SotS1689/DA-Tool"
-   }
-   ```
-3. Open a PR against `obsidian-releases`. Their bot runs automated checks (manifest validity,
-   release asset presence, etc.) — fix anything it flags.
-4. A human reviewer will eventually review the plugin code itself and may request changes (this is
-   normal and can take weeks to months — historically this queue is slow). Respond to review
-   comments as a normal PR review cycle.
-5. Once approved and merged, the plugin becomes installable/searchable from Settings → Community
-   plugins inside Obsidian, on any device, with in-app update notifications going forward.
+**This step changed since this plan was first written.** Submission is no longer a PR against
+`obsidian-releases`/`community-plugins.json` — it's now a web form. (Confirmed against
+https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin, checked 2026-09-16.)
+
+1. Go to https://community.obsidian.md and sign in with an Obsidian account (create one if you
+   don't have one — this is a regular account signup, not something to do on your behalf here).
+2. Link your GitHub account (`SotS1689`) to that Obsidian account.
+3. Add the plugin through the directory's submission interface, pointing it at
+   `SotS1689/DA-Tool` (the repo — the plugin's files live in the `obsidian-plugin/` subfolder,
+   which is fine since Obsidian pulls from Releases, not a repo path).
+4. The site runs automated checks against your `manifest.json` and latest Release and shows
+   guidance inline for anything that needs fixing.
+5. A human reviewer will eventually review the plugin code itself and may request changes (this is
+   normal and can take weeks to months — historically this queue is slow).
+6. Once approved, the plugin becomes installable/searchable from Settings → Community plugins
+   inside Obsidian, on any device, with in-app update notifications going forward.
+
+This step requires your own Obsidian account credentials and GitHub OAuth consent, so it has to be
+done by you directly in a browser rather than something done on your behalf.
 
 ## 7. After approval — ongoing maintenance
 
