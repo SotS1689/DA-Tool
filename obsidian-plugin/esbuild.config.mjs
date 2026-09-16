@@ -30,10 +30,26 @@ function copyToTestVault() {
 	}
 }
 
+// The Obsidian community-plugins submission/update validator reads
+// manifest.json from the repo ROOT of the default branch (separately from
+// the versioned manifest.json attached to each GitHub Release), so a copy
+// has to be kept in sync at ../manifest.json or submissions/updates fail
+// with "Could not find or validate a manifest".
+function syncRootManifest() {
+	try {
+		fs.copyFileSync(path.resolve("manifest.json"), path.resolve("..", "manifest.json"));
+	} catch (err) {
+		console.error("Failed to sync root manifest.json:", err.message);
+	}
+}
+
 const copyToVaultPlugin = {
 	name: "copy-to-test-vault",
 	setup(build) {
-		build.onEnd(copyToTestVault);
+		build.onEnd(() => {
+			copyToTestVault();
+			syncRootManifest();
+		});
 	},
 };
 

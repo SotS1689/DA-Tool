@@ -59,12 +59,24 @@ Already present and mostly fine — checked 2026-09-16:
 
 ## 2. Repo layout consideration
 
-`community-plugins.json` (in `obsidian-releases`) points at a whole GitHub repo
-(`SotS1689/DA-Tool`), and Obsidian pulls plugin files from that repo's **GitHub Releases**, not
-from a specific path in the repo — so having `obsidian-plugin/` as a subfolder of the larger
-DA-Tool repo (which also contains the standalone web app) is fine and does **not** require
-splitting into a separate repo. Just make sure release assets (Step 4) are the bare plugin files,
-built from `obsidian-plugin/`.
+Obsidian pulls the actual plugin files (`main.js`/`manifest.json`/`styles.css`) from GitHub
+**Releases**, not from a specific repo path — so having `obsidian-plugin/` as a subfolder of the
+larger DA-Tool repo (which also contains the standalone web app) is fine for that part, and does
+**not** require splitting into a separate repo.
+
+**However** — discovered 2026-09-16 while submitting via community.obsidian.md — the submission/
+update *validator* separately fetches `manifest.json` from the repo **root** of the default branch
+(`https://raw.githubusercontent.com/SotS1689/DA-Tool/main/manifest.json`), not from
+`obsidian-plugin/manifest.json`. Without a root-level copy, submission fails with:
+
+> Could not find or validate a manifest (manifest.json) in the repository.
+
+Fix applied: a copy of `manifest.json` now also lives at the **repo root**
+([`/manifest.json`](../manifest.json)), and `esbuild.config.mjs`'s build step
+(`syncRootManifest()`) copies `obsidian-plugin/manifest.json` there automatically on every
+`npm run build`, so it can't drift out of sync. **Still commit the root `manifest.json` change
+yourself after each version bump** — the build only writes the file locally, it doesn't git-add
+or push it.
 
 ## 3. Plugin guidelines self-review
 
