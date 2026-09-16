@@ -668,12 +668,12 @@ export class DAView extends TextFileView {
 				const scaledW = naturalW * this.zoomLevel;
 				if (scaledW < containerW) {
 					const tx = containerW - scaledW;
-					scaler.style.transform = `translateX(${tx}px) scale(${this.zoomLevel})`;
+					scaler.setCssStyles({ transform: `translateX(${tx}px) scale(${this.zoomLevel})` });
 				} else {
-					scaler.style.transform = `scale(${this.zoomLevel})`;
+					scaler.setCssStyles({ transform: `scale(${this.zoomLevel})` });
 				}
 			} else {
-				scaler.style.transform = `scale(${this.zoomLevel})`;
+				scaler.setCssStyles({ transform: `scale(${this.zoomLevel})` });
 			}
 		}
 		const label = this.byId("zoom-label");
@@ -822,22 +822,21 @@ export class DAView extends TextFileView {
 			dragHandle.addEventListener("mousedown", () => { row.draggable = true; });
 			row.addEventListener("dragend", () => { row.draggable = false; });
 
+			const clearDragBorders = (el: HTMLElement) => el.setCssStyles({ borderTop: "", borderBottom: "" });
+
 			row.addEventListener("dragstart", e => {
 				this.dragSrcIndex = i;
 				if (e.dataTransfer) {
 					e.dataTransfer.effectAllowed = "move";
 					e.dataTransfer.setData("text/plain", String(i));
 				}
-				setTimeout(() => { row.style.opacity = "0.4"; }, 0);
+				setTimeout(() => { row.setCssStyles({ opacity: "0.4" }); }, 0);
 			});
 
 			row.addEventListener("dragend", () => {
-				row.style.opacity = "";
+				row.setCssStyles({ opacity: "" });
 				row.draggable = false;
-				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => {
-					(r as HTMLElement).style.borderTop = "";
-					(r as HTMLElement).style.borderBottom = "";
-				});
+				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => clearDragBorders(r as HTMLElement));
 			});
 
 			row.addEventListener("dragover", e => {
@@ -845,24 +844,17 @@ export class DAView extends TextFileView {
 				if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 				const rect = row.getBoundingClientRect();
 				const midY = rect.top + rect.height / 2;
-				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => {
-					(r as HTMLElement).style.borderTop = "";
-					(r as HTMLElement).style.borderBottom = "";
-				});
-				if (e.clientY < midY) row.style.borderTop = "2px solid var(--da-accent)";
-				else row.style.borderBottom = "2px solid var(--da-accent)";
+				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => clearDragBorders(r as HTMLElement));
+				if (e.clientY < midY) row.setCssStyles({ borderTop: "2px solid var(--da-accent)" });
+				else row.setCssStyles({ borderBottom: "2px solid var(--da-accent)" });
 			});
 
-			row.addEventListener("dragleave", () => {
-				row.style.borderTop = "";
-				row.style.borderBottom = "";
-			});
+			row.addEventListener("dragleave", () => clearDragBorders(row));
 
 			row.addEventListener("drop", e => {
 				e.preventDefault();
 				e.stopImmediatePropagation();
-				row.style.borderTop = "";
-				row.style.borderBottom = "";
+				clearDragBorders(row);
 				if (this.dragSrcIndex === null || this.dragSrcIndex === i) return;
 
 				const rect = row.getBoundingClientRect();
@@ -948,7 +940,7 @@ export class DAView extends TextFileView {
 			const isSelected = this.selectedIndices.includes(i);
 			const row = document.createElement("div");
 			row.className = `da-proposition-box${isSelected ? " selected" : ""}`;
-			row.style.marginInlineStart = `${prop.level * 48}px`;
+			row.setCssStyles({ marginInlineStart: `${prop.level * 48}px` });
 			row.addEventListener("click", e => { e.stopImmediatePropagation(); this.handleMainRowClick(i); });
 			row.addEventListener("dblclick", e => { e.stopImmediatePropagation(); this.splitProposition(i, e as MouseEvent); });
 
@@ -1129,9 +1121,8 @@ export class DAView extends TextFileView {
 		svg.setAttribute("height", String(h));
 		svg.empty();
 
-		svg.style.left = this.isRTL ? "auto" : "0";
-		svg.style.right = this.isRTL ? "0" : "auto";
-		propRows.style.direction = this.isRTL ? "rtl" : "ltr";
+		svg.setCssStyles({ left: this.isRTL ? "auto" : "0", right: this.isRTL ? "0" : "auto" });
+		propRows.setCssStyles({ direction: this.isRTL ? "rtl" : "ltr" });
 
 		const rows = this.qsa<HTMLElement>("#proposition-rows > div");
 		if (rows.length === 0) return;
@@ -1165,10 +1156,12 @@ export class DAView extends TextFileView {
 		const bracketPadding = baseRightX + 5;
 
 		svg.setAttribute("width", String(svgWidth));
-		svg.style.width = `${svgWidth}px`;
+		svg.setCssStyles({ width: `${svgWidth}px` });
 
-		propRows.style.paddingLeft = isRTL ? "20px" : `${bracketPadding}px`;
-		propRows.style.paddingRight = isRTL ? `${bracketPadding}px` : "20px";
+		propRows.setCssStyles({
+			paddingLeft: isRTL ? "20px" : `${bracketPadding}px`,
+			paddingRight: isRTL ? `${bracketPadding}px` : "20px",
+		});
 
 		const COL_STEP = 72;
 
@@ -1500,7 +1493,7 @@ export class DAView extends TextFileView {
 		if (!panel || !input) return;
 
 		input.value = currentText || "";
-		panel.style.display = "block";
+		panel.setCssStyles({ display: "block" });
 
 		// The panel is positioned absolute within the view root rather than
 		// fixed to the viewport, since Obsidian sometimes applies a CSS
@@ -1509,12 +1502,11 @@ export class DAView extends TextFileView {
 		// transformed ancestor instead of the viewport.
 		const rootRect = this.contentEl.getBoundingClientRect();
 		let lx = clientX - rootRect.left, ly = clientY - rootRect.top;
-		panel.style.left = lx + "px";
-		panel.style.top = ly + "px";
-		requestAnimationFrame(() => {
+		panel.setCssStyles({ left: `${lx}px`, top: `${ly}px` });
+		window.requestAnimationFrame(() => {
 			const r = panel.getBoundingClientRect();
-			if (r.right > window.innerWidth) panel.style.left = (lx - r.width) + "px";
-			if (r.bottom > window.innerHeight) panel.style.top = (ly - r.height) + "px";
+			if (r.right > window.innerWidth) panel.setCssStyles({ left: `${lx - r.width}px` });
+			if (r.bottom > window.innerHeight) panel.setCssStyles({ top: `${ly - r.height}px` });
 		});
 		input.focus();
 		input.select();
@@ -1536,13 +1528,13 @@ export class DAView extends TextFileView {
 				else bracket.bottomLabel = newLabel;
 			}
 			this.selectedCorners = [];
-			panel.style.display = "none";
+			panel.setCssStyles({ display: "none" });
 			input.removeEventListener("keydown", onKey);
 			this.renderCanvas();
 		};
 
 		const cancelLabel = () => {
-			panel.style.display = "none";
+			panel.setCssStyles({ display: "none" });
 			input.removeEventListener("keydown", onKey);
 		};
 
@@ -1897,16 +1889,13 @@ export class DAView extends TextFileView {
 		const savedHeight = container.style.height;
 		const savedSvgW = svg ? svg.getAttribute("width") : null;
 
-		scaler.style.transform = "scale(1)";
-		scaler.style.transition = "none";
+		scaler.setCssStyles({ transform: "scale(1)", transition: "none" });
 
-		await new Promise(r => requestAnimationFrame(r));
-		await new Promise(r => requestAnimationFrame(r));
+		await new Promise(r => window.requestAnimationFrame(r));
+		await new Promise(r => window.requestAnimationFrame(r));
 
 		const padding = 50;
-		container.style.overflow = "visible";
-		container.style.width = "max-content";
-		container.style.height = "max-content";
+		container.setCssStyles({ overflow: "visible", width: "max-content", height: "max-content" });
 
 		const contentW = scaler.scrollWidth;
 		const contentH = scaler.scrollHeight;
@@ -1915,11 +1904,10 @@ export class DAView extends TextFileView {
 
 		if (svg) {
 			svg.setAttribute("width", String(contentW));
-			svg.style.width = contentW + "px";
+			svg.setCssStyles({ width: `${contentW}px` });
 		}
 
-		container.style.width = fullW + "px";
-		container.style.height = fullH + "px";
+		container.setCssStyles({ width: `${fullW}px`, height: `${fullH}px` });
 
 		try {
 			const canvas = await html2canvas(scaler, {
@@ -1958,15 +1946,12 @@ export class DAView extends TextFileView {
 			console.error("DA-Tool: PNG export failed:", err);
 			new Notice("PNG export failed — see console for details.");
 		} finally {
-			container.style.overflow = savedOverflow;
-			container.style.width = savedWidth;
-			container.style.height = savedHeight;
+			container.setCssStyles({ overflow: savedOverflow, width: savedWidth, height: savedHeight });
 			if (svg) {
 				if (savedSvgW !== null) svg.setAttribute("width", savedSvgW);
-				svg.style.width = "";
+				svg.setCssStyles({ width: "" });
 			}
-			scaler.style.transition = "";
-			scaler.style.transform = `scale(${savedZoom})`;
+			scaler.setCssStyles({ transition: "", transform: `scale(${savedZoom})` });
 		}
 	}
 
@@ -2026,8 +2011,7 @@ export class DAView extends TextFileView {
 		this.registerDomEvent(resizer, "mousedown", (e: MouseEvent) => {
 			startX = e.clientX;
 			startWidth = parseInt(sidebar.style.width, 10);
-			document.body.style.userSelect = "none";
-			document.body.style.cursor = "col-resize";
+			document.body.setCssStyles({ userSelect: "none", cursor: "col-resize" });
 
 			const onMouseMove = (ev: MouseEvent) => {
 				const delta = side === "left" ? ev.clientX - startX : startX - ev.clientX;
@@ -2035,12 +2019,11 @@ export class DAView extends TextFileView {
 					parseInt(sidebar.style.maxWidth, 10),
 					Math.max(parseInt(sidebar.style.minWidth, 10), startWidth + delta)
 				);
-				sidebar.style.width = newWidth + "px";
+				sidebar.setCssStyles({ width: `${newWidth}px` });
 			};
 
 			const onMouseUp = () => {
-				document.body.style.userSelect = "";
-				document.body.style.cursor = "";
+				document.body.setCssStyles({ userSelect: "", cursor: "" });
 				document.removeEventListener("mousemove", onMouseMove);
 				document.removeEventListener("mouseup", onMouseUp);
 			};

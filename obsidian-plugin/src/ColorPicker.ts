@@ -149,16 +149,13 @@ export function openColorPickerPopover(anchorEl: HTMLElement, initialHex: string
 		const hueRgb = hsvToRgb({ h: hsv.h, s: 100, v: 100 });
 		const hueHex = rgbToHex(hueRgb);
 
-		svBox.style.backgroundColor = hueHex;
-		svThumb.style.left = `${hsv.s}%`;
-		svThumb.style.top = `${100 - hsv.v}%`;
-		svThumb.style.backgroundColor = hex;
+		svBox.setCssStyles({ backgroundColor: hueHex });
+		svThumb.setCssStyles({ left: `${hsv.s}%`, top: `${100 - hsv.v}%`, backgroundColor: hex });
 
-		hueThumb.style.left = `${(hsv.h / 360) * 100}%`;
-		hueThumb.style.backgroundColor = hueHex;
+		hueThumb.setCssStyles({ left: `${(hsv.h / 360) * 100}%`, backgroundColor: hueHex });
 
-		circleSwatch.style.backgroundColor = hex;
-		squareSwatch.style.backgroundColor = hex;
+		circleSwatch.setCssStyles({ backgroundColor: hex });
+		squareSwatch.setCssStyles({ backgroundColor: hex });
 
 		hexTab.classList.toggle("da-cp-tab-active", mode === "hex");
 		rgbTab.classList.toggle("da-cp-tab-active", mode === "rgb");
@@ -263,11 +260,10 @@ export function openColorPickerPopover(anchorEl: HTMLElement, initialHex: string
 
 	// Position under the anchor, clamped to the viewport.
 	const anchorRect = anchorEl.getBoundingClientRect();
-	popover.style.left = `${anchorRect.left}px`;
-	popover.style.top = `${anchorRect.bottom + 6}px`;
+	popover.setCssStyles({ left: `${anchorRect.left}px`, top: `${anchorRect.bottom + 6}px` });
 	win.requestAnimationFrame(() => {
 		const r = popover.getBoundingClientRect();
-		if (r.right > win.innerWidth) popover.style.left = `${Math.max(8, win.innerWidth - r.width - 8)}px`;
-		if (r.bottom > win.innerHeight) popover.style.top = `${Math.max(8, anchorRect.top - r.height - 6)}px`;
+		if (r.right > win.innerWidth) popover.setCssStyles({ left: `${Math.max(8, win.innerWidth - r.width - 8)}px` });
+		if (r.bottom > win.innerHeight) popover.setCssStyles({ top: `${Math.max(8, anchorRect.top - r.height - 6)}px` });
 	});
 }
