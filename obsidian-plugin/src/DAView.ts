@@ -1386,12 +1386,12 @@ export class DAView extends TextFileView {
 			const y1 = nodeY[i].top;
 			const y2 = nodeY[i].bot;
 
-			const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+			const group = createSvg("g");
 
 			if (b.singleNode) {
 				const yCenter = nodeY[i].center;
 
-				const spineHit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+				const spineHit = createSvg("rect");
 				spineHit.setAttribute("x", String(leftX - 12));
 				spineHit.setAttribute("y", String(Math.min(y1, y2) - 2));
 				spineHit.setAttribute("width", "24");
@@ -1401,7 +1401,7 @@ export class DAView extends TextFileView {
 				spineHit.addEventListener("click", e => { e.stopImmediatePropagation(); this.selectedBracketId = b.id; this.selectedCorners = []; this.renderCanvas(); });
 				group.appendChild(spineHit);
 
-				const vertical = document.createElementNS("http://www.w3.org/2000/svg", "line");
+				const vertical = createSvg("line");
 				vertical.setAttribute("x1", String(leftX)); vertical.setAttribute("y1", String(y1));
 				vertical.setAttribute("x2", String(leftX)); vertical.setAttribute("y2", String(y2));
 				vertical.setAttribute("stroke", "var(--da-muted)"); vertical.setAttribute("stroke-width", "2.5");
@@ -1411,7 +1411,7 @@ export class DAView extends TextFileView {
 				nodeRows.forEach(row => {
 					const armY = this.getInterpolatedRowY(rowYs, row);
 					const aRightX = armEndXForRow(i, row);
-					const arm = document.createElementNS("http://www.w3.org/2000/svg", "line");
+					const arm = createSvg("line");
 					arm.setAttribute("x1", String(leftX)); arm.setAttribute("y1", String(armY));
 					arm.setAttribute("x2", String(aRightX)); arm.setAttribute("y2", String(armY));
 					arm.setAttribute("stroke", "var(--da-muted)"); arm.setAttribute("stroke-width", "2.5");
@@ -1421,7 +1421,7 @@ export class DAView extends TextFileView {
 				this.createCornerBox(group, b.centerLabel || "", leftX, yCenter, true, b.id);
 
 				if (this.selectedBracketId === b.id || this.selectedCorners.some(c => c.bracketId === b.id)) {
-					const highlight = document.createElementNS("http://www.w3.org/2000/svg", "line");
+					const highlight = createSvg("line");
 					highlight.setAttribute("x1", String(leftX)); highlight.setAttribute("y1", String(y1));
 					highlight.setAttribute("x2", String(leftX)); highlight.setAttribute("y2", String(y2));
 					highlight.setAttribute("stroke", "var(--da-accent)"); highlight.setAttribute("stroke-width", "4");
@@ -1431,7 +1431,7 @@ export class DAView extends TextFileView {
 				const aRight1 = armEndX(i, true);
 				const aRight2 = armEndX(i, false);
 
-				const spineHit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+				const spineHit = createSvg("rect");
 				spineHit.setAttribute("x", String(leftX - 12));
 				spineHit.setAttribute("y", String(Math.min(y1, y2)));
 				spineHit.setAttribute("width", "24");
@@ -1441,19 +1441,19 @@ export class DAView extends TextFileView {
 				spineHit.addEventListener("click", e => { e.stopImmediatePropagation(); this.selectedBracketId = b.id; this.selectedCorners = []; this.renderCanvas(); });
 				group.appendChild(spineHit);
 
-				const vertical = document.createElementNS("http://www.w3.org/2000/svg", "line");
+				const vertical = createSvg("line");
 				vertical.setAttribute("x1", String(leftX)); vertical.setAttribute("y1", String(y1));
 				vertical.setAttribute("x2", String(leftX)); vertical.setAttribute("y2", String(y2));
 				vertical.setAttribute("stroke", "var(--da-muted)"); vertical.setAttribute("stroke-width", "2.5");
 				group.appendChild(vertical);
 
-				const topArm = document.createElementNS("http://www.w3.org/2000/svg", "line");
+				const topArm = createSvg("line");
 				topArm.setAttribute("x1", String(leftX)); topArm.setAttribute("y1", String(y1));
 				topArm.setAttribute("x2", String(aRight1)); topArm.setAttribute("y2", String(y1));
 				topArm.setAttribute("stroke", "var(--da-muted)"); topArm.setAttribute("stroke-width", "2.5");
 				group.appendChild(topArm);
 
-				const bottomArm = document.createElementNS("http://www.w3.org/2000/svg", "line");
+				const bottomArm = createSvg("line");
 				bottomArm.setAttribute("x1", String(leftX)); bottomArm.setAttribute("y1", String(y2));
 				bottomArm.setAttribute("x2", String(aRight2)); bottomArm.setAttribute("y2", String(y2));
 				bottomArm.setAttribute("stroke", "var(--da-muted)"); bottomArm.setAttribute("stroke-width", "2.5");
@@ -1463,7 +1463,7 @@ export class DAView extends TextFileView {
 				this.createCornerBox(group, b.bottomLabel || "", leftX, y2, false, b.id);
 
 				if (this.selectedBracketId === b.id || this.selectedCorners.some(c => c.bracketId === b.id)) {
-					const highlight = document.createElementNS("http://www.w3.org/2000/svg", "line");
+					const highlight = createSvg("line");
 					highlight.setAttribute("x1", String(leftX)); highlight.setAttribute("y1", String(y1));
 					highlight.setAttribute("x2", String(leftX)); highlight.setAttribute("y2", String(y2));
 					highlight.setAttribute("stroke", "var(--da-accent)"); highlight.setAttribute("stroke-width", "4");
@@ -1489,7 +1489,7 @@ export class DAView extends TextFileView {
 			connX2 = spineX;
 		}
 
-		const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+		const rect = createSvg("rect");
 		rect.setAttribute("x", String(boxX));
 		rect.setAttribute("y", String(y - size / 2));
 		rect.setAttribute("width", String(size));
@@ -1522,7 +1522,7 @@ export class DAView extends TextFileView {
 		group.appendChild(rect);
 
 		if (text) {
-			const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+			const txt = createSvg("text");
 			txt.setAttribute("x", String(boxX + size / 2));
 			txt.setAttribute("y", String(y));
 			txt.setAttribute("text-anchor", "middle");
@@ -1535,7 +1535,7 @@ export class DAView extends TextFileView {
 			group.appendChild(txt);
 		}
 
-		const connector = document.createElementNS("http://www.w3.org/2000/svg", "line");
+		const connector = createSvg("line");
 		connector.setAttribute("x1", String(connX1));
 		connector.setAttribute("y1", String(y));
 		connector.setAttribute("x2", String(connX2));
