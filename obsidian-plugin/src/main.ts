@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
-import { COLOR_TOKENS, DAToolSettings, DAView, VIEW_TYPE_DA } from "./DAView";
+import { COLOR_TOKENS, DA_TOOL_ICON, DAToolSettings, DAView, VIEW_TYPE_DA } from "./DAView";
 import { openColorPickerPopover } from "./ColorPicker";
 
 const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
@@ -129,7 +129,7 @@ export default class DAToolPlugin extends Plugin {
 		this.registerExtensions(["da"], VIEW_TYPE_DA);
 		this.addSettingTab(new DAToolSettingTab(this.app, this));
 
-		this.addRibbonIcon("brackets", "Create new Discourse Analysis", async () => {
+		this.addRibbonIcon(DA_TOOL_ICON, "Create new Discourse Analysis", async () => {
 			this.openCreateFileModal();
 		});
 

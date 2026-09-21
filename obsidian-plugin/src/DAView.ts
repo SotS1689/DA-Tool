@@ -1,7 +1,15 @@
-import { App, Modal, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
+import { addIcon, App, Modal, Scope, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import html2canvas from "html2canvas";
 
 export const VIEW_TYPE_DA = "da-tool-view";
+
+// The ribbon icon and the .da file tab both show this - a bolded "∴"
+// ("therefore"), matching the logical-relationship notation the tool itself
+// uses (see RELATIONSHIP_GROUPS below, where "∴" is the Inference abbreviation).
+// Obsidian's addIcon wraps whatever's passed in a 0 0 100 100 viewBox <svg>,
+// so the text is centered/sized against that box.
+export const DA_TOOL_ICON = "da-tool-therefore";
+addIcon(DA_TOOL_ICON, `<text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-size="82" font-weight="bold" fill="currentColor">∴</text>`);
 
 // Obsidian runs in Electron, where the blocking native window.confirm()
 // dialog can leave the workspace's keyboard focus broken afterward (typing
@@ -243,6 +251,45 @@ export class DAView extends TextFileView {
 	constructor(leaf: WorkspaceLeaf, plugin: DAToolPluginHost) {
 		super(leaf);
 		this.plugin = plugin;
+
+		// A plain DOM keydown listener on the canvas isn't enough: Obsidian's
+		// own Keymap intercepts Mod+B/Mod+I/Mod+U at the document level (to
+		// check them against global commands like core's "Toggle bold", bound
+		// to Mod+B by default) before the event ever reaches an element-level
+		// bubble listener. Assigning this.scope is the sanctioned override -
+		// Obsidian gives the active view's scope first refusal on key events,
+		// ahead of global command hotkeys, while the view has focus.
+		this.scope = new Scope(this.app.scope);
+		const bindFormatKey = (key: string, command: string) => {
+			this.scope!.register(["Mod"], key, (evt) => {
+				if (this.activeTab !== "sentenceflow") return;
+				evt.preventDefault();
+				document.execCommand(command);
+				this.updateNotesFormatButtonStates();
+				return false;
+			});
+		};
+		bindFormatKey("b", "bold");
+		bindFormatKey("i", "italic");
+		bindFormatKey("u", "underline");
+
+		// Same interception problem affects Mod+X: Obsidian's Keymap grabs it
+		// before the contenteditable's native cut handling ever sees it (Mod+C
+		// and Mod+V happen to pass through untouched). Unlike the format keys,
+		// cut is useful anywhere text is edited in this view - the Sentence
+		// Flow canvas, proposition text, bracket label editors - not just the
+		// Sentence Flow tab, so this checks for any focused editable element
+		// instead of gating on activeTab.
+		this.scope.register(["Mod"], "x", (evt) => {
+			const active = document.activeElement as HTMLElement | null;
+			const editable = !!active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
+			if (!editable) return;
+			evt.preventDefault();
+			document.execCommand("cut");
+			if (active === this.byId("notes-canvas")) this.scheduleNotesLayout(true);
+			this.requestSave();
+			return false;
+		});
 	}
 
 	getViewType(): string {
@@ -254,7 +301,7 @@ export class DAView extends TextFileView {
 	}
 
 	getIcon(): string {
-		return "brackets";
+		return DA_TOOL_ICON;
 	}
 
 	// ---------- scoped DOM helpers ----------
@@ -2290,8 +2337,10 @@ export class DAView extends TextFileView {
 			this.indentNotesParagraph(e.shiftKey ? -1 : 1);
 			return;
 		}
-		// Bold/Italic/Underline already work via the browser's default
-		// Ctrl+B/I/U in a contenteditable; nothing extra needed here.
+		// Bold/Italic/Underline are handled via this.scope (see the
+		// constructor), not here - a DOM keydown listener on the canvas fires
+		// too late to beat Obsidian's own Keymap, which intercepts Mod+B/I/U
+		// at the document level first.
 	}
 
 	// Increases/decreases the indent of whichever paragraph the caret is in,

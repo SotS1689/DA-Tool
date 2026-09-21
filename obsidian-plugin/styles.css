@@ -1063,3 +1063,45 @@
 	display: inline-block;
 	vertical-align: bottom;
 }
+
+/* ---------- File Explorer icon for .da files ---------- */
+
+/* Not scoped to .da-tool-view - the file explorer sidebar lives outside any
+ * open view. Obsidian doesn't expose a plugin API for per-extension file
+ * explorer icons, but every nav-file-title row carries the file's vault path
+ * as data-path (confirmed against Obsidian's own source), and already
+ * reserves a ::before slot on that element for a zero-width space used to
+ * keep row height consistent - this overrides that slot with a real glyph
+ * for .da files specifically, the same technique themes use for per-type
+ * file icons. currentColor keeps it in sync with the row's hover/active
+ * text color and the active theme, light or dark. */
+.nav-file-title[data-path$=".da"]::before {
+	content: "";
+	display: inline-block;
+	flex: 0 0 auto;
+	width: 14px;
+	height: 14px;
+	margin-inline-end: 4px;
+	background-color: currentColor;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' text-anchor='middle' dominant-baseline='central' font-size='82' font-weight='bold'%3E%E2%88%B4%3C/text%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' text-anchor='middle' dominant-baseline='central' font-size='82' font-weight='bold'%3E%E2%88%B4%3C/text%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* The AnuPpuccin theme's own "File Icons" feature (its "anp-file-icons" body
+ * class, toggled via Style Settings) already targets nav-file-title::before
+ * for its own per-extension icon set, with a fallback generic-file icon for
+ * any extension it doesn't recognize (.da isn't in its list). Its selector
+ * (.anp-file-icons .nav-file .nav-file-title[data-path$="..."]::before) is
+ * exactly as specific as this one, and its stylesheet loads after the
+ * plugin's, so it still won the tie on source order even after matching the
+ * selector. !important settles it regardless of load order - scoped to only
+ * these two mask properties on this one extension, so it can't clobber
+ * anything else the theme's rule sets (position/size/color are untouched and
+ * still come from the theme, keeping this visually consistent with every
+ * other file-type icon it renders). */
+.anp-file-icons .nav-file .nav-file-title[data-path$=".da"]::before {
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' text-anchor='middle' dominant-baseline='central' font-size='82' font-weight='bold'%3E%E2%88%B4%3C/text%3E%3C/svg%3E") !important;
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' text-anchor='middle' dominant-baseline='central' font-size='82' font-weight='bold'%3E%E2%88%B4%3C/text%3E%3C/svg%3E") !important;
+	-webkit-mask-repeat: no-repeat !important;
+	mask-repeat: no-repeat !important;
+}
