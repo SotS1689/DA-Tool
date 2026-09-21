@@ -2046,6 +2046,14 @@ export class DAView extends TextFileView {
 	}
 
 	splitProposition(index: number, event?: MouseEvent): void {
+		// Double-clicking a row focuses its contenteditable text div first.
+		// Rebuilding the row list below (renderMainRows) removes that focused
+		// element from the DOM, which fires its blur handler synchronously and
+		// re-saves its (unsplit) old text over whatever we just wrote here. Blur
+		// it now, before splitting, so that stale write happens first and is a
+		// harmless no-op instead of clobbering the split.
+		const active = document.activeElement as HTMLElement | null;
+		if (active && active.isContentEditable) active.blur();
 		this.saveToHistory();
 		const text = this.propositions[index].text;
 		let splitPos = Math.floor(text.length / 2);
