@@ -1033,13 +1033,26 @@
 	padding: 24px;
 }
 
+/* Georgia has no glyphs for the polytonic Greek "varia" (grave-accent)
+ * letters in the Greek Extended block (U+1F70-U+1FFF) - Chromium doesn't
+ * cleanly fall through to the next font in the stack for those code points,
+ * it renders a broken/detached accent instead. Route just that Unicode
+ * range to a font that does have full polytonic coverage, so Greek pasted
+ * into Sentence Flow (e.g. from Bible software) renders correctly while
+ * everything else still uses Georgia. */
+@font-face {
+	font-family: "DA Sentence Flow Greek";
+	src: local("Times New Roman"), local("Cardo"), local("Gentium Plus");
+	unicode-range: U+0370-03FF, U+1F00-1FFF;
+}
+
 .da-tool-view .da-sf-canvas {
 	min-height: 100%;
 	background: var(--da-surface);
 	border: 1px solid var(--da-border);
 	border-radius: 4px;
 	color: var(--da-text);
-	font-family: Georgia, "Times New Roman", serif;
+	font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif;
 	font-size: 1rem;
 	line-height: 1.6;
 	white-space: pre-wrap;

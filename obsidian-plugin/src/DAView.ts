@@ -123,7 +123,7 @@ interface NotesData {
 }
 
 function emptyNotesData(): NotesData {
-	return { lines: [], defaultTabWidth: 48 };
+	return { lines: [], defaultTabWidth: 24 };
 }
 
 // A bracket's parent ids, regardless of whether they were recorded in the
@@ -231,7 +231,7 @@ export class DAView extends TextFileView {
 
 	activeTab: "brackets" | "sentenceflow" = "brackets";
 	notesLines: NotesLine[] = [];
-	notesDefaultTabWidth = 48;
+	notesDefaultTabWidth = 24;
 
 	private loaded = false;
 	private domBuilt = false;
@@ -308,7 +308,7 @@ export class DAView extends TextFileView {
 		this.isRTL = parsed.isRTL || false;
 		const notes = parsed.notes || emptyNotesData();
 		this.notesLines = notes.lines || [];
-		this.notesDefaultTabWidth = notes.defaultTabWidth || 48;
+		this.notesDefaultTabWidth = notes.defaultTabWidth || 24;
 		this.migrateSingleNodeBrackets();
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
@@ -334,7 +334,7 @@ export class DAView extends TextFileView {
 		this.zoomLevel = empty.zoomLevel;
 		this.isRTL = empty.isRTL;
 		this.notesLines = [];
-		this.notesDefaultTabWidth = 48;
+		this.notesDefaultTabWidth = 24;
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
 		this.selectedCorners = [];
