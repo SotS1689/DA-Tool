@@ -1054,7 +1054,7 @@
 	color: var(--da-text);
 	font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif;
 	font-size: 1rem;
-	line-height: 1.6;
+	line-height: 1.0;
 	white-space: pre-wrap;
 	outline: none;
 }
