@@ -264,7 +264,7 @@ export class DAView extends TextFileView {
 			this.scope!.register(["Mod"], key, (evt) => {
 				if (this.activeTab !== "sentenceflow") return;
 				evt.preventDefault();
-				document.execCommand(command);
+				this.applySentenceFlowFormat(command);
 				this.updateNotesFormatButtonStates();
 				return false;
 			});
@@ -727,7 +727,7 @@ export class DAView extends TextFileView {
 			// the selection first would make Bold/Italic/Underline no-ops.
 			this.registerDomEvent(btn, "mousedown", (e: MouseEvent) => e.preventDefault());
 			this.registerDomEvent(btn, "click", () => {
-				document.execCommand(btn.dataset.fmt as string);
+				this.applySentenceFlowFormat(btn.dataset.fmt as string);
 				this.updateNotesFormatButtonStates();
 			});
 		});
@@ -2337,10 +2337,98 @@ export class DAView extends TextFileView {
 			this.indentNotesParagraph(e.shiftKey ? -1 : 1);
 			return;
 		}
+		if (e.key === "Enter" && !e.shiftKey) {
+			// Handled manually rather than letting the browser's default
+			// paragraph-insert action run: that action's own choice of whether
+			// to carry the original line <div>'s marginInlineStart over to the
+			// new <div> it creates isn't something this can rely on - it's
+			// internal rich-editing behavior that varies across Chromium
+			// versions, not a guaranteed contract (confirmed by testing: it
+			// preserves the indent in one Chromium build and not in Obsidian's
+			// bundled one). Splitting the DOM directly with Range.extractContents
+			// - a plain, version-independent DOM operation - and copying the
+			// indent onto the new line ourselves makes this deterministic
+			// instead of hoping the default action happens to do it.
+			e.preventDefault();
+			this.splitNotesLineAtCaret();
+			return;
+		}
 		// Bold/Italic/Underline are handled via this.scope (see the
 		// constructor), not here - a DOM keydown listener on the canvas fires
 		// too late to beat Obsidian's own Keymap, which intercepts Mod+B/I/U
 		// at the document level first.
+	}
+
+	// Splits the current line at the caret into two <div> lines. Everything
+	// from the caret to the end of the line is moved into a new line inserted
+	// right after it. Uses Range.extractContents() rather than
+	// execCommand("insertParagraph") (see the caller) - it correctly splits
+	// nested bold/italic/underline runs at the boundary on its own, same as
+	// the browser's default action would, without depending on that action's
+	// undocumented behavior.
+	private splitNotesLineAtCaret(): void {
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) return;
+		const line = this.getCurrentLine();
+		if (!line) return;
+
+		const caretRange = sel.getRangeAt(0);
+		if (!caretRange.collapsed) caretRange.deleteContents();
+
+		const afterRange = document.createRange();
+		afterRange.setStart(caretRange.startContainer, caretRange.startOffset);
+		afterRange.setEnd(line, line.childNodes.length);
+		const afterContent = afterRange.extractContents();
+
+		const newLine = document.createElement("div");
+
+		// The line's indent can come from two different places, and both need
+		// to carry over to the new line, matching Word:
+		// - a paragraph indent (Ctrl+M) is a style on the line <div> itself.
+		// - a leading Tab press is actual line content (a da-tab marker span),
+		//   not a style, so extractContents() above already left it behind in
+		//   `line` (the caret was typed after it) - it has to be cloned across
+		//   explicitly instead.
+		if (line.style.marginInlineStart) newLine.style.marginInlineStart = line.style.marginInlineStart;
+		for (const child of Array.from(line.childNodes)) {
+			if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).classList.contains("da-tab")) {
+				newLine.appendChild(child.cloneNode(true));
+			} else {
+				break;
+			}
+		}
+		const tabPrefixCount = newLine.childNodes.length;
+		newLine.appendChild(afterContent);
+
+		// extractContents() can leave a spurious empty text node in the
+		// fragment when the caret was exactly at the end of a text node (the
+		// common case for pressing Enter at the end of a line) - strip it, or
+		// the childNodes.length check below never sees an empty line and no
+		// <br> gets added.
+		Array.from(newLine.childNodes).forEach(n => {
+			if (n.nodeType === Node.TEXT_NODE && n.textContent === "") n.remove();
+		});
+		// An empty <div> with no <br> doesn't reliably get a caret-visible line
+		// box in a contenteditable - this combined with the above is what made
+		// splitting at the very end of a line (nothing left to move over) look
+		// like Enter did nothing at all.
+		if (newLine.childNodes.length === 0) newLine.appendChild(document.createElement("br"));
+		line.after(newLine);
+
+		// Recomputed against newLine's final children (after the empty-text-
+		// node cleanup above) rather than reusing a reference captured before
+		// it - that cleanup can detach the exact node a caret was pointed at,
+		// leaving the selection nowhere valid.
+		const caretTarget = newLine.childNodes[tabPrefixCount] as ChildNode | undefined;
+		const caret = document.createRange();
+		if (caretTarget) caret.setStart(caretTarget, 0);
+		else caret.setStart(newLine, newLine.childNodes.length);
+		caret.collapse(true);
+		sel.removeAllRanges();
+		sel.addRange(caret);
+
+		this.scheduleNotesLayout(true);
+		this.requestSave();
 	}
 
 	// Increases/decreases the indent of whichever paragraph the caret is in,
@@ -2598,6 +2686,70 @@ export class DAView extends TextFileView {
 			const active = document.queryCommandState(btn.dataset.fmt as string);
 			btn.classList.toggle("da-sf-fmt-btn-active", active);
 		});
+	}
+
+	// Shared by the toolbar buttons and the Mod+B/I/U scope handlers. Underline
+	// gets special treatment: applying it as-is to a double-click's "word plus
+	// trailing space" selection (or any selection with trailing whitespace)
+	// underlines that trailing space too, which looks wrong - Word and Google
+	// Docs both exclude it. Bold/Italic don't have this problem visually, so
+	// they're untouched.
+	private applySentenceFlowFormat(command: string): void {
+		if (command !== "underline" || document.queryCommandState("underline")) {
+			// Only the turning-on case needs the trim - toggling underline off
+			// again should clear it from the full selection as-is.
+			document.execCommand(command);
+			return;
+		}
+		const sel = window.getSelection();
+		if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+			const range = sel.getRangeAt(0).cloneRange();
+			this.trimTrailingWhitespaceFromRange(range);
+			sel.removeAllRanges();
+			sel.addRange(range);
+		}
+		document.execCommand("underline");
+	}
+
+	// Shrinks range's end past any trailing whitespace, so a following
+	// execCommand("underline") skips it. Only trims from the very end of the
+	// selection - whitespace between words stays included. Handles the common
+	// case (the trailing space lives in the same text node as the selection
+	// end, which is how a double-click "word " selection and most drag
+	// selections land) and hops back across formatting-span boundaries (b/i/u)
+	// under the canvas for the rarer case of a trailing run of whitespace split
+	// across nodes.
+	private trimTrailingWhitespaceFromRange(range: Range): void {
+		const canvas = this.byId("notes-canvas");
+		if (!canvas) return;
+
+		let container = range.endContainer;
+		let offset = range.endOffset;
+
+		while (container.nodeType === Node.TEXT_NODE) {
+			const text = container.textContent || "";
+			let cut = offset;
+			while (cut > 0 && /\s/.test(text[cut - 1])) cut--;
+
+			if (cut > 0) {
+				range.setEnd(container, cut);
+				return;
+			}
+			if (cut === offset) return; // nothing whitespace here to trim
+
+			if (container === range.startContainer && range.startOffset >= cut) return;
+
+			const walker = document.createTreeWalker(canvas, NodeFilter.SHOW_TEXT);
+			let prev: Text | null = null;
+			let node: Node | null;
+			while ((node = walker.nextNode())) {
+				if (node === container) break;
+				prev = node as Text;
+			}
+			if (!prev) { range.setEnd(container, 0); return; }
+			container = prev;
+			offset = (prev.textContent || "").length;
+		}
 	}
 
 	// ---------- Sentence Flow: load / save ----------

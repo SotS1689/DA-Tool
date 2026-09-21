@@ -1031,6 +1031,13 @@
 	min-height: 0;
 	overflow: auto;
 	padding: 24px;
+	/* Without this, the browser's native "scroll the caret into view" while
+	 * typing only scrolls the minimum distance needed to reveal the caret
+	 * line, ignoring this container's own padding - so once the content
+	 * overflows, each new line ends up flush against the bottom edge instead
+	 * of keeping the same breathing room visible at rest. This tells that
+	 * same native auto-scroll to always leave this much clearance. */
+	scroll-padding-bottom: 24px;
 }
 
 /* Georgia has no glyphs for the polytonic Greek "varia" (grave-accent)
@@ -1042,7 +1049,21 @@
  * everything else still uses Georgia. */
 @font-face {
 	font-family: "DA Sentence Flow Greek";
+	font-weight: normal;
 	src: local("Times New Roman"), local("Cardo"), local("Gentium Plus");
+	unicode-range: U+0370-03FF, U+1F00-1FFF;
+}
+
+/* Without this, bolded Greek (Ctrl+B) has no bold face registered for this
+ * family/weight, so the browser can't fall through to another family in the
+ * stack (that only happens on a missing glyph, not a missing weight) - it
+ * synthesizes ("faux") bold on the regular face instead, which reads as
+ * fuzzy/out-of-focus on a fine-stroked serif like Times New Roman. This gives
+ * bold Greek a real bold face to use instead of a synthesized one. */
+@font-face {
+	font-family: "DA Sentence Flow Greek";
+	font-weight: bold;
+	src: local("Times New Roman Bold"), local("Cardo Bold"), local("Gentium Plus Bold"), local("Times New Roman");
 	unicode-range: U+0370-03FF, U+1F00-1FFF;
 }
 
