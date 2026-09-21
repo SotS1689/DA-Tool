@@ -1185,7 +1185,19 @@ export class DAView extends TextFileView {
 			const isSelected = this.selectedIndices.includes(i);
 			const row = createDiv({ cls: `da-proposition-box${isSelected ? " selected" : ""}` });
 			row.setCssStyles({ marginInlineStart: `${prop.level * 48}px` });
-			row.addEventListener("click", e => { e.stopImmediatePropagation(); this.handleMainRowClick(i); });
+			// Toggling selection on "mousedown" rather than "click" matters when
+			// another row's text is currently focused: focus-shift (and this
+			// row's own blur handler, which fully rebuilds this list) happens as
+			// part of the browser's mousedown default action, *before* "click" is
+			// dispatched. If that rebuild replaces this row's element (which it
+			// does - it's a full renderMainRows()) between mousedown and mouseup,
+			// the browser can no longer deliver a "click" to it at all, since its
+			// mousedown target has been detached from the DOM. That made
+			// selecting a new row while another was being edited silently eat the
+			// first click (it only blurred the old row) and require a second one.
+			// Running the toggle on mousedown - before that rebuild happens -
+			// avoids the race entirely.
+			row.addEventListener("mousedown", e => { e.stopPropagation(); this.handleMainRowClick(i); });
 			row.addEventListener("dblclick", e => { e.stopImmediatePropagation(); this.splitProposition(i, e); });
 
 			const numEl = createDiv({ cls: "da-row-num", text: String(i + 1) });
@@ -1225,6 +1237,11 @@ export class DAView extends TextFileView {
 			});
 
 			const delBtn = createEl("button", { cls: "da-row-del", text: "×" });
+			// Selection now toggles on the row's mousedown (see above), so this
+			// has to stop that event from bubbling up too, or pressing delete
+			// would toggle this row into the selection an instant before
+			// deleting it.
+			delBtn.addEventListener("mousedown", e => e.stopPropagation());
 			delBtn.addEventListener("click", e => { e.stopImmediatePropagation(); this.deleteProposition(i); });
 
 			row.appendChild(numEl);

@@ -481,7 +481,18 @@
             propositions.forEach((prop, i) => {
                 const isSelected = selectedIndices.includes(i);
                 const indentStyle = `margin-inline-start: ${prop.level * 48}px;`;
-                const rowHTML = `<div class="flex items-start gap-0 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onclick="handleMainRowClick(${i}); event.stopImmediatePropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 w-6 pt-1">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-[15px] leading-tight outline-none min-h-[22px]">${prop.text}</div><button onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
+                // Selection toggles on mousedown, not click: if another row's text
+                // is currently focused, its blur handler (updatePropositionText)
+                // fully rebuilds this row list as part of the browser's mousedown
+                // default action, before "click" is ever dispatched. That rebuild
+                // replaces this row's element, so the browser can't deliver a
+                // click to it - the first press only blurs the old row, and
+                // selecting this one needs a second press. Toggling on mousedown
+                // runs before that rebuild, so the race never happens. The delete
+                // button stops mousedown from bubbling here too, or pressing it
+                // would toggle this row into the selection an instant before
+                // deleting it.
+                const rowHTML = `<div class="flex items-start gap-0 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onmousedown="handleMainRowClick(${i}); event.stopPropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 w-6 pt-1">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-[15px] leading-tight outline-none min-h-[22px]">${prop.text}</div><button onmousedown="event.stopPropagation();" onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
                 container.innerHTML += rowHTML;
             });
         }
