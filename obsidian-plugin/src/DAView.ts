@@ -2388,6 +2388,13 @@ export class DAView extends TextFileView {
 		afterRange.setEnd(line, line.childNodes.length);
 		const afterContent = afterRange.extractContents();
 
+		// When the caret sits at the very start of the line, extraction takes
+		// everything, leaving the original `line` with no children. A <br>-less
+		// empty <div> collapses to zero height in a contenteditable, so the new
+		// blank line above the (moved) text doesn't render at all - Enter looks
+		// like it did nothing. Same fix as the newLine case below.
+		if (line.childNodes.length === 0) line.appendChild(document.createElement("br"));
+
 		const newLine = document.createElement("div");
 
 		// The line's indent can come from two different places, and both need
