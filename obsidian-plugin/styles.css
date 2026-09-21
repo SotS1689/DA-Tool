@@ -920,3 +920,133 @@
 .da-cp-btn-cancel {
 	background: var(--color-red, #e03131);
 }
+
+/* ---------- tab strip (Brackets / Sentence Flow) ---------- */
+
+.da-tool-view .da-tab-strip {
+	flex-shrink: 0;
+	display: flex;
+	gap: 4px;
+	padding: 8px 24px 0;
+	background: var(--da-surface);
+	border-bottom: 1px solid var(--da-border);
+}
+
+.da-tool-view .da-tab-btn {
+	padding: 8px 16px;
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--da-muted);
+	border-radius: 6px 6px 0 0;
+	border-bottom: 2px solid transparent;
+}
+
+.da-tool-view .da-tab-btn:hover {
+	color: var(--da-text);
+	background: var(--da-row-bg);
+}
+
+.da-tool-view .da-tab-btn-active {
+	color: var(--da-accent);
+	border-bottom-color: var(--da-accent);
+}
+
+.da-tool-view .da-tab-panel {
+	flex: 1 1 0%;
+	min-height: 0;
+}
+
+.da-tool-view .da-tab-panel-hidden {
+	display: none !important;
+}
+
+/* ---------- Sentence Flow ---------- */
+
+.da-tool-view .da-sf-panel {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	background: var(--da-bg);
+}
+
+.da-tool-view .da-sf-toolbar {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 24px;
+	background: var(--da-surface);
+	border-bottom: 1px solid var(--da-border);
+}
+
+.da-tool-view .da-sf-fmt-btn {
+	width: 30px;
+	height: 30px;
+	border-radius: 6px;
+	border: 1px solid var(--da-border-strong);
+	background: var(--da-surface);
+	color: var(--da-text);
+	font-size: 0.85rem;
+}
+
+.da-tool-view .da-sf-fmt-btn:nth-of-type(2) {
+	font-style: italic;
+}
+
+.da-tool-view .da-sf-fmt-btn:nth-of-type(3) {
+	text-decoration: underline;
+}
+
+.da-tool-view .da-sf-fmt-btn:hover {
+	background: var(--da-row-bg);
+}
+
+.da-tool-view .da-sf-fmt-btn-active {
+	background: var(--da-accent-soft-bg);
+	border-color: var(--da-accent);
+	color: var(--da-accent);
+}
+
+.da-tool-view .da-sf-tabwidth {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-inline-start: 12px;
+	font-size: 0.8rem;
+	color: var(--da-muted);
+}
+
+.da-tool-view .da-sf-tabwidth-input {
+	width: 56px;
+	padding: 4px 6px;
+	border-radius: 6px;
+	border: 1px solid var(--da-border-strong);
+	background: var(--da-surface);
+	color: var(--da-text);
+	font-size: 0.8rem;
+}
+
+.da-tool-view .da-sf-canvas-wrap {
+	flex: 1 1 0%;
+	min-height: 0;
+	overflow: auto;
+	padding: 24px;
+}
+
+.da-tool-view .da-sf-canvas {
+	min-height: 100%;
+	background: var(--da-surface);
+	border: 1px solid var(--da-border);
+	border-radius: 4px;
+	color: var(--da-text);
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: 1rem;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	outline: none;
+}
+
+.da-tool-view .da-tab {
+	display: inline-block;
+	vertical-align: bottom;
+}

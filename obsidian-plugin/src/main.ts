@@ -172,6 +172,7 @@ export default class DAToolPlugin extends Plugin {
 			brackets: [],
 			zoomLevel: 1,
 			isRTL: false,
+			notes: { lines: [], defaultTabWidth: 48 },
 			timestamp: new Date().toISOString(),
 		};
 

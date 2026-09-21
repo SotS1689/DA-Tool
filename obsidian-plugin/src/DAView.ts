@@ -106,6 +106,26 @@ interface Corner {
 	isTop: boolean;
 }
 
+// A single run of text in a Sentence Flow line, or a tab marker that the
+// layout pass (layoutNotesTabs) resizes to land on the next tab stop.
+type NotesSegment =
+	| { kind: "text"; text: string; bold?: boolean; italic?: boolean; underline?: boolean }
+	| { kind: "tab" };
+
+interface NotesLine {
+	indent: number; // px, snapped to a tab-width multiple by indentNotesParagraph
+	segments: NotesSegment[];
+}
+
+interface NotesData {
+	lines: NotesLine[];
+	defaultTabWidth: number; // px; the fixed grid Tab/indent snap to
+}
+
+function emptyNotesData(): NotesData {
+	return { lines: [], defaultTabWidth: 48 };
+}
+
 // A bracket's parent ids, regardless of whether they were recorded in the
 // older singular parentBracketId/parentBracketId2 fields (two-node brackets)
 // or the parentBracketIds array (single-node brackets, which can have >2 parents).
@@ -119,6 +139,7 @@ interface ProjectData {
 	brackets: Bracket[];
 	zoomLevel: number;
 	isRTL: boolean;
+	notes: NotesData;
 	timestamp: string;
 }
 
@@ -193,7 +214,7 @@ const EXAMPLE_PROPOSITIONS: Proposition[] = [
 ];
 
 function emptyProjectData(): ProjectData {
-	return { propositions: [], brackets: [], zoomLevel: 1, isRTL: false, timestamp: new Date().toISOString() };
+	return { propositions: [], brackets: [], zoomLevel: 1, isRTL: false, notes: emptyNotesData(), timestamp: new Date().toISOString() };
 }
 
 export class DAView extends TextFileView {
@@ -208,9 +229,15 @@ export class DAView extends TextFileView {
 	isRTL = false;
 	dragSrcIndex: number | null = null;
 
+	activeTab: "brackets" | "sentenceflow" = "brackets";
+	notesLines: NotesLine[] = [];
+	notesDefaultTabWidth = 48;
+
 	private loaded = false;
 	private domBuilt = false;
 	private resizeObserver: ResizeObserver | null = null;
+	private notesLayoutScheduled = false;
+	private measureCtx: CanvasRenderingContext2D | null = null;
 	private plugin: DAToolPluginHost;
 
 	constructor(leaf: WorkspaceLeaf, plugin: DAToolPluginHost) {
@@ -247,11 +274,19 @@ export class DAView extends TextFileView {
 	// ---------- TextFileView contract ----------
 
 	getViewData(): string {
+		// The Sentence Flow canvas's DOM is the live source of truth while
+		// editing (browser-managed via execCommand), so pull it back into
+		// notesLines before serializing - otherwise saves would miss whatever
+		// was typed since the last sync.
+		if (this.domBuilt) {
+			this.notesLines = this.serializeNotesLines();
+		}
 		const data: ProjectData = {
 			propositions: this.propositions,
 			brackets: this.brackets,
 			zoomLevel: this.zoomLevel,
 			isRTL: this.isRTL,
+			notes: { lines: this.notesLines, defaultTabWidth: this.notesDefaultTabWidth },
 			timestamp: new Date().toISOString(),
 		};
 		return JSON.stringify(data, null, 2);
@@ -271,6 +306,9 @@ export class DAView extends TextFileView {
 		this.brackets = parsed.brackets || [];
 		this.zoomLevel = parsed.zoomLevel || 1;
 		this.isRTL = parsed.isRTL || false;
+		const notes = parsed.notes || emptyNotesData();
+		this.notesLines = notes.lines || [];
+		this.notesDefaultTabWidth = notes.defaultTabWidth || 48;
 		this.migrateSingleNodeBrackets();
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
@@ -285,6 +323,7 @@ export class DAView extends TextFileView {
 			this.renderMainRows();
 			this.renderCanvas();
 			this.applyZoom();
+			this.renderNotesTab();
 		}
 	}
 
@@ -294,6 +333,8 @@ export class DAView extends TextFileView {
 		this.brackets = empty.brackets;
 		this.zoomLevel = empty.zoomLevel;
 		this.isRTL = empty.isRTL;
+		this.notesLines = [];
+		this.notesDefaultTabWidth = 48;
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
 		this.selectedCorners = [];
@@ -312,6 +353,7 @@ export class DAView extends TextFileView {
 			this.renderMainRows();
 			this.renderCanvas();
 			this.applyZoom();
+			this.renderNotesTab();
 		}
 
 		// Edits call this.save() without waiting for the write to finish, so a
@@ -390,7 +432,11 @@ export class DAView extends TextFileView {
 		});
 		headerRight.createEl("button", { cls: "da-btn da-btn-support", text: "☕ Support", attr: { "data-action": "open-external", "data-url": "https://buymeacoffee.com/reformedretrieval" } });
 
-		const bodyEl = this.contentEl.createDiv({ cls: "da-body" });
+		const tabStrip = this.contentEl.createDiv({ cls: "da-tab-strip" });
+		tabStrip.createEl("button", { cls: "da-tab-btn da-tab-btn-active", text: "Brackets", attr: { "data-tab": "brackets" } });
+		tabStrip.createEl("button", { cls: "da-tab-btn", text: "Sentence Flow", attr: { "data-tab": "sentenceflow" } });
+
+		const bodyEl = this.contentEl.createDiv({ cls: "da-body da-tab-panel", attr: { id: "brackets-panel" } });
 
 		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left", attr: { id: "left-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
 		const sidebarHeader = leftSidebar.createDiv({ cls: "da-sidebar-header" });
@@ -466,6 +512,8 @@ export class DAView extends TextFileView {
 		bottomRow.createEl("button", { cls: "da-btn da-flex1 da-btn-block da-btn-warn", text: "Clear All Brackets", attr: { "data-action": "clear-brackets" } });
 		bottomRow.createEl("button", { cls: "da-btn da-flex1 da-btn-block da-btn-danger", text: "Reset Everything", attr: { "data-action": "reset-all" } });
 
+		this.buildSentenceFlowPanel();
+
 		const labelEditor = this.contentEl.createDiv({ cls: "da-label-editor", attr: { id: "label-editor", style: "display:none;" } });
 		labelEditor.createDiv({ cls: "da-label-editor-title", text: "EDIT LABEL" });
 		labelEditor.createEl("input", { cls: "da-label-editor-input", attr: { id: "lei", type: "text" } });
@@ -529,6 +577,32 @@ export class DAView extends TextFileView {
 		}
 	}
 
+	// Builds the "Sentence Flow" tab: a Word-like scratch canvas for pasting
+	// and editing a passage's raw text, where Tab always jumps to the next
+	// multiple of the configurable default tab width (see layoutNotesTabs)
+	// so tabbed text aligns into columns across lines, plus indent (Ctrl+M /
+	// Ctrl+Shift+M) and basic bold/italic/underline formatting.
+	private buildSentenceFlowPanel(): void {
+		const panel = this.contentEl.createDiv({ cls: "da-tab-panel da-tab-panel-hidden da-sf-panel", attr: { id: "sentenceflow-panel" } });
+
+		const toolbar = panel.createDiv({ cls: "da-sf-toolbar" });
+		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "B", attr: { "data-fmt": "bold", title: "Bold (Ctrl+B)", "aria-label": "Bold" } });
+		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "I", attr: { "data-fmt": "italic", title: "Italic (Ctrl+I)", "aria-label": "Italic" } });
+		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "U", attr: { "data-fmt": "underline", title: "Underline (Ctrl+U)", "aria-label": "Underline" } });
+
+		const tabWidthWrap = toolbar.createDiv({ cls: "da-sf-tabwidth" });
+		tabWidthWrap.createSpan({ text: "Default tab:" });
+		tabWidthWrap.createEl("input", {
+			cls: "da-sf-tabwidth-input",
+			attr: { id: "notes-default-tab-width", type: "number", min: "0.1", step: "0.1" },
+		});
+		tabWidthWrap.createSpan({ text: "in" });
+
+		const canvasWrap = panel.createDiv({ cls: "da-sf-canvas-wrap" });
+		const canvas = canvasWrap.createDiv({ cls: "da-sf-canvas", attr: { id: "notes-canvas", contenteditable: "true", spellcheck: "false" } });
+		canvas.tabIndex = 0;
+	}
+
 	// ---------- static event wiring (buttons that always exist) ----------
 
 	private wireStaticEvents(): void {
@@ -569,6 +643,64 @@ export class DAView extends TextFileView {
 		this.makeResizable("right-resizer", "right-sidebar", "right");
 
 		this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => this.handleKeydown(e));
+
+		this.qsa<HTMLButtonElement>(".da-tab-btn").forEach(btn => {
+			this.registerDomEvent(btn, "click", () => this.switchTab(btn.dataset.tab === "sentenceflow" ? "sentenceflow" : "brackets"));
+		});
+
+		this.wireSentenceFlowEvents();
+	}
+
+	// ---------- Sentence Flow tab ----------
+
+	private switchTab(tab: "brackets" | "sentenceflow"): void {
+		this.activeTab = tab;
+		this.qsa(".da-tab-btn").forEach(btn => btn.classList.toggle("da-tab-btn-active", btn.dataset.tab === tab));
+		this.byId("brackets-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "brackets");
+		this.byId("sentenceflow-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "sentenceflow");
+		if (tab === "sentenceflow") {
+			window.requestAnimationFrame(() => this.layoutNotesTabs());
+		} else {
+			window.requestAnimationFrame(() => this.renderCanvas());
+		}
+	}
+
+	private wireSentenceFlowEvents(): void {
+		const canvas = this.byId("notes-canvas");
+		if (canvas) {
+			this.registerDomEvent(canvas, "paste", (e: ClipboardEvent) => this.handleNotesPaste(e));
+			this.registerDomEvent(canvas, "keydown", (e: KeyboardEvent) => this.handleNotesKeydown(e));
+			this.registerDomEvent(canvas, "input", () => { this.scheduleNotesLayout(); this.requestSave(); });
+		}
+
+		this.qsa<HTMLButtonElement>("[data-fmt]").forEach(btn => {
+			// Prevent the toolbar button from stealing focus/selection away
+			// from the canvas before the click handler runs execCommand -
+			// execCommand acts on whatever is currently selected, so losing
+			// the selection first would make Bold/Italic/Underline no-ops.
+			this.registerDomEvent(btn, "mousedown", (e: MouseEvent) => e.preventDefault());
+			this.registerDomEvent(btn, "click", () => {
+				document.execCommand(btn.dataset.fmt as string);
+				this.updateNotesFormatButtonStates();
+			});
+		});
+
+		this.registerDomEvent(document, "selectionchange", () => {
+			if (this.activeTab === "sentenceflow" && document.activeElement?.id === "notes-canvas") {
+				this.updateNotesFormatButtonStates();
+			}
+		});
+
+		const tabWidthInput = this.byId<HTMLInputElement>("notes-default-tab-width");
+		if (tabWidthInput) {
+			this.registerDomEvent(tabWidthInput, "change", () => {
+				const inches = parseFloat(tabWidthInput.value);
+				if (!isNaN(inches) && inches > 0) this.notesDefaultTabWidth = Math.round(inches * 96);
+				this.syncNotesToolbarUi();
+				this.layoutNotesTabs();
+				this.requestSave();
+			});
+		}
 	}
 
 	private focusIsWithinThisView(): boolean {
@@ -583,6 +715,13 @@ export class DAView extends TextFileView {
 
 	private handleKeydown(e: KeyboardEvent): void {
 		if (!this.focusIsWithinThisView()) return;
+
+		// The Sentence Flow canvas handles its own Tab/Ctrl+Z/Ctrl+B etc. (see
+		// handleNotesKeydown) and relies on the browser's native contentEditable
+		// undo stack, so none of the Brackets-tab shortcuts below should run
+		// while focus is inside it.
+		const inNotesCanvas = !!(e.target as HTMLElement | null)?.closest?.("#notes-canvas");
+		if (inNotesCanvas) return;
 
 		if (e.key === "Tab" && (this.selectedIndices.length >= 1 || this.sidebarSelected >= 0)) {
 			e.preventDefault();
@@ -699,6 +838,11 @@ export class DAView extends TextFileView {
 		this.renderSidebarList();
 		this.renderMainRows();
 		this.renderCanvas();
+		const notesCanvas = this.byId("notes-canvas");
+		if (notesCanvas) {
+			notesCanvas.dir = this.isRTL ? "rtl" : "ltr";
+			this.layoutNotesTabs();
+		}
 		void this.save();
 	}
 
@@ -2124,5 +2268,363 @@ export class DAView extends TextFileView {
 	}
 	hideResources(): void {
 		this.byId("resource-modal")?.classList.add("hidden");
+	}
+
+	// ---------- Sentence Flow: editing ----------
+
+	private handleNotesKeydown(e: KeyboardEvent): void {
+		const mod = e.ctrlKey || e.metaKey;
+
+		if (e.key === "Tab") {
+			// Default contenteditable behavior for Tab moves focus to the next
+			// focusable element rather than inserting anything, so it has to be
+			// taken over entirely.
+			e.preventDefault();
+			this.insertNotesTabAtCaret();
+			this.scheduleNotesLayout(true);
+			this.requestSave();
+			return;
+		}
+		if (mod && (e.key === "m" || e.key === "M")) {
+			e.preventDefault();
+			this.indentNotesParagraph(e.shiftKey ? -1 : 1);
+			return;
+		}
+		// Bold/Italic/Underline already work via the browser's default
+		// Ctrl+B/I/U in a contenteditable; nothing extra needed here.
+	}
+
+	// Increases/decreases the indent of whichever paragraph the caret is in,
+	// snapping to the next/previous multiple of the default tab width -
+	// mirroring Word's Increase/Decrease Indent behavior.
+	private indentNotesParagraph(direction: 1 | -1): void {
+		const line = this.getCurrentLine();
+		if (!line) return;
+		const current = this.getLineMarginPx(line);
+		const target = direction > 0
+			? this.nextStop(current, this.notesDefaultTabWidth)
+			: this.prevStop(current, this.notesDefaultTabWidth);
+		if (target > 0) line.style.marginInlineStart = `${target}px`;
+		else line.style.removeProperty("margin-inline-start");
+		this.scheduleNotesLayout(true);
+		this.requestSave();
+	}
+
+	// Reads clipboard plain text only (formatting from other apps is
+	// intentionally dropped - Sentence Flow only supports bold/italic/
+	// underline, applied manually). Tab characters become da-tab markers so
+	// they participate in the tab-width grid alignment instead of rendering
+	// as a browser-default tab. Text runs go through execCommand("insertText"),
+	// which natively turns embedded newlines into new paragraphs (matching
+	// Enter) and stays in the native undo stack; tab markers are inserted
+	// via insertNotesTabAtCaret (see its comment for why, not execCommand).
+	private handleNotesPaste(e: ClipboardEvent): void {
+		const canvas = this.byId("notes-canvas");
+		if (!canvas || !canvas.contains(window.getSelection()?.anchorNode ?? null)) return;
+		const text = e.clipboardData?.getData("text/plain") ?? "";
+		if (!text) return;
+		e.preventDefault();
+
+		const parts = text.split("\t");
+		parts.forEach((part, i) => {
+			if (part.length > 0) document.execCommand("insertText", false, part);
+			if (i < parts.length - 1) this.insertNotesTabAtCaret();
+		});
+		this.scheduleNotesLayout(true);
+		this.requestSave();
+	}
+
+	// Inserts a single da-tab marker span at the caret via direct Range/
+	// Selection manipulation. This intentionally does NOT use
+	// execCommand("insertHTML"): Chromium can "isolate" an atomic
+	// (contenteditable=false) inline node inserted that way by promoting it
+	// into its own block, which shows up as an unwanted line break - exactly
+	// the bug this replaced (Tab appeared to insert a new line instead of a
+	// tab stop).
+	private insertNotesTabAtCaret(): void {
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) return;
+		const range = sel.getRangeAt(0);
+		range.deleteContents();
+
+		const span = document.createElement("span");
+		span.className = "da-tab";
+		span.contentEditable = "false";
+		span.textContent = "​";
+		range.insertNode(span);
+
+		const after = document.createRange();
+		after.setStartAfter(span);
+		after.collapse(true);
+		sel.removeAllRanges();
+		sel.addRange(after);
+	}
+
+	// Finds the <div> line (direct child of the canvas) containing the
+	// caret. Before the first Enter/paste, typed content sits as loose nodes
+	// directly under the canvas with no line div to indent - in that case,
+	// wrap whatever's there into one now so indentation has somewhere to live.
+	//
+	// Deliberately checks selection containment (canvas.contains(...)) rather
+	// than requiring `document.activeElement === canvas` by strict reference
+	// - that equality check turned out to be unreliable in Obsidian's
+	// Electron shell (it was the cause of Ctrl+M/Ctrl+Shift+M appearing to do
+	// nothing at all: this returned null every time, silently).
+	private getCurrentLine(): HTMLElement | null {
+		const canvas = this.byId("notes-canvas");
+		if (!canvas) return null;
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) return null;
+		const startContainer = sel.getRangeAt(0).startContainer;
+		if (!canvas.contains(startContainer)) return null;
+
+		let node: Node | null = startContainer;
+		while (node && node !== canvas) {
+			if (node.parentElement === canvas && (node as HTMLElement).tagName === "DIV") {
+				return node as HTMLElement;
+			}
+			node = node.parentNode;
+		}
+
+		// The caret's container isn't inside any line <div> - either there
+		// are none yet, or (most commonly) the caret is sitting directly on
+		// the canvas itself, e.g. right after a click into empty space below
+		// the last line. Previously this unconditionally moved *every*
+		// existing line into one brand-new div appended at the end, which
+		// could silently scramble/duplicate the whole document (this was the
+		// cause of a stray blank line appearing at the top after reopening
+		// the file). Only fall back to wrapping when there truly are no line
+		// divs at all; otherwise just pick the nearest existing one and
+		// leave every line's div exactly where it already is.
+		const divs = Array.from(canvas.children).filter(c => c.tagName === "DIV") as HTMLElement[];
+		if (divs.length > 0) {
+			if (startContainer === canvas) {
+				const offset = sel.getRangeAt(0).startOffset;
+				const atOrAfter = canvas.childNodes[offset] as HTMLElement | undefined;
+				if (atOrAfter && atOrAfter.tagName === "DIV") return atOrAfter;
+				const before = canvas.childNodes[offset - 1] as HTMLElement | undefined;
+				if (before && before.tagName === "DIV") return before;
+			}
+			return divs[divs.length - 1];
+		}
+
+		if (canvas.childNodes.length === 0) {
+			const empty = canvas.createDiv();
+			const r = document.createRange();
+			r.selectNodeContents(empty);
+			r.collapse(false);
+			sel.removeAllRanges();
+			sel.addRange(r);
+			return empty;
+		}
+
+		const div = document.createElement("div");
+		while (canvas.firstChild) div.appendChild(canvas.firstChild);
+		canvas.appendChild(div);
+		const r = document.createRange();
+		r.selectNodeContents(div);
+		r.collapse(false);
+		sel.removeAllRanges();
+		sel.addRange(r);
+		return div;
+	}
+
+	// Before the first Enter/paste, a line's content sits as loose nodes
+	// (text, da-tab spans, b/i/u) directly under the canvas rather than
+	// inside a <div> - most commonly true of the very first line. Since
+	// getNotesLines only ever returns <div> elements (it has to: callers walk
+	// each returned line's own childNodes independently), any such loose
+	// content had no line to belong to and was silently invisible to both
+	// serialization (dropped from what got saved - the "first line
+	// disappears on reopen" bug) and the tab-stop layout pass (never
+	// resized/aligned - the "Tab doesn't work on the first line" bug). This
+	// folds every run of loose top-level nodes into a real wrapper <div> -
+	// moving (not cloning) the nodes, so an active caret/selection inside
+	// them stays intact - before any caller looks at the line list.
+	private normalizeNotesCanvas(canvas: HTMLElement): void {
+		const children = Array.from(canvas.childNodes);
+		let run: ChildNode[] = [];
+		const flush = (beforeNode: ChildNode | null) => {
+			if (run.length === 0) return;
+			const wrapper = document.createElement("div");
+			canvas.insertBefore(wrapper, beforeNode);
+			run.forEach(n => wrapper.appendChild(n));
+			run = [];
+		};
+		for (const node of children) {
+			const isDiv = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "DIV";
+			if (isDiv) flush(node);
+			else run.push(node);
+		}
+		flush(null);
+	}
+
+	private getNotesLines(canvas: HTMLElement): HTMLElement[] {
+		this.normalizeNotesCanvas(canvas);
+		const divs = Array.from(canvas.children).filter(c => c.tagName === "DIV") as HTMLElement[];
+		return divs.length > 0 ? divs : [canvas];
+	}
+
+	private getLineMarginPx(line: HTMLElement): number {
+		if (line.id === "notes-canvas") return 0;
+		const n = parseFloat(line.style.marginInlineStart);
+		return isNaN(n) ? 0 : n;
+	}
+
+	// ---------- Sentence Flow: tab-stop layout ----------
+
+	// Real tab characters have no notion of "jump to this exact grid
+	// position" in CSS, so each line's da-tab markers are manually resized
+	// here: walk the line measuring text width with a canvas 2D context
+	// (matching each run's actual font/weight/style), and set every da-tab
+	// span's width so the running offset lands exactly on the next multiple
+	// of the default tab width.
+	layoutNotesTabs(): void {
+		const canvas = this.byId("notes-canvas");
+		if (!canvas) return;
+		if (!this.measureCtx) this.measureCtx = document.createElement("canvas").getContext("2d");
+		const ctx = this.measureCtx;
+		if (!ctx) return;
+
+		const defaultWidth = this.notesDefaultTabWidth;
+
+		this.getNotesLines(canvas).forEach(line => {
+			let x = this.getLineMarginPx(line);
+			const walk = (node: ChildNode) => {
+				if (node.nodeType === Node.TEXT_NODE) {
+					const text = node.textContent || "";
+					if (!text) return;
+					const el = node.parentElement || line;
+					const cs = getComputedStyle(el);
+					ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+					x += ctx.measureText(text).width;
+					return;
+				}
+				if (node.nodeType !== Node.ELEMENT_NODE) return;
+				const el = node as HTMLElement;
+				if (el.classList.contains("da-tab")) {
+					const target = this.nextStop(x, defaultWidth);
+					el.setCssStyles({ width: `${Math.max(4, target - x)}px` });
+					x = target;
+					return;
+				}
+				Array.from(el.childNodes).forEach(walk);
+			};
+			Array.from(line.childNodes).forEach(walk);
+		});
+	}
+
+	private scheduleNotesLayout(immediate = false): void {
+		if (immediate) { this.layoutNotesTabs(); return; }
+		if (this.notesLayoutScheduled) return;
+		this.notesLayoutScheduled = true;
+		window.requestAnimationFrame(() => {
+			this.notesLayoutScheduled = false;
+			this.layoutNotesTabs();
+		});
+	}
+
+	// Smallest/largest multiple of the default tab width strictly greater
+	// than/less than x (floored at 0) - there's no ruler to set custom stops
+	// on, so Tab and indent always snap to this fixed grid.
+	private nextStop(x: number, defaultWidth: number): number {
+		const EPS = 0.5;
+		const w = defaultWidth > 0 ? defaultWidth : 48;
+		return (Math.floor((x + EPS) / w) + 1) * w;
+	}
+
+	private prevStop(x: number, defaultWidth: number): number {
+		const EPS = 0.5;
+		const w = defaultWidth > 0 ? defaultWidth : 48;
+		return Math.max(0, (Math.ceil((x - EPS) / w) - 1) * w);
+	}
+
+	private syncNotesToolbarUi(): void {
+		const input = this.byId<HTMLInputElement>("notes-default-tab-width");
+		if (input) input.value = (this.notesDefaultTabWidth / 96).toFixed(2);
+	}
+
+	private updateNotesFormatButtonStates(): void {
+		this.qsa<HTMLButtonElement>("[data-fmt]").forEach(btn => {
+			const active = document.queryCommandState(btn.dataset.fmt as string);
+			btn.classList.toggle("da-sf-fmt-btn-active", active);
+		});
+	}
+
+	// ---------- Sentence Flow: load / save ----------
+
+	// (Re)builds the canvas DOM from notesLines using the same createEl-style
+	// DOM helpers as the rest of the view (no innerHTML), then re-runs the
+	// layout pass so tab markers land on the default-tab-width grid.
+	renderNotesTab(): void {
+		const canvas = this.byId("notes-canvas");
+		if (!canvas) return;
+		canvas.empty();
+
+		// Deliberately doesn't fall back to a placeholder empty line when
+		// notesLines is empty: leaving the canvas with zero children for a
+		// brand-new file matches what a plain, never-typed-into contenteditable
+		// looks like, and getNotesLines already treats "no line divs yet" as
+		// one implicit line (the canvas itself) for layout/serialization.
+		this.notesLines.forEach(line => {
+			const div = canvas.createDiv();
+			if (line.indent > 0) div.style.marginInlineStart = `${line.indent}px`;
+			line.segments.forEach(seg => {
+				if (seg.kind === "tab") {
+					const tab = div.createSpan({ cls: "da-tab" });
+					tab.contentEditable = "false";
+					tab.setText("​");
+					return;
+				}
+				let node: Node = document.createTextNode(seg.text);
+				if (seg.underline) { const u = document.createElement("u"); u.appendChild(node); node = u; }
+				if (seg.italic) { const i = document.createElement("i"); i.appendChild(node); node = i; }
+				if (seg.bold) { const b = document.createElement("b"); b.appendChild(node); node = b; }
+				div.appendChild(node);
+			});
+		});
+
+		canvas.dir = this.isRTL ? "rtl" : "ltr";
+		this.syncNotesToolbarUi();
+		window.requestAnimationFrame(() => this.layoutNotesTabs());
+	}
+
+	// Walks the live canvas DOM (as left behind by typing, execCommand
+	// formatting, Tab markers, and paste) back into the persisted NotesLine
+	// model. Adjacent text runs sharing the same bold/italic/underline state
+	// are coalesced into one segment.
+	private serializeNotesLines(): NotesLine[] {
+		const canvas = this.byId("notes-canvas");
+		if (!canvas) return this.notesLines;
+
+		return this.getNotesLines(canvas).map(lineEl => {
+			const segments: NotesSegment[] = [];
+
+			const walk = (node: ChildNode, bold: boolean, italic: boolean, underline: boolean) => {
+				if (node.nodeType === Node.TEXT_NODE) {
+					const text = node.textContent || "";
+					if (!text) return;
+					const last = segments[segments.length - 1];
+					if (last && last.kind === "text" && !!last.bold === bold && !!last.italic === italic && !!last.underline === underline) {
+						last.text += text;
+					} else {
+						segments.push({ kind: "text", text, bold, italic, underline });
+					}
+					return;
+				}
+				if (node.nodeType !== Node.ELEMENT_NODE) return;
+				const el = node as HTMLElement;
+				if (el.classList.contains("da-tab")) { segments.push({ kind: "tab" }); return; }
+				if (el.tagName === "BR") return;
+
+				const nextBold = bold || el.tagName === "B" || el.tagName === "STRONG";
+				const nextItalic = italic || el.tagName === "I" || el.tagName === "EM";
+				const nextUnderline = underline || el.tagName === "U";
+				Array.from(el.childNodes).forEach(c => walk(c, nextBold, nextItalic, nextUnderline));
+			};
+
+			Array.from(lineEl.childNodes).forEach(n => walk(n, false, false, false));
+			return { indent: this.getLineMarginPx(lineEl), segments };
+		});
 	}
 }
