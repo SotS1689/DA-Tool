@@ -19,6 +19,9 @@ you a canvas for building those diagrams:
 - Indent/outdent, drag-and-drop reorder, and undo/redo your edits
 - Zoom controls and a right-to-left mode for Hebrew text
 - Export the diagram as a PNG saved directly into your vault
+- Use the **Sentence Flow** tab for a Word-like text canvas to paste and format a passage's raw
+  text (bold/italic/underline, Tab-aligned columns via a configurable default tab stop) outside
+  the bracket diagram itself — including correct rendering of polytonic Greek accents
 
 Everything is stored as plain JSON inside the `.da` file itself, so diagrams are portable,
 diffable, and work with whatever sync method you already use for your vault (Obsidian Sync, git,
