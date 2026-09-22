@@ -128,10 +128,11 @@ interface NotesLine {
 interface NotesData {
 	lines: NotesLine[];
 	defaultTabWidth: number; // px; the fixed grid Tab/indent snap to
+	zoomLevel: number;
 }
 
 function emptyNotesData(): NotesData {
-	return { lines: [], defaultTabWidth: 24 };
+	return { lines: [], defaultTabWidth: 24, zoomLevel: 1 };
 }
 
 // A bracket's parent ids, regardless of whether they were recorded in the
@@ -240,6 +241,7 @@ export class DAView extends TextFileView {
 	activeTab: "brackets" | "sentenceflow" = "brackets";
 	notesLines: NotesLine[] = [];
 	notesDefaultTabWidth = 24;
+	notesZoomLevel = 1;
 
 	private loaded = false;
 	private domBuilt = false;
@@ -333,7 +335,7 @@ export class DAView extends TextFileView {
 			brackets: this.brackets,
 			zoomLevel: this.zoomLevel,
 			isRTL: this.isRTL,
-			notes: { lines: this.notesLines, defaultTabWidth: this.notesDefaultTabWidth },
+			notes: { lines: this.notesLines, defaultTabWidth: this.notesDefaultTabWidth, zoomLevel: this.notesZoomLevel },
 			timestamp: new Date().toISOString(),
 		};
 		return JSON.stringify(data, null, 2);
@@ -356,6 +358,7 @@ export class DAView extends TextFileView {
 		const notes = parsed.notes || emptyNotesData();
 		this.notesLines = notes.lines || [];
 		this.notesDefaultTabWidth = notes.defaultTabWidth || 24;
+		this.notesZoomLevel = notes.zoomLevel || 1;
 		this.migrateSingleNodeBrackets();
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
@@ -371,6 +374,7 @@ export class DAView extends TextFileView {
 			this.renderCanvas();
 			this.applyZoom();
 			this.renderNotesTab();
+			this.applyNotesZoom();
 		}
 	}
 
@@ -382,6 +386,7 @@ export class DAView extends TextFileView {
 		this.isRTL = empty.isRTL;
 		this.notesLines = [];
 		this.notesDefaultTabWidth = 24;
+		this.notesZoomLevel = 1;
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
 		this.selectedCorners = [];
@@ -401,6 +406,7 @@ export class DAView extends TextFileView {
 			this.renderCanvas();
 			this.applyZoom();
 			this.renderNotesTab();
+			this.applyNotesZoom();
 		}
 
 		// Edits call this.save() without waiting for the write to finish, so a
@@ -529,6 +535,12 @@ export class DAView extends TextFileView {
 			attr: { id: "notes-default-tab-width", type: "number", min: "0.1", step: "0.1" },
 		});
 		tabWidthWrap.createSpan({ text: "in" });
+
+		const sfZoomRow = sfToolbar.createDiv({ cls: "da-zoom-row" });
+		sfZoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "−", attr: { "data-action": "sf-zoom-out", title: "Zoom Out", "aria-label": "Zoom Out" } });
+		sfZoomRow.createSpan({ cls: "da-zoom-label", text: "100%", attr: { id: "sf-zoom-label" } });
+		sfZoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "+", attr: { "data-action": "sf-zoom-in", title: "Zoom In", "aria-label": "Zoom In" } });
+		sfZoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↺", attr: { "data-action": "sf-zoom-reset", title: "Reset Zoom", "aria-label": "Reset Zoom" } });
 
 		const bodyEl = this.contentEl.createDiv({ cls: "da-body da-tab-panel", attr: { id: "brackets-panel" } });
 
@@ -675,6 +687,9 @@ export class DAView extends TextFileView {
 		on("zoom-out", () => this.adjustZoom(-0.1));
 		on("zoom-in", () => this.adjustZoom(0.1));
 		on("zoom-reset", () => this.resetZoom());
+		on("sf-zoom-out", () => this.adjustNotesZoom(-0.1));
+		on("sf-zoom-in", () => this.adjustNotesZoom(0.1));
+		on("sf-zoom-reset", () => this.resetNotesZoom());
 		on("clear-brackets", () => this.clearBracketsOnly());
 		on("reset-all", () => this.resetAll());
 		on("deselect", () => this.deselectAll());
@@ -850,25 +865,53 @@ export class DAView extends TextFileView {
 	}
 
 	applyZoom(): void {
+		// workspace-scaler has min-width:100% (see styles.css), so it always
+		// spans at least the full container width even when the diagram
+		// itself is narrower - a plain scale() from a fixed corner is enough
+		// to keep that corner pinned at every zoom level, LTR or RTL. This
+		// used to also translateX() the scaler to flush it against the
+		// opposite edge whenever the zoomed-out diagram got narrower than the
+		// container, which made the pinned corner visibly jump around as you
+		// zoomed - removed in favor of a single consistent anchor.
 		const scaler = this.byId("workspace-scaler");
-		const container = this.byId("diagram-container");
 		if (scaler) {
-			if (!this.isRTL && this.zoomLevel < 1 && container) {
-				const containerW = container.clientWidth;
-				const naturalW = scaler.offsetWidth;
-				const scaledW = naturalW * this.zoomLevel;
-				if (scaledW < containerW) {
-					const tx = containerW - scaledW;
-					scaler.setCssStyles({ transform: `translateX(${tx}px) scale(${this.zoomLevel})` });
-				} else {
-					scaler.setCssStyles({ transform: `scale(${this.zoomLevel})` });
-				}
-			} else {
-				scaler.setCssStyles({ transform: `scale(${this.zoomLevel})` });
-			}
+			scaler.setCssStyles({
+				transformOrigin: this.isRTL ? "top right" : "top left",
+				transform: `scale(${this.zoomLevel})`,
+			});
 		}
 		const label = this.byId("zoom-label");
 		if (label) label.textContent = Math.round(this.zoomLevel * 100) + "%";
+	}
+
+	// Sentence Flow has its own independent zoom level (notesZoomLevel), kept
+	// separate from the bracket workspace's zoomLevel since they're different
+	// canvases. The canvas's own width always fills its wrap (see
+	// .da-sf-canvas), so unlike the bracket workspace's variable-width
+	// diagram, a plain CSS transform-origin is enough to pin the anchor
+	// corner - no translateX/scroll bookkeeping needed: top-left in normal
+	// mode, top-right in Hebrew (RTL) mode, matching each mode's reading
+	// direction.
+	adjustNotesZoom(delta: number): void {
+		this.notesZoomLevel = Math.min(3, Math.max(0.3, Math.round((this.notesZoomLevel + delta) * 10) / 10));
+		this.applyNotesZoom();
+	}
+
+	resetNotesZoom(): void {
+		this.notesZoomLevel = 1;
+		this.applyNotesZoom();
+	}
+
+	applyNotesZoom(): void {
+		const canvas = this.byId("notes-canvas");
+		if (canvas) {
+			canvas.setCssStyles({
+				transformOrigin: this.isRTL ? "top right" : "top left",
+				transform: `scale(${this.notesZoomLevel})`,
+			});
+		}
+		const label = this.byId("sf-zoom-label");
+		if (label) label.textContent = Math.round(this.notesZoomLevel * 100) + "%";
 	}
 
 	private syncRtlToggleUi(): void {
@@ -895,6 +938,7 @@ export class DAView extends TextFileView {
 			notesCanvas.dir = this.isRTL ? "rtl" : "ltr";
 			this.layoutNotesTabs();
 		}
+		this.applyNotesZoom();
 		void this.save();
 	}
 

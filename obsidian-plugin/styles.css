@@ -1080,6 +1080,7 @@
 	line-height: 1.0;
 	white-space: pre-wrap;
 	outline: none;
+	transition: transform 0.15s ease;
 }
 
 .da-tool-view .da-tab {
