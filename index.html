@@ -49,12 +49,13 @@
     flex-direction: column;
     gap: 0.25rem;
     min-height: 100%;
-    display: inline-flex; 
+    display: inline-flex;
     width: max-content;
     min-width: 100%;
+}
 
 #diagram-container {
-    max-width: calc(100vw - 384px - 288px);
+    max-width: calc(100vw - 384px);
     overflow-x: auto;
     overflow-y: auto;
 }
@@ -63,7 +64,67 @@
     width: max-content;
 	min-width: 100%;
 	display: block;
-	
+	}
+
+	.app-shell { display: flex; flex-direction: column; height: 100vh; max-width: 1536px; margin: 0 auto; overflow: hidden; }
+	.app-body-row { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+
+	/* ---------- tab strip (Brackets / Sentence Flow) ---------- */
+	.tab-strip { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 32px 0; background: #fff; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+	.tab-strip-tabs { display: flex; gap: 4px; }
+	.tab-btn { padding: 8px 16px; font-size: 0.85rem; font-weight: 600; color: #64748b; border-radius: 8px 8px 0 0; border: none; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; }
+	.tab-btn:hover { color: #0f172a; background: #f8fafc; }
+	.tab-btn.active { color: #1e40af; border-bottom-color: #1e40af; }
+	.tab-toolbar { display: flex; align-items: center; gap: 6px; padding-bottom: 8px; flex-wrap: wrap; }
+	.tab-toolbar.toolbar-hidden { display: none !important; }
+	.tab-panel-hidden { display: none !important; }
+
+	.toolbar-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 12px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 0.8rem; font-weight: 500; cursor: pointer; }
+	.toolbar-btn:hover { border-color: #94a3b8; background: #f8fafc; }
+	.toolbar-btn-primary { background: #1e40af; border-color: #1e40af; color: #fff; }
+	.toolbar-btn-primary:hover { background: #1a3a9e; border-color: #1a3a9e; }
+	.toolbar-btn-warn { background: #fef3c7; }
+	.toolbar-btn-warn:hover { background: #fde68a; }
+	.toolbar-btn-danger { background: #fca5a5; }
+	.toolbar-btn-danger:hover { background: #f87171; }
+	.toolbar-btn-icon-only { width: 34px; padding: 6px; }
+	.toolbar-zoom { display: flex; align-items: center; gap: 4px; }
+	.toolbar-zoom-label { font-size: 0.8rem; color: #64748b; width: 36px; text-align: center; }
+
+	/* ---------- Sentence Flow ---------- */
+	.sf-panel { display: flex; flex-direction: column; overflow: hidden; background: #f8fafc; height: 100%; }
+	.sf-toolbar { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 10px 32px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+	.sf-fmt-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+	.sf-fmt-btn:nth-of-type(2) { font-style: italic; }
+	.sf-fmt-btn:nth-of-type(3) { text-decoration: underline; }
+	.sf-fmt-btn:hover { background: #f8fafc; }
+	.sf-fmt-btn.active { background: #eff6ff; border-color: #1e40af; color: #1e40af; }
+	.sf-tabwidth { display: flex; align-items: center; gap: 6px; margin-inline-start: 12px; font-size: 0.8rem; color: #64748b; }
+	.sf-tabwidth-input { width: 56px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem; }
+	.sf-canvas-wrap { flex: 1 1 0%; min-height: 0; overflow: auto; padding: 32px; }
+	.sf-canvas { min-height: 100%; max-width: 840px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); color: #0f172a; font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif; font-size: 1rem; line-height: 1.6; white-space: pre-wrap; outline: none; }
+	.da-tab { display: inline-block; vertical-align: bottom; }
+
+	/* Georgia (and most serif system fonts) lack glyphs for the polytonic Greek
+	 * "varia" letters in the Greek Extended block (U+1F70-1FFF); some browsers
+	 * render a broken/detached accent instead of falling through to the next
+	 * font in the stack. Route just that Unicode range to a font with full
+	 * polytonic coverage, leaving the serif stack for everything else. */
+	@font-face {
+		font-family: "DA Sentence Flow Greek";
+		src: local("Times New Roman"), local("Cardo"), local("Gentium Plus");
+		unicode-range: U+0370-03FF, U+1F00-1FFF;
+	}
+
+	.instructions-text { font-size: 0.85rem; line-height: 1.6; color: #0f172a; }
+
+	/* ---------- space-efficient proposition list (left sidebar) ---------- */
+	.prop-list-tight { padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+	.prop-row-tight { gap: 6px; padding: 2px 8px; border-radius: 10px; }
+	.prop-num-tight { width: 22px; height: 22px; border-radius: 12px; font-size: 0.72rem; }
+	.prop-text-tight { font-size: 0.64rem; line-height: 1.5; }
+	.prop-del-tight { width: 13px; height: 13px; font-size: 0.55rem; }
+
 	</style>
     <script>/*!
  * html2canvas 1.4.1 <https://html2canvas.hertzen.com>
@@ -101,7 +162,7 @@
     </style>
 <style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style><style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style></head>
 <body class="bg-slate-50">
-    <div class="max-w-screen-2xl mx-auto">
+    <div class="app-shell">
         <div class="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
             <div class="flex items-center gap-x-3">
                 <div class="w-9 h-9 bg-[#1e40af] rounded-2xl flex items-center justify-center text-white text-4xl font-bold leading-none pb-1.5">∴</div>
@@ -109,11 +170,10 @@
                 <span class="text-xs font-medium px-2.5 py-px bg-amber-100 text-amber-700 rounded-full">Free</span>
             </div>
             <div class="flex items-center gap-x-4 text-sm">
-				<button onclick="saveProjectAsHTML()" class="flex items-center gap-x-2 px-4 h-9 bg-[#1e40af] hover:bg-[#1a3a9e] border border-slate-300 hover:border-slate-400 rounded-2xl text-white font-bold">💾 Save Project</button>
-                <button onclick="showLogicalRelationships()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">🔗 Logical Relations</button>
-                <button onclick="showResources()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">📖 Resources</button>
-				<button onclick="exportPNG()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">📷 Export PNG</button>
-                <button onclick="loadThessaloniansExample()" class="flex items-center gap-x-2 px-4 h-9 border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900">Load 1 Thess. 2:13</button>
+				<button onclick="saveProjectAsHTML()" title="Save Project" aria-label="Save Project" class="w-9 h-9 flex items-center justify-center bg-[#1e40af] hover:bg-[#1a3a9e] border border-slate-300 hover:border-slate-400 rounded-2xl text-white text-lg leading-none">💾</button>
+                <button onclick="showLogicalRelationships()" title="Logical Relations" aria-label="Logical Relations" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">🔗</button>
+                <button onclick="showResources()" title="Resources" aria-label="Resources" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📖</button>
+				<button onclick="exportPNG()" title="Export PNG" aria-label="Export PNG" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📷</button>
                 <div class="flex items-center gap-x-1.5 text-sm text-slate-500">Hebrew Mode</div>
 				<button id="rtl-toggle" onclick="toggleRTL()" role="switch" aria-checked="false" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e40af]" style="outline:none;">
                     <span id="rtl-thumb" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
@@ -124,37 +184,13 @@
             </div>
         </div>
 
-        <div class="flex h-[calc(100vh-73px)] overflow-hidden">
-            <div id="left-sidebar" class="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col" style="width:288px; min-width:180px; max-width:600px;">
-                <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
-                    <h2 class="uppercase text-xs font-semibold tracking-widest text-slate-500 mb-2">Propositions</h2>
-                    <textarea id="paste-area" rows="3" class="flex-1 resize-y border border-slate-300 rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[#1e40af] w-full" placeholder="Paste full passage here…"></textarea>
-                    <div class="flex gap-2 mt-3">
-                        <button onclick="splitIntoPropositions()" class="flex-1 bg-[#1e40af] text-white h-10 rounded-3xl text-sm font-medium hover:bg-[#1a3a9e]">Insert Propositions</button>
-                        <button onclick="addNewProposition()" class="w-10 h-10 border border-slate-300 hover:border-slate-400 rounded-3xl text-slate-600">+</button>
-                    </div>
-                </div>
-                <div id="sidebar-prop-list" class="flex-1 overflow-auto p-2 space-y-1"><div class="px-6 py-12 text-center text-slate-400 text-sm">No propositions yet.<br>Paste and split above.</div></div>
-                <div class="p-4 border-t text-xs text-slate-400 flex justify-between"><div>Drag ⋮⋮ to reorder • Double-click in main area to split</div><button onclick="clearAll()" class="text-red-500 hover:text-red-600">Clear All</button></div>
+        <div class="tab-strip">
+            <div class="tab-strip-tabs">
+                <button type="button" class="tab-btn active" data-tab="brackets" onclick="switchTab('brackets')">Brackets</button>
+                <button type="button" class="tab-btn" data-tab="sentenceflow" onclick="switchTab('sentenceflow')">Sentence Flow</button>
             </div>
-				<!-- After the left sidebar's closing </div> -->
-				<div id="left-resizer" style="width:5px; cursor:col-resize; flex-shrink:0; background:transparent; hover:background:#cbd5e1; position:relative; z-index:10;"
-				  onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='transparent'"></div>
-            <div class="flex-1 flex flex-col bg-white relative min-w-0" id="workspace">
-                <div id="diagram-container" class="flex-1 relative p-8 overflow-auto" style="position:relative; min-width:0">
-                    <div class="overlay" onclick="deselectAll()" style="position:absolute;inset:0;z-index:0;"></div>
-                    <div id="workspace-scaler" style="position:relative;z-index:1;">
-                        <svg id="bracket-svg" width="365" height="1200" class="canvas-container" style="background: transparent; left: 0px; right: auto; width: 365px;"></svg>
-                        <div id="proposition-rows" class="pl-[280px] flex flex-col gap-1 min-h-full" style="direction: ltr; padding-left: 340px; padding-right: 20px;"><div class="text-slate-400 text-center py-20">Propositions appear here<br>Double-click any row to split at exact click location<br>Designed for Chromium browsers</div></div>
-                    </div>
-                </div>
-            </div>
-
-			<div id="right-resizer" style="width:5px; cursor:col-resize; flex-shrink:0; background:transparent; position:relative; z-index:10;"
-			onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='transparent'"></div>
-            <div id="right-sidebar" class="flex-shrink-0 bg-white border-l border-slate-200 p-6 flex flex-col" style="width:288px; min-width:180px; max-width:600px;">
-                <h2 class="uppercase text-xs font-semibold tracking-widest text-slate-500 mb-4">Tools</h2>
-                <button onclick="addBlankBracket()" class="w-full h-12 bg-[#1e40af] hover:bg-[#1a3a9e] text-white rounded-3xl text-sm font-medium mb-2 flex items-center justify-center gap-2">
+            <div class="tab-toolbar" id="brackets-toolbar">
+                <button type="button" onclick="addBlankBracket()" class="toolbar-btn toolbar-btn-primary toolbar-btn-icon-only" title="Add Two-Node Bracket" aria-label="Add Two-Node Bracket">
                     <svg class="w-5 h-5" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <rect x="2" y="2" width="6" height="6" rx="1.5" />
                         <rect x="2" y="14" width="6" height="6" rx="1.5" />
@@ -164,49 +200,101 @@
                         <line x1="16" y1="5" x2="19" y2="5" />
                         <line x1="16" y1="17" x2="19" y2="17" />
                     </svg>
-                    ADD TWO-NODE BRACKET
                 </button>
-                <button onclick="addSingleNodeBracket()" class="w-full h-12 bg-slate-600 hover:bg-slate-700 text-white rounded-3xl text-sm font-medium mb-4 flex items-center justify-center gap-2">
+                <button type="button" onclick="addSingleNodeBracket()" class="toolbar-btn toolbar-btn-primary toolbar-btn-icon-only" title="Add Single-Node Bracket" aria-label="Add Single-Node Bracket">
                     <svg class="w-5 h-5" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <rect x="2" y="8" width="6" height="6" rx="1.5" />
                         <line x1="8" y1="11" x2="16" y2="11" />
-                        <line x1="16" y1="8" x2="16" y2="14" />
-                        <line x1="16" y1="8" x2="19" y2="8" />
-                        <line x1="16" y1="14" x2="19" y2="14" />
+                        <line x1="16" y1="3" x2="16" y2="19" />
+                        <line x1="16" y1="3" x2="19" y2="3" />
+                        <line x1="16" y1="19" x2="19" y2="19" />
                     </svg>
-                    ADD SINGLE-NODE BRACKET
                 </button>
-                <div class="flex items-center gap-2 mb-6">
-                    <span class="text-sm text-slate-500 font-medium mr-1">Zoom</span>
-                    <button onclick="adjustZoom(-0.1)" class="flex-1 h-9 border border-slate-300 hover:border-slate-400 hover:bg-slate-50 rounded-2xl text-slate-700 text-lg font-bold">−</button>
-                    <span id="zoom-label" class="text-sm text-slate-500 w-10 text-center">100%</span>
-                    <button onclick="adjustZoom(0.1)" class="flex-1 h-9 border border-slate-300 hover:border-slate-400 hover:bg-slate-50 rounded-2xl text-slate-700 text-lg font-bold">+</button>
-                    <button onclick="resetZoom()" class="h-9 px-3 border border-slate-300 hover:border-slate-400 hover:bg-slate-50 rounded-2xl text-xs text-slate-500">↺</button>
+                <div class="toolbar-zoom">
+                    <button type="button" onclick="adjustZoom(-0.1)" class="toolbar-btn" title="Zoom Out" aria-label="Zoom Out">−</button>
+                    <span id="zoom-label" class="toolbar-zoom-label">100%</span>
+                    <button type="button" onclick="adjustZoom(0.1)" class="toolbar-btn" title="Zoom In" aria-label="Zoom In">+</button>
+                    <button type="button" onclick="resetZoom()" class="toolbar-btn" title="Reset Zoom" aria-label="Reset Zoom">↺</button>
                 </div>
-				<div class="text-[12px] text-slate-900 leading-normal mb-6 font-normal">
-					<span class="font-bold underline text-slate-900">Two-node bracket:</span><br>
-					Select 2 propositions/boxes → ADD TWO-NODE BRACKET<br><br>
-					<span class="font-bold underline text-slate-900">Single-node bracket:</span><br>
-					Select 2 propositions/boxes → ADD SINGLE-NODE BRACKET<br><br>
-					<span class="font-bold underline text-slate-900">Operations:</span><br>
-					<span class="font-normal text-slate-900">
-					Right-click box = edit label<br>
-					Select spine + delete = remove bracket<br>
-					Tab = indent selected proposition<br>
-					Shift + Tab = decrease indent on selected proposition<br>
-                    Click whitespace (anywhere in work area) = deselect<br>
-					Click + drag = pan workspace<br>					
-					</span>
-				</div>
-                <div class="mt-4 flex gap-2">
-                    <button onclick="clearBracketsOnly()" class="flex-1 text-xs border border-slate-300 bg-amber-100 hover:bg-amber-300 h-9 rounded-2xl">Clear All Brackets</button>
-                    <button onclick="resetAll()" class="flex-1 text-xs border-slate-300 bg-red-300 hover:bg-red-500 h-9 rounded-2xl">Reset Everything</button>
+                <button type="button" onclick="clearBracketsOnly()" class="toolbar-btn toolbar-btn-warn" title="Clear All Brackets">Clear Brackets</button>
+                <button type="button" onclick="resetAll()" class="toolbar-btn toolbar-btn-danger" title="Reset Everything">Reset All</button>
+                <button type="button" onclick="showInstructions()" class="toolbar-btn" title="Instructions" aria-label="Instructions">?</button>
+            </div>
+        </div>
+
+        <div class="flex app-body-row">
+            <div id="brackets-panel" class="tab-panel" style="display:flex; flex:1 1 0%; min-width:0; min-height:0; overflow:hidden;">
+            <div id="left-sidebar" class="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col" style="width:288px; min-width:180px; max-width:600px;">
+                <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                    <h2 class="uppercase text-xs font-semibold tracking-widest text-slate-500 mb-2">Propositions</h2>
+                    <textarea id="paste-area" rows="3" class="flex-1 resize-y border border-slate-300 rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[#1e40af] w-full" placeholder="Paste full passage here…"></textarea>
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="splitIntoPropositions()" class="flex-1 bg-[#1e40af] text-white h-10 rounded-3xl text-sm font-medium hover:bg-[#1a3a9e]">Insert</button>
+                        <button onclick="addNewProposition()" class="w-10 h-10 border border-slate-300 hover:border-slate-400 rounded-3xl text-slate-600">+</button>
+                    </div>
+                </div>
+                <div id="sidebar-prop-list" class="flex-1 overflow-auto prop-list-tight"><div class="px-6 py-12 text-center text-slate-400 text-sm">No propositions yet.<br>Paste and split above.</div></div>
+            </div>
+				<!-- After the left sidebar's closing </div> -->
+				<div id="left-resizer" style="width:5px; cursor:col-resize; flex-shrink:0; background:transparent; hover:background:#cbd5e1; position:relative; z-index:10;"
+				  onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='transparent'"></div>
+            <div class="flex-1 flex flex-col bg-white relative min-w-0" id="workspace">
+                <div id="diagram-container" class="flex-1 relative p-8 overflow-auto" style="position:relative; min-width:0">
+                    <div class="overlay" onclick="deselectAll()" style="position:absolute;inset:0;z-index:0;"></div>
+                    <div id="workspace-scaler" style="position:relative;z-index:1;">
+                        <svg id="bracket-svg" width="365" height="1200" class="canvas-container" style="background: transparent; left: 0px; right: auto; width: 365px;"></svg>
+                        <div id="proposition-rows" class="pl-[280px] flex flex-col gap-1 min-h-full" style="direction: ltr; padding-left: 340px; padding-right: 20px;"><div class="text-slate-400 text-center py-20">Propositions appear here<br>Double-click any row to split at exact click location</div></div>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <div id="sentenceflow-panel" class="tab-panel tab-panel-hidden sf-panel">
+                <div class="sf-toolbar">
+                    <button type="button" class="sf-fmt-btn" data-fmt="bold" title="Bold (Ctrl+B)" aria-label="Bold" onmousedown="event.preventDefault();" onclick="applyNotesFormat('bold')">B</button>
+                    <button type="button" class="sf-fmt-btn" data-fmt="italic" title="Italic (Ctrl+I)" aria-label="Italic" onmousedown="event.preventDefault();" onclick="applyNotesFormat('italic')">I</button>
+                    <button type="button" class="sf-fmt-btn" data-fmt="underline" title="Underline (Ctrl+U)" aria-label="Underline" onmousedown="event.preventDefault();" onclick="applyNotesFormat('underline')">U</button>
+                    <div class="sf-tabwidth">
+                        <span>Default tab:</span>
+                        <input id="notes-default-tab-width" class="sf-tabwidth-input" type="number" min="0.1" step="0.1" onchange="onNotesTabWidthChange()">
+                        <span>in</span>
+                    </div>
+                </div>
+                <div class="sf-canvas-wrap">
+                    <div id="notes-canvas" class="sf-canvas" contenteditable="true" spellcheck="false" tabindex="0" dir="ltr"></div>
                 </div>
             </div>
         </div>
     </div>
-	
-<script id="project-data" type="application/json">{"propositions":[],"brackets":[],"zoomLevel":1,"isRTL":false,"timestamp":"2026-05-05T13:11:07.527Z"}</script>
+
+    <!-- Instructions Modal -->
+    <div id="instructions-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style="max-width: 28rem; max-height: 90vh;">
+            <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
+                <h2 class="title-font text-2xl tracking-[-0.5px]">Instructions</h2>
+                <button onclick="hideInstructions()" class="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xl leading-none">×</button>
+            </div>
+            <div class="overflow-auto p-8">
+                <div class="instructions-text">
+                    <span class="font-bold underline text-slate-900">Two-node bracket:</span><br>
+                    Select 2 propositions/boxes → Two-Node<br><br>
+                    <span class="font-bold underline text-slate-900">Single-node bracket:</span><br>
+                    Select 2 propositions/boxes → Single-Node<br><br>
+                    <span class="font-bold underline text-slate-900">Operations:</span><br>
+                    Right-click box = edit label<br>
+                    Select spine + Delete = remove bracket<br>
+                    Tab = indent selected proposition<br>
+                    Shift+Tab = decrease indent on selected proposition<br>
+                    Click whitespace (anywhere in work area) = deselect<br>
+                    Click + drag = pan workspace<br>
+                    Drag ⋮⋮ (in Propositions list) = reorder<br>
+                    Double-click in main area = split proposition
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script id="project-data" type="application/json">{"propositions":[],"brackets":[],"zoomLevel":1,"isRTL":false,"notes":{"lines":[],"defaultTabWidth":24},"timestamp":"2026-05-05T13:11:07.527Z"}</script>
 	
         <script>
         let propositions = [];
@@ -221,7 +309,12 @@
         let _lastCornerClickTime = 0;
         let _lastCornerClickBracketId = null;
         let _lastCornerClickIsTop = null;
-		
+        let activeTab = 'brackets';
+        let notesLines = [];
+        let notesDefaultTabWidth = 24; // px (0.25in @ 96dpi)
+        let _notesLayoutScheduled = false;
+        let _notesMeasureCtx = null;
+
         function adjustZoom(delta) {
             const oldZoom = zoomLevel;
             zoomLevel = Math.min(3, Math.max(0.3, Math.round((zoomLevel + delta) * 10) / 10));
@@ -312,12 +405,18 @@
             renderSidebarList();
             renderMainRows();
             renderCanvas();
+            const notesCanvas = document.getElementById('notes-canvas');
+            if (notesCanvas) {
+                notesCanvas.dir = isRTL ? 'rtl' : 'ltr';
+                scheduleNotesLayout();
+            }
         }
 
         function saveToHistory() {
             historyStack.push(JSON.stringify({propositions: JSON.parse(JSON.stringify(propositions)), brackets: JSON.parse(JSON.stringify(brackets)), selectedIndices, selectedBracketId, selectedCorners}));
             if (historyStack.length > 20) historyStack.shift();
-            localStorage.setItem('bracketerData', JSON.stringify({propositions, brackets}));
+            if (document.getElementById('notes-canvas')) notesLines = serializeNotesLines();
+            localStorage.setItem('bracketerData', JSON.stringify({propositions, brackets, notes: {lines: notesLines, defaultTabWidth: notesDefaultTabWidth}}));
         }
 
         function loadFromStorage() {
@@ -327,6 +426,9 @@
                 propositions = data.propositions || [];
                 brackets = data.brackets || [];
                 migrateSingleNodeBrackets();
+                const notes = data.notes || {};
+                notesLines = notes.lines || [];
+                notesDefaultTabWidth = notes.defaultTabWidth || 24;
             }
         }
 
@@ -351,7 +453,7 @@
             container.innerHTML = propositions.length ? '' : `<div class="px-6 py-12 text-center text-slate-400 text-sm">No propositions yet.<br>Paste and split above.</div>`;
             propositions.forEach((prop, i) => {
                 const row = document.createElement('div');
-                row.className = `proposition-row group flex items-center gap-2 px-4 py-1 rounded-3xl bg-slate-100 cursor-default border ${i===sidebarSelected?'border-[#1e40af] bg-blue-50':'border-transparent hover:border-slate-200'}`;
+                row.className = `proposition-row prop-row-tight group flex items-center bg-slate-100 cursor-default border ${i===sidebarSelected?'border-[#1e40af] bg-blue-50':'border-transparent hover:border-slate-200'}`;
                 row.dataset.index = i;
                 row.onclick = e => { e.stopImmediatePropagation(); sidebarSelected = i; renderSidebarList(); selectedIndices = [i]; renderMainRows(); renderCanvas(); };
 
@@ -442,19 +544,19 @@
                 });
 
                 const numBadge = document.createElement('div');
-                numBadge.className = 'w-6 h-6 flex-shrink-0 bg-white text-slate-600 rounded-2xl flex items-center justify-center text-xs font-mono';
+                numBadge.className = 'prop-num-tight flex-shrink-0 bg-white text-slate-600 flex items-center justify-center font-mono';
                 numBadge.textContent = i + 1;
                 const textEl = document.createElement('div');
                 textEl.contentEditable = 'true';
                 textEl.spellcheck = false;
                 textEl.dir = isRTL ? 'rtl' : 'ltr';
-                textEl.className = 'flex-1 text-sm leading-relaxed outline-none min-h-[22px] cursor-text';
+                textEl.className = 'prop-text-tight flex-1 outline-none min-h-[22px] cursor-text';
                 textEl.textContent = prop.text;
                 textEl.onclick = e => e.stopImmediatePropagation();
                 textEl.onfocus = () => { sidebarSelected = i; selectedIndices = [i]; };
                 textEl.onblur = () => updatePropositionText(i, textEl.innerText);
                 const delBtn = document.createElement('button');
-                delBtn.className = 'w-7 h-7 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 text-lg leading-none flex-shrink-0';
+                delBtn.className = 'prop-del-tight text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 leading-none flex-shrink-0';
                 delBtn.textContent = '✕';
                 delBtn.onclick = e => { e.stopImmediatePropagation(); deleteProposition(i); };
                 row.appendChild(dragHandle);
@@ -477,7 +579,7 @@
 
         function renderMainRows() {
             const container = document.getElementById('proposition-rows');
-            container.innerHTML = propositions.length ? '' : `<div class="text-slate-400 text-center py-20">Propositions appear here<br>Double-click any row to split at exact click location<br>Designed for Chromium browsers</div>`;
+            container.innerHTML = propositions.length ? '' : `<div class="text-slate-400 text-center py-20">Propositions appear here<br>Double-click any row to split at exact click location</div>`;
             propositions.forEach((prop, i) => {
                 const isSelected = selectedIndices.includes(i);
                 const indentStyle = `margin-inline-start: ${prop.level * 48}px;`;
@@ -492,7 +594,7 @@
                 // button stops mousedown from bubbling here too, or pressing it
                 // would toggle this row into the selection an instant before
                 // deleting it.
-                const rowHTML = `<div class="flex items-start gap-0 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onmousedown="handleMainRowClick(${i}); event.stopPropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 w-6 pt-1">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-[15px] leading-tight outline-none min-h-[22px]">${prop.text}</div><button onmousedown="event.stopPropagation();" onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
+                const rowHTML = `<div class="flex items-start gap-0 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onmousedown="handleMainRowClick(${i}, this); event.stopPropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 w-6 pt-1">${i+1}</div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" onblur="updatePropositionText(${i}, this.innerText)" class="flex-1 text-[15px] leading-tight outline-none min-h-[22px]">${prop.text}</div><button onmousedown="event.stopPropagation();" onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
                 container.innerHTML += rowHTML;
             });
         }
@@ -1220,9 +1322,17 @@ const bracketLeftX = (() => {
             renderCanvas();
         }
 
-        function handleMainRowClick(i) {
+        function handleMainRowClick(i, rowEl) {
             if (selectedIndices.includes(i)) selectedIndices = selectedIndices.filter(idx => idx !== i);
             else selectedIndices.push(i);
+            // Toggle the class on the row in place rather than a full
+            // renderMainRows() rebuild: rebuilding here (inside this row's own
+            // mousedown handler) would destroy this exact element mid-click,
+            // so the browser has nothing left to deliver "click" to - which
+            // also silently breaks "dblclick" (double-click-to-split), since
+            // a dblclick only fires after two real "click" events land on
+            // related targets in a row.
+            if (rowEl) { rowEl.classList.toggle('selected', selectedIndices.includes(i)); return; }
             renderMainRows();
         }
 
@@ -1430,11 +1540,12 @@ const bracketLeftX = (() => {
         }
 
         function resetAll() {
-            if (confirm('Reset EVERYTHING (propositions + brackets)?')) {
+            if (confirm('Reset EVERYTHING (propositions + brackets + Sentence Flow notes)?')) {
                 saveToHistory();
                 propositions = []; brackets = []; selectedIndices = []; selectedBracketId = null; selectedCorners = []; sidebarSelected = -1;
                 document.getElementById('paste-area').value = '';
-                renderSidebarList(); renderMainRows(); renderCanvas();
+                notesLines = []; notesDefaultTabWidth = 24;
+                renderSidebarList(); renderMainRows(); renderCanvas(); renderNotesTab();
                 localStorage.removeItem('bracketerData');
             }
         }
@@ -1525,23 +1636,6 @@ function exportPNG() {
             navigator.clipboard.writeText(md).then(() => alert('✅ Markdown copied!'));
         }
 
-        function loadThessaloniansExample() {
-            saveToHistory();
-            propositions = [
-                {id:1, text:"And we also thank God constantly for this,", level:0},
-                {id:2, text:"that when you received the word of God,", level:0},
-                {id:3, text:"which you heard from us,", level:0},
-                {id:4, text:"you accepted it", level:0},
-                {id:5, text:"not as the word of men", level:0},
-                {id:6, text:"but as what it really is, the word of God,", level:0},
-                {id:7, text:"which is at work in you believers.", level:0}
-            ];
-            brackets = [];
-            renderSidebarList();
-            renderMainRows();
-            renderCanvas();
-        }
-
         function clearAll() { resetAll(); }
 
         function initialize() {
@@ -1573,10 +1667,18 @@ function exportPNG() {
 					renderSidebarList();
 					renderMainRows();
 					renderCanvas();
+					renderNotesTab();
 				}
 				initializeCanvasClick();
-            
+				wireSentenceFlowEvents();
+
             document.addEventListener('keydown', e => {
+                // The Sentence Flow canvas handles its own Tab/Enter/Ctrl+M and
+                // relies on the browser's native contentEditable undo stack, so
+                // none of the Brackets-tab shortcuts below should run while focus
+                // is inside it.
+                if (e.target && e.target.closest && e.target.closest('#notes-canvas')) return;
+
                 if (e.key === 'Tab' && (selectedIndices.length >= 1 || sidebarSelected >= 0)) {
                     e.preventDefault();
                     if (selectedIndices.length >= 1) {
@@ -1679,7 +1781,521 @@ function exportPNG() {
         function hideResources() {
             document.getElementById('resource-modal').classList.add('hidden');
 		}
-		
+
+        function showInstructions() {
+            document.getElementById('instructions-modal').classList.remove('hidden');
+        }
+        function hideInstructions() {
+            document.getElementById('instructions-modal').classList.add('hidden');
+        }
+
+        // ---------- Tabs (Brackets / Sentence Flow) ----------
+
+        function switchTab(tab) {
+            activeTab = tab === 'sentenceflow' ? 'sentenceflow' : 'brackets';
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === activeTab);
+            });
+            const toolbar = document.getElementById('brackets-toolbar');
+            if (toolbar) toolbar.classList.toggle('toolbar-hidden', activeTab !== 'brackets');
+            const bracketsPanel = document.getElementById('brackets-panel');
+            const sfPanel = document.getElementById('sentenceflow-panel');
+            if (bracketsPanel) bracketsPanel.classList.toggle('tab-panel-hidden', activeTab !== 'brackets');
+            if (sfPanel) sfPanel.classList.toggle('tab-panel-hidden', activeTab !== 'sentenceflow');
+            if (activeTab === 'sentenceflow') {
+                window.requestAnimationFrame(layoutNotesTabs);
+            } else {
+                window.requestAnimationFrame(renderCanvas);
+            }
+        }
+
+        // ---------- Sentence Flow tab ----------
+        // A Word-like scratch canvas for pasting/editing a passage's raw text
+        // outside the bracket diagram. Tab always jumps to the next multiple of
+        // the configurable default tab width (see layoutNotesTabs) so tabbed
+        // text aligns into columns across lines; Ctrl+M/Ctrl+Shift+M indent the
+        // whole paragraph the same way, and Bold/Italic/Underline are applied
+        // via the browser's native execCommand in the contenteditable canvas.
+
+        function wireSentenceFlowEvents() {
+            const canvas = document.getElementById('notes-canvas');
+            if (!canvas) return;
+            canvas.addEventListener('paste', handleNotesPaste);
+            canvas.addEventListener('keydown', handleNotesKeydown);
+            canvas.addEventListener('input', () => scheduleNotesLayout());
+
+            document.addEventListener('selectionchange', () => {
+                if (activeTab === 'sentenceflow' && document.activeElement && document.activeElement.id === 'notes-canvas') {
+                    updateNotesFormatButtonStates();
+                }
+            });
+        }
+
+        function applyNotesFormat(cmd) {
+            document.execCommand(cmd);
+            updateNotesFormatButtonStates();
+        }
+
+        function onNotesTabWidthChange() {
+            const input = document.getElementById('notes-default-tab-width');
+            if (!input) return;
+            const inches = parseFloat(input.value);
+            if (!isNaN(inches) && inches > 0) notesDefaultTabWidth = Math.round(inches * 96);
+            syncNotesToolbarUi();
+            layoutNotesTabs();
+        }
+
+        function handleNotesKeydown(e) {
+            const mod = e.ctrlKey || e.metaKey;
+
+            if (e.key === 'Tab') {
+                // Default contenteditable behavior for Tab moves focus to the
+                // next focusable element rather than inserting anything, so it
+                // has to be taken over entirely.
+                e.preventDefault();
+                insertNotesTabAtCaret();
+                scheduleNotesLayout(true);
+                return;
+            }
+            if (mod && (e.key === 'm' || e.key === 'M')) {
+                e.preventDefault();
+                indentNotesParagraph(e.shiftKey ? -1 : 1);
+                return;
+            }
+            if (e.key === 'Enter' && !e.shiftKey) {
+                // Handled manually rather than letting the browser's default
+                // paragraph-insert action run: whether that action carries the
+                // original line's indent over to the new line isn't a
+                // guaranteed contract, and varies across browsers. Splitting
+                // the DOM directly with Range.extractContents (a plain DOM
+                // operation) and copying the indent onto the new line
+                // ourselves makes this deterministic instead.
+                e.preventDefault();
+                splitNotesLineAtCaret();
+                return;
+            }
+            // Bold/Italic/Underline already work via the browser's default
+            // Ctrl+B/I/U in a contenteditable; nothing extra needed here.
+        }
+
+        // Splits the current line at the caret into two <div> lines. Everything
+        // from the caret to the end of the line is moved into a new line
+        // inserted right after it. Uses Range.extractContents() rather than
+        // execCommand("insertParagraph") - it correctly splits nested
+        // bold/italic/underline runs at the boundary on its own, without
+        // depending on that action's undocumented behavior.
+        function splitNotesLineAtCaret() {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return;
+            const line = getCurrentLine();
+            if (!line) return;
+
+            const caretRange = sel.getRangeAt(0);
+            if (!caretRange.collapsed) caretRange.deleteContents();
+
+            const afterRange = document.createRange();
+            afterRange.setStart(caretRange.startContainer, caretRange.startOffset);
+            afterRange.setEnd(line, line.childNodes.length);
+            const afterContent = afterRange.extractContents();
+
+            // When the caret sits at the very start of the line, extraction
+            // takes everything, leaving the original `line` with no children.
+            // A <br>-less empty <div> collapses to zero height in a
+            // contenteditable, so the new blank line above the (moved) text
+            // wouldn't render at all - same fix as the newLine case below.
+            if (line.childNodes.length === 0) line.appendChild(document.createElement('br'));
+
+            const newLine = document.createElement('div');
+
+            // The line's indent can come from two different places, and both
+            // need to carry over to the new line, matching Word:
+            // - a paragraph indent (Ctrl+M) is a style on the line <div> itself.
+            // - a leading Tab press is actual line content (a da-tab marker
+            //   span), not a style, so extractContents() above already left it
+            //   behind in `line` (the caret was typed after it) - it has to be
+            //   cloned across explicitly instead.
+            if (line.style.marginInlineStart) newLine.style.marginInlineStart = line.style.marginInlineStart;
+            for (const child of Array.from(line.childNodes)) {
+                if (child.nodeType === Node.ELEMENT_NODE && child.classList.contains('da-tab')) {
+                    newLine.appendChild(child.cloneNode(true));
+                    continue;
+                }
+                // A Range operation can leave a stray empty text node ahead of
+                // the tab span (this varies across browsers/DOM operations) -
+                // skip over it rather than stopping the scan, or it would look
+                // like a "real" piece of content and hide the leading tab(s)
+                // from ever being detected/cloned.
+                if (child.nodeType === Node.TEXT_NODE && child.textContent === '') continue;
+                break;
+            }
+            const tabPrefixCount = newLine.childNodes.length;
+            newLine.appendChild(afterContent);
+
+            // extractContents() can leave a spurious empty text node in the
+            // fragment when the caret was exactly at the end of a text node
+            // (the common case for pressing Enter at the end of a line) -
+            // strip it, or the childNodes.length check below never sees an
+            // empty line and no <br> gets added.
+            Array.from(newLine.childNodes).forEach(n => {
+                if (n.nodeType === Node.TEXT_NODE && n.textContent === '') n.remove();
+            });
+            // An empty <div> with no <br> doesn't reliably get a caret-visible
+            // line box in a contenteditable - this combined with the above is
+            // what made splitting at the very end of a line (nothing left to
+            // move over) look like Enter did nothing at all.
+            if (newLine.childNodes.length === 0) newLine.appendChild(document.createElement('br'));
+            line.after(newLine);
+
+            // Recomputed against newLine's final children (after the
+            // empty-text-node cleanup above) rather than reusing a reference
+            // captured before it - that cleanup can detach the exact node a
+            // caret was pointed at, leaving the selection nowhere valid.
+            const caretTarget = newLine.childNodes[tabPrefixCount];
+            const caret = document.createRange();
+            if (caretTarget) caret.setStart(caretTarget, 0);
+            else caret.setStart(newLine, newLine.childNodes.length);
+            caret.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(caret);
+
+            scheduleNotesLayout(true);
+        }
+
+        // Increases/decreases the indent of whichever paragraph the caret is
+        // in, snapping to the next/previous multiple of the default tab width
+        // - mirroring Word's Increase/Decrease Indent behavior.
+        function indentNotesParagraph(direction) {
+            const line = getCurrentLine();
+            if (!line) return;
+            const current = getLineMarginPx(line);
+            const target = direction > 0
+                ? nextNotesStop(current, notesDefaultTabWidth)
+                : prevNotesStop(current, notesDefaultTabWidth);
+            if (target > 0) line.style.marginInlineStart = target + 'px';
+            else line.style.removeProperty('margin-inline-start');
+            scheduleNotesLayout(true);
+        }
+
+        // Reads clipboard plain text only (formatting from other apps is
+        // intentionally dropped - Sentence Flow only supports bold/italic/
+        // underline, applied manually). Tab characters become da-tab markers
+        // so they participate in the tab-width grid alignment instead of
+        // rendering as a browser-default tab. Text runs go through
+        // execCommand("insertText"), which natively turns embedded newlines
+        // into new paragraphs (matching Enter) and stays in the native undo
+        // stack; tab markers are inserted via insertNotesTabAtCaret.
+        function handleNotesPaste(e) {
+            const canvas = document.getElementById('notes-canvas');
+            if (!canvas || !canvas.contains((window.getSelection() || {}).anchorNode || null)) return;
+            const text = (e.clipboardData && e.clipboardData.getData('text/plain')) || '';
+            if (!text) return;
+            e.preventDefault();
+
+            const parts = text.split('\t');
+            parts.forEach((part, i) => {
+                if (part.length > 0) document.execCommand('insertText', false, part);
+                if (i < parts.length - 1) insertNotesTabAtCaret();
+            });
+            scheduleNotesLayout(true);
+        }
+
+        // Inserts a single da-tab marker span at the caret via direct
+        // Range/Selection manipulation. This intentionally does NOT use
+        // execCommand("insertHTML"): some browsers can "isolate" an atomic
+        // (contenteditable=false) inline node inserted that way by promoting
+        // it into its own block, which shows up as an unwanted line break -
+        // exactly the bug this replaced (Tab appeared to insert a new line
+        // instead of a tab stop).
+        function insertNotesTabAtCaret() {
+            // If this tab is the very first content on the line, it (and
+            // whatever it follows) is still sitting as a loose top-level node
+            // directly under the canvas, with no line <div> yet. The next
+            // layout pass (layoutNotesTabs -> getNotesLines ->
+            // normalizeNotesCanvas) would wrap that loose content into a new
+            // <div>, reparenting it out from under whatever selection we set
+            // below - and a boundary set via setStartAfter is stored as
+            // (that node's parent, index), which goes stale the moment its
+            // parent changes. Forcing the wrap to happen now, before touching
+            // the selection ourselves, means nothing reparents out from under
+            // the caret afterward.
+            getCurrentLine();
+
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return;
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+
+            const span = document.createElement('span');
+            span.className = 'da-tab';
+            span.contentEditable = 'false';
+            span.textContent = '​';
+            range.insertNode(span);
+
+            const after = document.createRange();
+            after.setStartAfter(span);
+            after.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(after);
+        }
+
+        // Finds the <div> line (direct child of the canvas) containing the
+        // caret. Before the first Enter/paste, typed content sits as loose
+        // nodes directly under the canvas with no line div to indent - in
+        // that case, wrap whatever's there into one now so indentation has
+        // somewhere to live.
+        function getCurrentLine() {
+            const canvas = document.getElementById('notes-canvas');
+            if (!canvas) return null;
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return null;
+            const startContainer = sel.getRangeAt(0).startContainer;
+            if (!canvas.contains(startContainer)) return null;
+
+            let node = startContainer;
+            while (node && node !== canvas) {
+                if (node.parentElement === canvas && node.tagName === 'DIV') {
+                    return node;
+                }
+                node = node.parentNode;
+            }
+
+            // The caret's container isn't inside any line <div> - either there
+            // are none yet, or the caret is sitting directly on the canvas
+            // itself, e.g. right after a click into empty space below the
+            // last line. Only fall back to wrapping when there truly are no
+            // line divs at all; otherwise just pick the nearest existing one
+            // and leave every line's div exactly where it already is.
+            const divs = Array.from(canvas.children).filter(c => c.tagName === 'DIV');
+            if (divs.length > 0) {
+                if (startContainer === canvas) {
+                    const offset = sel.getRangeAt(0).startOffset;
+                    const atOrAfter = canvas.childNodes[offset];
+                    if (atOrAfter && atOrAfter.tagName === 'DIV') return atOrAfter;
+                    const before = canvas.childNodes[offset - 1];
+                    if (before && before.tagName === 'DIV') return before;
+                }
+                return divs[divs.length - 1];
+            }
+
+            if (canvas.childNodes.length === 0) {
+                const empty = document.createElement('div');
+                canvas.appendChild(empty);
+                const r = document.createRange();
+                r.selectNodeContents(empty);
+                r.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(r);
+                return empty;
+            }
+
+            const div = document.createElement('div');
+            while (canvas.firstChild) div.appendChild(canvas.firstChild);
+            canvas.appendChild(div);
+            const r = document.createRange();
+            r.selectNodeContents(div);
+            r.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(r);
+            return div;
+        }
+
+        // Before the first Enter/paste, a line's content sits as loose nodes
+        // (text, da-tab spans, b/i/u) directly under the canvas rather than
+        // inside a <div> - most commonly true of the very first line. Since
+        // getNotesLines only ever returns <div> elements, any such loose
+        // content would otherwise be invisible to both serialization and the
+        // tab-stop layout pass. This folds every run of loose top-level nodes
+        // into a real wrapper <div> - moving (not cloning) the nodes, so an
+        // active caret/selection inside them stays intact.
+        function normalizeNotesCanvas(canvas) {
+            const children = Array.from(canvas.childNodes);
+            let run = [];
+            const flush = (beforeNode) => {
+                if (run.length === 0) return;
+                const wrapper = document.createElement('div');
+                canvas.insertBefore(wrapper, beforeNode);
+                run.forEach(n => wrapper.appendChild(n));
+                run = [];
+            };
+            for (const node of children) {
+                const isDiv = node.nodeType === Node.ELEMENT_NODE && node.tagName === 'DIV';
+                if (isDiv) flush(node);
+                else run.push(node);
+            }
+            flush(null);
+        }
+
+        function getNotesLines(canvas) {
+            normalizeNotesCanvas(canvas);
+            const divs = Array.from(canvas.children).filter(c => c.tagName === 'DIV');
+            return divs.length > 0 ? divs : [canvas];
+        }
+
+        function getLineMarginPx(line) {
+            if (line.id === 'notes-canvas') return 0;
+            const n = parseFloat(line.style.marginInlineStart);
+            return isNaN(n) ? 0 : n;
+        }
+
+        // ---------- Sentence Flow: tab-stop layout ----------
+
+        // Real tab characters have no notion of "jump to this exact grid
+        // position" in CSS, so each line's da-tab markers are manually
+        // resized here: walk the line measuring text width with a canvas 2D
+        // context (matching each run's actual font/weight/style), and set
+        // every da-tab span's width so the running offset lands exactly on
+        // the next multiple of the default tab width.
+        function layoutNotesTabs() {
+            const canvas = document.getElementById('notes-canvas');
+            if (!canvas) return;
+            if (!_notesMeasureCtx) _notesMeasureCtx = document.createElement('canvas').getContext('2d');
+            const ctx = _notesMeasureCtx;
+            if (!ctx) return;
+
+            const defaultWidth = notesDefaultTabWidth;
+
+            getNotesLines(canvas).forEach(line => {
+                let x = getLineMarginPx(line);
+                const walk = (node) => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const text = node.textContent || '';
+                        if (!text) return;
+                        const el = node.parentElement || line;
+                        const cs = getComputedStyle(el);
+                        ctx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+                        x += ctx.measureText(text).width;
+                        return;
+                    }
+                    if (node.nodeType !== Node.ELEMENT_NODE) return;
+                    if (node.classList.contains('da-tab')) {
+                        const target = nextNotesStop(x, defaultWidth);
+                        node.style.width = Math.max(4, target - x) + 'px';
+                        x = target;
+                        return;
+                    }
+                    Array.from(node.childNodes).forEach(walk);
+                };
+                Array.from(line.childNodes).forEach(walk);
+            });
+        }
+
+        function scheduleNotesLayout(immediate) {
+            if (immediate) { layoutNotesTabs(); return; }
+            if (_notesLayoutScheduled) return;
+            _notesLayoutScheduled = true;
+            window.requestAnimationFrame(() => {
+                _notesLayoutScheduled = false;
+                layoutNotesTabs();
+            });
+        }
+
+        // Smallest/largest multiple of the default tab width strictly
+        // greater than/less than x (floored at 0) - there's no ruler to set
+        // custom stops on, so Tab and indent always snap to this fixed grid.
+        function nextNotesStop(x, defaultWidth) {
+            const EPS = 0.5;
+            const w = defaultWidth > 0 ? defaultWidth : 24;
+            return (Math.floor((x + EPS) / w) + 1) * w;
+        }
+
+        function prevNotesStop(x, defaultWidth) {
+            const EPS = 0.5;
+            const w = defaultWidth > 0 ? defaultWidth : 24;
+            return Math.max(0, (Math.ceil((x - EPS) / w) - 1) * w);
+        }
+
+        function syncNotesToolbarUi() {
+            const input = document.getElementById('notes-default-tab-width');
+            if (input) input.value = (notesDefaultTabWidth / 96).toFixed(2);
+        }
+
+        function updateNotesFormatButtonStates() {
+            document.querySelectorAll('[data-fmt]').forEach(btn => {
+                let active = false;
+                try { active = document.queryCommandState(btn.dataset.fmt); } catch (err) {}
+                btn.classList.toggle('active', active);
+            });
+        }
+
+        // ---------- Sentence Flow: load / save ----------
+
+        // (Re)builds the canvas DOM from notesLines, then re-runs the layout
+        // pass so tab markers land on the default-tab-width grid.
+        function renderNotesTab() {
+            const canvas = document.getElementById('notes-canvas');
+            if (!canvas) return;
+            canvas.innerHTML = '';
+
+            // Deliberately doesn't fall back to a placeholder empty line when
+            // notesLines is empty: leaving the canvas with zero children for
+            // a brand-new project matches what a plain, never-typed-into
+            // contenteditable looks like, and getNotesLines already treats
+            // "no line divs yet" as one implicit line (the canvas itself) for
+            // layout/serialization.
+            notesLines.forEach(line => {
+                const div = document.createElement('div');
+                if (line.indent > 0) div.style.marginInlineStart = line.indent + 'px';
+                (line.segments || []).forEach(seg => {
+                    if (seg.kind === 'tab') {
+                        const tab = document.createElement('span');
+                        tab.className = 'da-tab';
+                        tab.contentEditable = 'false';
+                        tab.textContent = '​';
+                        div.appendChild(tab);
+                        return;
+                    }
+                    let node = document.createTextNode(seg.text);
+                    if (seg.underline) { const u = document.createElement('u'); u.appendChild(node); node = u; }
+                    if (seg.italic) { const i = document.createElement('i'); i.appendChild(node); node = i; }
+                    if (seg.bold) { const b = document.createElement('b'); b.appendChild(node); node = b; }
+                    div.appendChild(node);
+                });
+                canvas.appendChild(div);
+            });
+
+            canvas.dir = isRTL ? 'rtl' : 'ltr';
+            syncNotesToolbarUi();
+            window.requestAnimationFrame(layoutNotesTabs);
+        }
+
+        // Walks the live canvas DOM (as left behind by typing, execCommand
+        // formatting, Tab markers, and paste) back into the persisted
+        // NotesLine model. Adjacent text runs sharing the same
+        // bold/italic/underline state are coalesced into one segment.
+        function serializeNotesLines() {
+            const canvas = document.getElementById('notes-canvas');
+            if (!canvas) return notesLines;
+
+            return getNotesLines(canvas).map(lineEl => {
+                const segments = [];
+
+                const walk = (node, bold, italic, underline) => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const text = node.textContent || '';
+                        if (!text) return;
+                        const last = segments[segments.length - 1];
+                        if (last && last.kind === 'text' && !!last.bold === bold && !!last.italic === italic && !!last.underline === underline) {
+                            last.text += text;
+                        } else {
+                            segments.push({ kind: 'text', text, bold, italic, underline });
+                        }
+                        return;
+                    }
+                    if (node.nodeType !== Node.ELEMENT_NODE) return;
+                    if (node.classList.contains('da-tab')) { segments.push({ kind: 'tab' }); return; }
+                    if (node.tagName === 'BR') return;
+
+                    const nextBold = bold || node.tagName === 'B' || node.tagName === 'STRONG';
+                    const nextItalic = italic || node.tagName === 'I' || node.tagName === 'EM';
+                    const nextUnderline = underline || node.tagName === 'U';
+                    Array.from(node.childNodes).forEach(c => walk(c, nextBold, nextItalic, nextUnderline));
+                };
+
+                Array.from(lineEl.childNodes).forEach(n => walk(n, false, false, false));
+                return { indent: getLineMarginPx(lineEl), segments };
+            });
+        }
+
 				// Event listener for mouse down
 const diagramContainer = document.getElementById('diagram-container');
 
@@ -1746,7 +2362,6 @@ diagramContainer.addEventListener('mousedown', function(e) {
   }
 
   makeResizable('left-resizer', 'left-sidebar', 'left');
-  makeResizable('right-resizer', 'right-sidebar', 'right');
 
 function loadEmbeddedProjectData() {
     const dataNode = document.getElementById('project-data');
@@ -1764,11 +2379,15 @@ function loadEmbeddedProjectData() {
         brackets = saved.brackets || [];
         zoomLevel = saved.zoomLevel || 1;
         isRTL = saved.isRTL || false;
+        const notes = saved.notes || {};
+        notesLines = notes.lines || [];
+        notesDefaultTabWidth = notes.defaultTabWidth || 24;
         migrateSingleNodeBrackets();
 
         renderSidebarList();
         renderMainRows();
         renderCanvas();
+        renderNotesTab();
 
         if (isRTL) {
             toggleRTL();
@@ -1784,11 +2403,13 @@ function loadEmbeddedProjectData() {
 		
 		// Save project as standalone HTML file
 		function saveProjectAsHTML() {
+			if (document.getElementById('notes-canvas')) notesLines = serializeNotesLines();
 			const projectData = {
 				propositions,
 				brackets,
 				zoomLevel,
 				isRTL,
+				notes: { lines: notesLines, defaultTabWidth: notesDefaultTabWidth },
 				timestamp: new Date().toISOString()
 			};
 
