@@ -480,38 +480,13 @@ export class DAView extends TextFileView {
 		headerRight.createEl("button", { cls: "da-btn da-btn-support", text: "☕ Support", attr: { "data-action": "open-external", "data-url": "https://buymeacoffee.com/reformedretrieval" } });
 
 		const tabStrip = this.contentEl.createDiv({ cls: "da-tab-strip" });
-		tabStrip.createEl("button", { cls: "da-tab-btn da-tab-btn-active", text: "Brackets", attr: { "data-tab": "brackets" } });
-		tabStrip.createEl("button", { cls: "da-tab-btn", text: "Sentence Flow", attr: { "data-tab": "sentenceflow" } });
+		const tabStripTabs = tabStrip.createDiv({ cls: "da-tab-strip-tabs" });
+		tabStripTabs.createEl("button", { cls: "da-tab-btn da-tab-btn-active", text: "Brackets", attr: { "data-tab": "brackets" } });
+		tabStripTabs.createEl("button", { cls: "da-tab-btn", text: "Sentence Flow", attr: { "data-tab": "sentenceflow" } });
 
-		const bodyEl = this.contentEl.createDiv({ cls: "da-body da-tab-panel", attr: { id: "brackets-panel" } });
+		const tabToolbar = tabStrip.createDiv({ cls: "da-tab-toolbar", attr: { id: "brackets-toolbar" } });
 
-		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left", attr: { id: "left-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
-		const sidebarHeader = leftSidebar.createDiv({ cls: "da-sidebar-header" });
-		sidebarHeader.createEl("h2", { cls: "da-section-title", text: "Propositions" });
-		sidebarHeader.createEl("textarea", { cls: "da-textarea", attr: { id: "paste-area", rows: "3", placeholder: "Paste full passage here…" } });
-		const insertRow = sidebarHeader.createDiv({ cls: "da-row-gap" });
-		insertRow.createEl("button", { cls: "da-btn da-btn-primary da-flex1", text: "Insert Propositions", attr: { "data-action": "insert-props" } });
-		insertRow.createEl("button", { cls: "da-btn-square", text: "+", attr: { "data-action": "add-prop" } });
-		leftSidebar.createDiv({ cls: "da-prop-list", attr: { id: "sidebar-prop-list" } });
-		const leftFooter = leftSidebar.createDiv({ cls: "da-sidebar-footer" });
-		leftFooter.createDiv({ text: "Drag ⋮⋮ to reorder • Double-click in main area to split" });
-		leftFooter.createEl("button", { cls: "da-link-danger", text: "Clear All", attr: { "data-action": "clear-all" } });
-
-		bodyEl.createDiv({ cls: "da-resizer", attr: { id: "left-resizer" } });
-
-		const workspace = bodyEl.createDiv({ cls: "da-workspace", attr: { id: "workspace" } });
-		const diagramContainer = workspace.createDiv({ cls: "da-diagram-container", attr: { id: "diagram-container" } });
-		diagramContainer.createDiv({ cls: "da-overlay", attr: { "data-action": "deselect" } });
-		const workspaceScaler = diagramContainer.createDiv({ cls: "da-workspace-scaler", attr: { id: "workspace-scaler" } });
-		workspaceScaler.createSvg("svg", { cls: "da-bracket-svg", attr: { id: "bracket-svg", width: "365", height: "1200" } });
-		workspaceScaler.createDiv({ cls: "da-proposition-rows", attr: { id: "proposition-rows" } });
-
-		bodyEl.createDiv({ cls: "da-resizer", attr: { id: "right-resizer" } });
-
-		const rightSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-right", attr: { id: "right-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
-		rightSidebar.createEl("h2", { cls: "da-section-title", text: "Tools" });
-
-		const twoNodeBtn = rightSidebar.createEl("button", { cls: "da-btn da-btn-primary da-btn-block", attr: { "data-action": "add-blank-bracket" } });
+		const twoNodeBtn = tabToolbar.createEl("button", { cls: "da-btn da-btn-primary da-btn-icon-only", attr: { "data-action": "add-blank-bracket", title: "Add Two-Node Bracket", "aria-label": "Add Two-Node Bracket" } });
 		this.appendBracketIcon(twoNodeBtn, [
 			{ tag: "rect", attr: { x: "2", y: "2", width: "6", height: "6", rx: "1.5" } },
 			{ tag: "rect", attr: { x: "2", y: "14", width: "6", height: "6", rx: "1.5" } },
@@ -521,9 +496,8 @@ export class DAView extends TextFileView {
 			{ tag: "line", attr: { x1: "16", y1: "5", x2: "19", y2: "5" } },
 			{ tag: "line", attr: { x1: "16", y1: "17", x2: "19", y2: "17" } },
 		]);
-		twoNodeBtn.appendText("TWO-NODE BRACKET");
 
-		const singleNodeBtn = rightSidebar.createEl("button", { cls: "da-btn da-btn-primary da-btn-block", attr: { "data-action": "add-single-node-bracket" } });
+		const singleNodeBtn = tabToolbar.createEl("button", { cls: "da-btn da-btn-primary da-btn-icon-only", attr: { "data-action": "add-single-node-bracket", title: "Add Single-Node Bracket", "aria-label": "Add Single-Node Bracket" } });
 		this.appendBracketIcon(singleNodeBtn, [
 			{ tag: "rect", attr: { x: "2", y: "8", width: "6", height: "6", rx: "1.5" } },
 			{ tag: "line", attr: { x1: "8", y1: "11", x2: "16", y2: "11" } },
@@ -531,33 +505,37 @@ export class DAView extends TextFileView {
 			{ tag: "line", attr: { x1: "16", y1: "3", x2: "19", y2: "3" } },
 			{ tag: "line", attr: { x1: "16", y1: "19", x2: "19", y2: "19" } },
 		]);
-		singleNodeBtn.appendText("SINGLE-NODE BRACKET");
 
-		const zoomRow = rightSidebar.createDiv({ cls: "da-zoom-row" });
-		zoomRow.createSpan({ cls: "da-label", text: "Zoom" });
-		zoomRow.createEl("button", { cls: "da-btn da-flex1", text: "−", attr: { "data-action": "zoom-out" } });
+		const zoomRow = tabToolbar.createDiv({ cls: "da-zoom-row" });
+		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "−", attr: { "data-action": "zoom-out", title: "Zoom Out", "aria-label": "Zoom Out" } });
 		zoomRow.createSpan({ cls: "da-zoom-label", text: "100%", attr: { id: "zoom-label" } });
-		zoomRow.createEl("button", { cls: "da-btn da-flex1", text: "+", attr: { "data-action": "zoom-in" } });
-		zoomRow.createEl("button", { cls: "da-btn", text: "↺", attr: { "data-action": "zoom-reset" } });
+		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "+", attr: { "data-action": "zoom-in", title: "Zoom In", "aria-label": "Zoom In" } });
+		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↺", attr: { "data-action": "zoom-reset", title: "Reset Zoom", "aria-label": "Reset Zoom" } });
 
-		const instructions = rightSidebar.createDiv({ cls: "da-instructions" });
-		instructions.createEl("strong", { text: "Operations:" });
-		instructions.createEl("br");
-		instructions.appendText("Right-click box = edit label");
-		instructions.createEl("br");
-		instructions.appendText("Select spine + Delete = remove bracket");
-		instructions.createEl("br");
-		instructions.appendText("Tab = indent selected proposition");
-		instructions.createEl("br");
-		instructions.appendText("Shift+Tab = decrease indent on selected proposition");
-		instructions.createEl("br");
-		instructions.appendText("Click whitespace (anywhere in work area) = deselect");
-		instructions.createEl("br");
-		instructions.appendText("Click + drag = pan workspace");
+		tabToolbar.createEl("button", { cls: "da-btn da-btn-warn", text: "Clear Brackets", attr: { "data-action": "clear-brackets", title: "Clear All Brackets" } });
+		tabToolbar.createEl("button", { cls: "da-btn da-btn-danger", text: "Reset All", attr: { "data-action": "reset-all", title: "Reset Everything" } });
 
-		const bottomRow = rightSidebar.createDiv({ cls: "da-row-gap" });
-		bottomRow.createEl("button", { cls: "da-btn da-flex1 da-btn-block da-btn-warn", text: "Clear All Brackets", attr: { "data-action": "clear-brackets" } });
-		bottomRow.createEl("button", { cls: "da-btn da-flex1 da-btn-block da-btn-danger", text: "Reset Everything", attr: { "data-action": "reset-all" } });
+		tabToolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "?", attr: { "data-action": "show-instructions", title: "Instructions", "aria-label": "Instructions" } });
+
+		const bodyEl = this.contentEl.createDiv({ cls: "da-body da-tab-panel", attr: { id: "brackets-panel" } });
+
+		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left", attr: { id: "left-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
+		const sidebarHeader = leftSidebar.createDiv({ cls: "da-sidebar-header" });
+		sidebarHeader.createEl("h2", { cls: "da-section-title", text: "Propositions" });
+		sidebarHeader.createEl("textarea", { cls: "da-textarea", attr: { id: "paste-area", rows: "3", placeholder: "Paste full passage here…" } });
+		const insertRow = sidebarHeader.createDiv({ cls: "da-row-gap" });
+		insertRow.createEl("button", { cls: "da-btn da-btn-primary da-flex1 da-btn-insert", text: "Insert", attr: { "data-action": "insert-props" } });
+		insertRow.createEl("button", { cls: "da-btn-square", text: "+", attr: { "data-action": "add-prop" } });
+		leftSidebar.createDiv({ cls: "da-prop-list", attr: { id: "sidebar-prop-list" } });
+
+		bodyEl.createDiv({ cls: "da-resizer", attr: { id: "left-resizer" } });
+
+		const workspace = bodyEl.createDiv({ cls: "da-workspace", attr: { id: "workspace" } });
+		const diagramContainer = workspace.createDiv({ cls: "da-diagram-container", attr: { id: "diagram-container" } });
+		diagramContainer.createDiv({ cls: "da-overlay", attr: { "data-action": "deselect" } });
+		const workspaceScaler = diagramContainer.createDiv({ cls: "da-workspace-scaler", attr: { id: "workspace-scaler" } });
+		workspaceScaler.createSvg("svg", { cls: "da-bracket-svg", attr: { id: "bracket-svg", width: "365", height: "1200" } });
+		workspaceScaler.createDiv({ cls: "da-proposition-rows", attr: { id: "proposition-rows" } });
 
 		this.buildSentenceFlowPanel();
 
@@ -622,6 +600,31 @@ export class DAView extends TextFileView {
 			resourceModalBody.createDiv({ cls: "da-resource-link-wrap" })
 				.createEl("button", { cls: "da-btn da-btn-accent", text: link.label, attr: { "data-url": link.url, "data-action": "open-external" } });
 		}
+
+		const instructionsModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "instructions-modal" } });
+		const instructionsModalInner = instructionsModal.createDiv({ cls: "da-modal da-modal-narrow" });
+		const instructionsModalHeader = instructionsModalInner.createDiv({ cls: "da-modal-header" });
+		instructionsModalHeader.createEl("h2", { cls: "da-modal-title", text: "Instructions" });
+		instructionsModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-instructions" } });
+		const instructionsModalBody = instructionsModalInner.createDiv({ cls: "da-modal-body" });
+		const instructions = instructionsModalBody.createDiv({ cls: "da-instructions" });
+		instructions.createEl("strong", { text: "Operations:" });
+		instructions.createEl("br");
+		instructions.appendText("Right-click box = edit label");
+		instructions.createEl("br");
+		instructions.appendText("Select spine + Delete = remove bracket");
+		instructions.createEl("br");
+		instructions.appendText("Tab = indent selected proposition");
+		instructions.createEl("br");
+		instructions.appendText("Shift+Tab = decrease indent on selected proposition");
+		instructions.createEl("br");
+		instructions.appendText("Click whitespace (anywhere in work area) = deselect");
+		instructions.createEl("br");
+		instructions.appendText("Click + drag = pan workspace");
+		instructions.createEl("br");
+		instructions.appendText("Drag ⋮⋮ (in Propositions list) = reorder");
+		instructions.createEl("br");
+		instructions.appendText("Double-click in main area = split proposition");
 	}
 
 	// Builds the "Sentence Flow" tab: a Word-like scratch canvas for pasting
@@ -662,10 +665,11 @@ export class DAView extends TextFileView {
 		on("hide-lr", () => this.hideLogicalRelationships());
 		on("show-resources", () => this.showResources());
 		on("hide-resources", () => this.hideResources());
+		on("show-instructions", () => this.showInstructions());
+		on("hide-instructions", () => this.hideInstructions());
 		on("export-png", () => { void this.exportPNG(); });
 		on("insert-props", () => this.splitIntoPropositions());
 		on("add-prop", () => this.addNewProposition());
-		on("clear-all", () => this.clearAll());
 		on("add-blank-bracket", () => this.addBlankBracket());
 		on("add-single-node-bracket", () => this.addSingleNodeBracket());
 		on("zoom-out", () => this.adjustZoom(-0.1));
@@ -687,7 +691,6 @@ export class DAView extends TextFileView {
 		this.initializeCanvasClick();
 		this.initializePanning();
 		this.makeResizable("left-resizer", "left-sidebar", "left");
-		this.makeResizable("right-resizer", "right-sidebar", "right");
 
 		this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => this.handleKeydown(e));
 
@@ -703,6 +706,7 @@ export class DAView extends TextFileView {
 	private switchTab(tab: "brackets" | "sentenceflow"): void {
 		this.activeTab = tab;
 		this.qsa(".da-tab-btn").forEach(btn => btn.classList.toggle("da-tab-btn-active", btn.dataset.tab === tab));
+		this.byId("brackets-toolbar")?.classList.toggle("da-tab-toolbar-hidden", tab !== "brackets");
 		this.byId("brackets-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "brackets");
 		this.byId("sentenceflow-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "sentenceflow");
 		if (tab === "sentenceflow") {
@@ -2158,10 +2162,6 @@ export class DAView extends TextFileView {
 		});
 	}
 
-	clearAll(): void {
-		this.resetAll();
-	}
-
 	loadThessaloniansExample(): void {
 		this.saveToHistory();
 		this.propositions = EXAMPLE_PROPOSITIONS.map(p => ({ ...p }));
@@ -2340,6 +2340,12 @@ export class DAView extends TextFileView {
 	}
 	hideResources(): void {
 		this.byId("resource-modal")?.classList.add("hidden");
+	}
+	showInstructions(): void {
+		this.byId("instructions-modal")?.classList.remove("hidden");
+	}
+	hideInstructions(): void {
+		this.byId("instructions-modal")?.classList.add("hidden");
 	}
 
 	// ---------- Sentence Flow: editing ----------

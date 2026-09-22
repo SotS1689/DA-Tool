@@ -261,6 +261,17 @@
 	border-color: var(--da-faint);
 }
 
+.da-tool-view .da-btn-icon-only {
+	min-height: 30px;
+	padding: 5px 10px;
+	border-radius: 10px;
+	font-size: 0.8rem;
+}
+
+.da-tool-view .da-btn-insert {
+	font-size: 0.64rem;
+}
+
 .da-tool-view .da-flex1 { flex: 1 1 0%; }
 
 .da-tool-view .da-row-gap {
@@ -320,7 +331,6 @@
 	overflow: hidden;
 }
 .da-tool-view .da-sidebar-left { border-right: 1px solid var(--da-border); }
-.da-tool-view .da-sidebar-right { border-left: 1px solid var(--da-border); padding: 24px; overflow-y: auto; }
 
 .da-tool-view .da-sidebar-header {
 	padding: 16px 24px;
@@ -356,10 +366,10 @@
 .da-tool-view .da-prop-list {
 	flex: 1 1 0%;
 	overflow: auto;
-	padding: 8px;
+	padding: 4px;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 2px;
 }
 
 .da-tool-view .da-empty-hint {
@@ -376,9 +386,9 @@
 .da-tool-view .da-prop-row {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 4px 16px;
-	border-radius: 18px;
+	gap: 6px;
+	padding: 2px 8px;
+	border-radius: 10px;
 	background: var(--da-row-bg);
 	border: 1px solid transparent;
 	cursor: default;
@@ -418,7 +428,7 @@
 
 .da-tool-view .da-prop-text {
 	flex: 1 1 0%;
-	font-size: 0.85rem;
+	font-size: 0.64rem;
 	line-height: 1.5;
 	outline: none;
 	min-height: 22px;
@@ -426,37 +436,17 @@
 }
 
 .da-tool-view .da-del-btn {
-	width: 26px;
-	height: 26px;
+	width: 13px;
+	height: 13px;
 	flex-shrink: 0;
 	border: none;
 	background: transparent;
 	color: var(--da-border-strong);
-	font-size: 1.1rem;
+	font-size: 0.55rem;
 	line-height: 1;
 	cursor: pointer;
 }
 .da-tool-view .da-del-btn:hover { color: var(--da-danger); }
-
-.da-tool-view .da-sidebar-footer {
-	padding: 12px 16px;
-	border-top: 1px solid var(--da-border);
-	font-size: 0.72rem;
-	color: var(--da-faint);
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-}
-
-.da-tool-view .da-link-danger {
-	background: none;
-	border: none;
-	color: var(--da-danger);
-	cursor: pointer;
-	font-size: 0.72rem;
-}
-.da-tool-view .da-link-danger:hover { color: var(--da-danger-hover); }
 
 .da-tool-view .da-resizer {
 	width: 5px;
@@ -574,26 +564,24 @@
 }
 .da-tool-view .da-row-del:hover { color: var(--da-danger); }
 
-/* ---------- right sidebar extras ---------- */
+/* ---------- zoom controls / instructions ---------- */
 
 .da-tool-view .da-zoom-row {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	margin-bottom: 20px;
+	gap: 4px;
 }
 .da-tool-view .da-zoom-label {
-	font-size: 0.85rem;
+	font-size: 0.8rem;
 	color: var(--da-muted);
-	width: 40px;
+	width: 36px;
 	text-align: center;
 }
 
 .da-tool-view .da-instructions {
-	font-size: 0.72rem;
-	line-height: 1.5;
+	font-size: 0.85rem;
+	line-height: 1.6;
 	color: var(--da-text);
-	margin-bottom: 20px;
 }
 
 /* ---------- label editor popup ---------- */
@@ -696,6 +684,10 @@
 .da-tool-view .da-modal-body {
 	overflow: auto;
 	padding: 28px;
+}
+
+.da-tool-view .da-modal-narrow {
+	max-width: 28rem;
 }
 
 .da-tool-view .da-relationship-grid {
@@ -926,10 +918,18 @@
 .da-tool-view .da-tab-strip {
 	flex-shrink: 0;
 	display: flex;
-	gap: 4px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
 	padding: 8px 24px 0;
 	background: var(--da-surface);
 	border-bottom: 1px solid var(--da-border);
+	flex-wrap: wrap;
+}
+
+.da-tool-view .da-tab-strip-tabs {
+	display: flex;
+	gap: 4px;
 }
 
 .da-tool-view .da-tab-btn {
@@ -939,6 +939,18 @@
 	color: var(--da-muted);
 	border-radius: 6px 6px 0 0;
 	border-bottom: 2px solid transparent;
+}
+
+.da-tool-view .da-tab-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding-bottom: 8px;
+	flex-wrap: wrap;
+}
+
+.da-tool-view .da-tab-toolbar-hidden {
+	display: none !important;
 }
 
 .da-tool-view .da-tab-btn:hover {
