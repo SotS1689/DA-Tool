@@ -517,6 +517,19 @@ export class DAView extends TextFileView {
 
 		tabToolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "?", attr: { "data-action": "show-instructions", title: "Instructions", "aria-label": "Instructions" } });
 
+		const sfToolbar = tabStrip.createDiv({ cls: "da-tab-toolbar da-sf-toolbar da-tab-toolbar-hidden", attr: { id: "sentenceflow-toolbar" } });
+		sfToolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "B", attr: { "data-fmt": "bold", title: "Bold (Ctrl+B)", "aria-label": "Bold" } });
+		sfToolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "I", attr: { "data-fmt": "italic", title: "Italic (Ctrl+I)", "aria-label": "Italic" } });
+		sfToolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "U", attr: { "data-fmt": "underline", title: "Underline (Ctrl+U)", "aria-label": "Underline" } });
+
+		const tabWidthWrap = sfToolbar.createDiv({ cls: "da-sf-tabwidth" });
+		tabWidthWrap.createSpan({ text: "Default tab:" });
+		tabWidthWrap.createEl("input", {
+			cls: "da-sf-tabwidth-input",
+			attr: { id: "notes-default-tab-width", type: "number", min: "0.1", step: "0.1" },
+		});
+		tabWidthWrap.createSpan({ text: "in" });
+
 		const bodyEl = this.contentEl.createDiv({ cls: "da-body da-tab-panel", attr: { id: "brackets-panel" } });
 
 		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left", attr: { id: "left-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
@@ -635,19 +648,6 @@ export class DAView extends TextFileView {
 	private buildSentenceFlowPanel(): void {
 		const panel = this.contentEl.createDiv({ cls: "da-tab-panel da-tab-panel-hidden da-sf-panel", attr: { id: "sentenceflow-panel" } });
 
-		const toolbar = panel.createDiv({ cls: "da-sf-toolbar" });
-		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "B", attr: { "data-fmt": "bold", title: "Bold (Ctrl+B)", "aria-label": "Bold" } });
-		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "I", attr: { "data-fmt": "italic", title: "Italic (Ctrl+I)", "aria-label": "Italic" } });
-		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "U", attr: { "data-fmt": "underline", title: "Underline (Ctrl+U)", "aria-label": "Underline" } });
-
-		const tabWidthWrap = toolbar.createDiv({ cls: "da-sf-tabwidth" });
-		tabWidthWrap.createSpan({ text: "Default tab:" });
-		tabWidthWrap.createEl("input", {
-			cls: "da-sf-tabwidth-input",
-			attr: { id: "notes-default-tab-width", type: "number", min: "0.1", step: "0.1" },
-		});
-		tabWidthWrap.createSpan({ text: "in" });
-
 		const canvasWrap = panel.createDiv({ cls: "da-sf-canvas-wrap" });
 		const canvas = canvasWrap.createDiv({ cls: "da-sf-canvas", attr: { id: "notes-canvas", contenteditable: "true", spellcheck: "false" } });
 		canvas.tabIndex = 0;
@@ -708,6 +708,7 @@ export class DAView extends TextFileView {
 		this.qsa(".da-tab-btn").forEach(btn => btn.classList.toggle("da-tab-btn-active", btn.dataset.tab === tab));
 		this.byId("brackets-toolbar")?.classList.toggle("da-tab-toolbar-hidden", tab !== "brackets");
 		this.byId("brackets-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "brackets");
+		this.byId("sentenceflow-toolbar")?.classList.toggle("da-tab-toolbar-hidden", tab !== "sentenceflow");
 		this.byId("sentenceflow-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "sentenceflow");
 		if (tab === "sentenceflow") {
 			window.requestAnimationFrame(() => this.layoutNotesTabs());

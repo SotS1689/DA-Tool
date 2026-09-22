@@ -981,16 +981,6 @@
 	background: var(--da-bg);
 }
 
-.da-tool-view .da-sf-toolbar {
-	flex-shrink: 0;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 10px 24px;
-	background: var(--da-surface);
-	border-bottom: 1px solid var(--da-border);
-}
-
 .da-tool-view .da-sf-fmt-btn {
 	width: 30px;
 	height: 30px;
