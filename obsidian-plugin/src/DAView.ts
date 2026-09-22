@@ -254,7 +254,9 @@ const BOOK_NAMES: Record<string, string> = {
 // with the verse's text following ("²¹But now"). Superscript letters are
 // footnote/cross-reference markers and are always stripped.
 const SUPERSCRIPT_DIGITS: Record<string, string> = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9" };
-const SUPERSCRIPT_VERSE_RUN = /(?<=^|[\s"'“‘(])[⁰¹²³⁴-⁹]+(?=\s?["'“‘(]?\p{L})/gu;
+// No lookbehind (unsupported on iOS < 16.4): the boundary char is captured in
+// group 1 instead and re-emitted by the replace callback below.
+const SUPERSCRIPT_VERSE_RUN = /(^|[\s"'“‘(])([⁰¹²³⁴-⁹]+)(?=\s?["'“‘(]?\p{L})/gu;
 const SUPERSCRIPT_DIGIT_RUN = /[⁰¹²³⁴-⁹]+/g;
 const SUPERSCRIPT_LETTERS = /[ʰ-ʸᵃ-ᵪᶜ-ᶿⁱⁿ]+/g;
 
@@ -270,7 +272,7 @@ function normalizePaste(raw: string): string {
 		// Single [a]-style footnote letters only - two-letter brackets are
 		// KJV/NKJV italic supplied words like "[is]" and must survive.
 		.replace(/\[[a-z]\]/g, "")
-		.replace(SUPERSCRIPT_VERSE_RUN, (run) => `[${run.split("").map(c => SUPERSCRIPT_DIGITS[c] ?? "").join("")}] `)
+		.replace(SUPERSCRIPT_VERSE_RUN, (_m, pre: string, run: string) => `${pre}[${run.split("").map(c => SUPERSCRIPT_DIGITS[c] ?? "").join("")}] `)
 		.replace(SUPERSCRIPT_DIGIT_RUN, "") // remaining runs are footnote numbers
 		.replace(/[^\S\n　]+/g, " "); // collapse whitespace, keep U+3000 (CJK reverence space) intact
 }
