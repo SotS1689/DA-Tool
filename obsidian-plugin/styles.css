@@ -49,6 +49,8 @@
 	--da-danger: #ef4444;
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #fca5a5;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #fff7ed;
 
 	display: flex;
 	flex-direction: column;
@@ -85,6 +87,8 @@
 	--da-danger: var(--color-red, #ef4444);
 	--da-danger-hover: color-mix(in srgb, var(--color-red, #ef4444) 80%, black);
 	--da-danger-bg: color-mix(in srgb, var(--color-red, #ef4444) 35%, var(--background-primary));
+	--da-main-point: var(--color-orange, #d97706);
+	--da-main-point-soft-bg: color-mix(in srgb, var(--color-orange, #d97706) 18%, var(--background-primary));
 }
 .da-tool-view.da-theme-adopt .da-workspace,
 .da-tool-view.da-theme-adopt .da-proposition-box {

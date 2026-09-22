@@ -73,6 +73,8 @@ export const COLOR_TOKENS: ColorToken[] = [
 	{ id: "danger", cssVar: "--da-danger", label: "Danger", desc: "Delete icons and Clear All link." },
 	{ id: "dangerHover", cssVar: "--da-danger-hover", label: "Danger (hover)", desc: "" },
 	{ id: "dangerBg", cssVar: "--da-danger-bg", label: "Danger background", desc: "Reset Everything button." },
+	{ id: "mainPoint", cssVar: "--da-main-point", label: "Main point", desc: "Border of a label box double-clicked to mark it as the main point." },
+	{ id: "mainPointSoftBg", cssVar: "--da-main-point-soft-bg", label: "Main point (soft background)", desc: "Fill of a label box marked as the main point." },
 ];
 
 export interface DAToolSettings {
@@ -157,6 +159,451 @@ function computeRowLabels(props: Proposition[]): string[] {
 	return props.map((p, i) => p.verseLabel ?? String(i + 1));
 }
 
+// ---------- passage-paste verse detection ----------
+//
+// splitIntoPropositions used to only recognize one paste shape: a bare
+// "6 text..." prefix per line. Real copies out of Bible software carry verse
+// numbers in several other shapes - superscripted, embedded mid-sentence, or
+// with a "Rom 3:21" prefix instead of a bare number - and the reference
+// itself often rides along as a header/trailer line or a "(Rom 3:21-26)"
+// citation that would otherwise get imported as a bogus extra proposition.
+// This section detects all of those and reduces them to one canonical shape,
+// a "[ref] text" marker in front of each verse, which splitIntoPropositions
+// then walks exactly as it always has (splitting each verse's text into
+// sentences and lettering them within that verse group).
+//
+// Detection escalates through strategies exactly like a human eye would,
+// each firing only when it can prove the numbers it found are really verses
+// (a book name that resolves in BOOK_NAMES, or a consecutive numeric run)
+// rather than list numbering, clock times, or footnote markers - so
+// non-passage text (sermon notes, arbitrary paragraphs) safely falls through
+// to "no verse info detected" and behaves exactly as before.
+
+const BOOK_NAMES: Record<string, string> = {
+	gen: "Genesis", genesis: "Genesis",
+	exod: "Exodus", exodus: "Exodus", ex: "Exodus",
+	lev: "Leviticus", leviticus: "Leviticus",
+	num: "Numbers", numbers: "Numbers",
+	deut: "Deuteronomy", deuteronomy: "Deuteronomy", dt: "Deuteronomy",
+	josh: "Joshua", joshua: "Joshua",
+	judg: "Judges", judges: "Judges",
+	ruth: "Ruth",
+	"1sam": "1 Samuel", "1samuel": "1 Samuel",
+	"2sam": "2 Samuel", "2samuel": "2 Samuel",
+	"1kgs": "1 Kings", "1kings": "1 Kings",
+	"2kgs": "2 Kings", "2kings": "2 Kings",
+	"1chr": "1 Chronicles", "1chron": "1 Chronicles", "1chronicles": "1 Chronicles",
+	"2chr": "2 Chronicles", "2chron": "2 Chronicles", "2chronicles": "2 Chronicles",
+	ezra: "Ezra",
+	neh: "Nehemiah", nehemiah: "Nehemiah",
+	esth: "Esther", esther: "Esther", est: "Esther",
+	job: "Job",
+	ps: "Psalm", psa: "Psalm", psalm: "Psalm", psalms: "Psalm", pss: "Psalm",
+	prov: "Proverbs", proverbs: "Proverbs",
+	eccl: "Ecclesiastes", ecc: "Ecclesiastes", ecclesiastes: "Ecclesiastes",
+	song: "Song of Solomon", songofsolomon: "Song of Solomon", songofsongs: "Song of Solomon", sos: "Song of Solomon",
+	isa: "Isaiah", isaiah: "Isaiah",
+	jer: "Jeremiah", jeremiah: "Jeremiah",
+	lam: "Lamentations", lamentations: "Lamentations",
+	ezek: "Ezekiel", ezekiel: "Ezekiel",
+	dan: "Daniel", daniel: "Daniel",
+	hos: "Hosea", hosea: "Hosea",
+	joel: "Joel",
+	amos: "Amos",
+	obad: "Obadiah", obadiah: "Obadiah",
+	jonah: "Jonah",
+	mic: "Micah", micah: "Micah",
+	nah: "Nahum", nahum: "Nahum",
+	hab: "Habakkuk", habakkuk: "Habakkuk",
+	zeph: "Zephaniah", zephaniah: "Zephaniah",
+	hag: "Haggai", haggai: "Haggai",
+	zech: "Zechariah", zechariah: "Zechariah",
+	mal: "Malachi", malachi: "Malachi",
+	matt: "Matthew", matthew: "Matthew", mt: "Matthew",
+	mark: "Mark", mk: "Mark", mr: "Mark",
+	luke: "Luke", lk: "Luke",
+	john: "John", jn: "John", jhn: "John",
+	acts: "Acts", ac: "Acts",
+	rom: "Romans", romans: "Romans", ro: "Romans",
+	"1cor": "1 Corinthians", "1corinthians": "1 Corinthians",
+	"2cor": "2 Corinthians", "2corinthians": "2 Corinthians",
+	gal: "Galatians", galatians: "Galatians",
+	eph: "Ephesians", ephesians: "Ephesians",
+	phil: "Philippians", php: "Philippians", philippians: "Philippians",
+	col: "Colossians", colossians: "Colossians",
+	"1thess": "1 Thessalonians", "1thessalonians": "1 Thessalonians",
+	"2thess": "2 Thessalonians", "2thessalonians": "2 Thessalonians",
+	"1tim": "1 Timothy", "1timothy": "1 Timothy",
+	"2tim": "2 Timothy", "2timothy": "2 Timothy",
+	titus: "Titus", tit: "Titus",
+	phlm: "Philemon", philemon: "Philemon",
+	heb: "Hebrews", hebrews: "Hebrews",
+	jas: "James", james: "James",
+	"1pet": "1 Peter", "1peter": "1 Peter",
+	"2pet": "2 Peter", "2peter": "2 Peter",
+	"1jn": "1 John", "1john": "1 John",
+	"2jn": "2 John", "2john": "2 John",
+	"3jn": "3 John", "3john": "3 John",
+	jude: "Jude",
+	rev: "Revelation", revelation: "Revelation", re: "Revelation",
+};
+
+// Superscript digits/letters paste from Logos/Accordance where the on-screen
+// verse number was superscripted. A digit run only counts as a verse number
+// in verse position - at the start of text or after a space/opening quote,
+// with the verse's text following ("²¹But now"). Superscript letters are
+// footnote/cross-reference markers and are always stripped.
+const SUPERSCRIPT_DIGITS: Record<string, string> = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9" };
+const SUPERSCRIPT_VERSE_RUN = /(?<=^|[\s"'“‘(])[⁰¹²³⁴-⁹]+(?=\s?["'“‘(]?\p{L})/gu;
+const SUPERSCRIPT_DIGIT_RUN = /[⁰¹²³⁴-⁹]+/g;
+const SUPERSCRIPT_LETTERS = /[ʰ-ʸᵃ-ᵪᶜ-ᶿⁱⁿ]+/g;
+
+// Clean pasted text and convert unambiguous verse signals into [n] markers so
+// every detection path funnels into the one marker-splitting routine below.
+function normalizePaste(raw: string): string {
+	return String(raw)
+		.replace(/[​‌‍﻿]/g, "") // zero-width chars / BOM
+		.replace(/\r\n?/g, "\n")
+		.replace(/ /g, " ")
+		.replace(/¶/g, " ") // pilcrows (Accordance paragraph marks)
+		.replace(SUPERSCRIPT_LETTERS, "")
+		// Single [a]-style footnote letters only - two-letter brackets are
+		// KJV/NKJV italic supplied words like "[is]" and must survive.
+		.replace(/\[[a-z]\]/g, "")
+		.replace(SUPERSCRIPT_VERSE_RUN, (run) => `[${run.split("").map(c => SUPERSCRIPT_DIGITS[c] ?? "").join("")}] `)
+		.replace(SUPERSCRIPT_DIGIT_RUN, "") // remaining runs are footnote numbers
+		.replace(/[^\S\n　]+/g, " "); // collapse whitespace, keep U+3000 (CJK reverence space) intact
+}
+
+interface ParsedRef {
+	bookKey: string;
+	bookName: string;
+	chapter: number;
+	startVerse: number | null;
+	endVerse: number | null;
+	refString: string;
+}
+
+// Parse one candidate reference string ("Rom 3:21-26", "1 Cor. 13", with an
+// optional translation tag like "ESV" tacked on). Returns null unless the
+// book resolves in BOOK_NAMES - that table lookup is the false-positive gate
+// that keeps "Meeting notes 3:21" from being read as a reference.
+function parseReferenceText(text: string): ParsedRef | null {
+	const cleaned = String(text)
+		.replace(/[‐‑‒–—―−]/g, "-") // dashes → hyphen
+		// Trailing translation tag ("ESV", "(NASB 2020)"), only after digits
+		// exist; the optional second token covers edition years.
+		.replace(/[,;]?\s*\(?[A-Z][A-Za-z0-9]{1,7}(?:\s+[A-Z0-9]{2,8})?\)?\s*$/, (tag, offset: number, s: string) => (/\d/.test(s.slice(0, offset)) ? "" : tag))
+		.trim();
+	const m = cleaned.match(/^([1-3]?\s*[A-Za-z][A-Za-z.\s]*?)\s*(\d{1,3})(?::(\d{1,3})(?:-(\d{1,3}))?)?$/);
+	if (!m) return null;
+
+	const bookKey = m[1].trim().toLowerCase().replace(/[.\s]+/g, "");
+	if (!(bookKey in BOOK_NAMES)) return null;
+
+	const bookName = BOOK_NAMES[bookKey];
+	const chapter = parseInt(m[2], 10);
+	const startVerse = m[3] ? parseInt(m[3], 10) : null;
+	const endVerse = m[4] ? parseInt(m[4], 10) : startVerse;
+
+	let refString = `${bookName} ${chapter}`;
+	if (startVerse) refString += `:${startVerse}` + (endVerse !== startVerse ? `-${endVerse}` : "");
+	return { bookKey, bookName, chapter, startVerse, endVerse, refString };
+}
+
+// Pull a reference out of a header line ("Romans 3:21-26" on its own line
+// before the text), an own-line trailing citation ("Romans 3:21-22 (ESV)" as
+// the last line), or a parenthesized trailing citation ("…more. (Rom
+// 3:21-26)"). All three are consumed from the body even when more than one is
+// present; the header wins as the ref. Returns { ref, body } where body is
+// the text with the references consumed - otherwise they'd get imported as
+// bogus extra propositions.
+function extractReference(text: string): { ref: ParsedRef | null; body: string } {
+	let ref: ParsedRef | null = null;
+	let body = text;
+
+	const newline = body.indexOf("\n");
+	if (newline !== -1) {
+		const headerRef = parseReferenceText(body.slice(0, newline));
+		if (headerRef && body.slice(newline + 1).trim()) {
+			ref = headerRef;
+			body = body.slice(newline + 1);
+		}
+	}
+
+	const lastBreak = body.lastIndexOf("\n");
+	if (lastBreak !== -1) {
+		const lastLineRef = parseReferenceText(body.slice(lastBreak + 1));
+		if (lastLineRef && body.slice(0, lastBreak).trim()) {
+			ref = ref || lastLineRef;
+			body = body.slice(0, lastBreak);
+		}
+	}
+
+	const trailer = body.match(/\(([^()\n]{2,60})\)\s*$/);
+	if (trailer) {
+		const trailerRef = parseReferenceText(trailer[1]);
+		if (trailerRef && body.slice(0, trailer.index).trim()) {
+			ref = ref || trailerRef;
+			body = body.slice(0, trailer.index);
+		}
+	}
+
+	return { ref, body };
+}
+
+// One verse's worth of text after marker-splitting, with its detected ref
+// ("21", or "3:21" when the passage spans a chapter boundary) - or ref
+// undefined for text no detection stage could anchor to a verse.
+interface MarkedVerse {
+	ref: string | undefined;
+	text: string;
+}
+
+// The single splitting routine: one chunk per [n]/[n:m] marker. Text before
+// the first marker (or the whole body, when no marker fired at all) comes
+// back as one ref-less chunk.
+function splitOnMarkers(text: string): MarkedVerse[] {
+	const parts = text.split(/(?=\[\d+(?::\d+)?\])/);
+	const chunks: MarkedVerse[] = [];
+	for (const part of parts) {
+		const m = part.match(/^\[(\d+)(?::(\d+))?\]\s*(.*)$/s);
+		if (m) {
+			const ref = m[2] ? `${m[1]}:${m[2]}` : m[1];
+			const content = m[3].trim();
+			if (content) chunks.push({ ref, text: content });
+		} else if (part.trim()) {
+			chunks.push({ ref: undefined, text: part.trim() });
+		}
+	}
+	return chunks;
+}
+
+interface LineCandidate {
+	bookKey?: string;
+	chapter?: number;
+	verse?: number;
+	text: string;
+	explicit?: boolean;
+}
+
+// Line mode: each verse on its own line, prefixed with "Rom 3:21", "3:21", or
+// a bare number ("21 But now…" - Logos CBV one-verse-per-line style).
+// Book-prefixed lines are self-evidently verse references (the book-table
+// lookup is the gate); bare numbers and bare "c:v" prefixes prove nothing
+// alone (list numbering, schedule times), so they must form a coherent run of
+// at least two lines - each continuing the chapter (verse + 1) or opening the
+// next chapter at verse 1. A single bare-number line falls through to flow
+// mode, which can tell one verse from a paragraph with more verse numbers
+// embedded in it. Returns { marked, derivedRef } or null.
+function detectVerseLines(body: string): { marked: string; derivedRef?: string } | null {
+	const lines = body.split("\n").map(l => l.trim()).filter(Boolean);
+	if (!lines.length) return null;
+
+	const parsed: LineCandidate[] = lines.map((line) => {
+		let m = line.match(/^((?:[1-3]\s*)?[A-Za-z][A-Za-z.\s]*?)\s+(\d{1,3}):(\d{1,3})\s+(\S.*)$/s);
+		if (m) {
+			const bookKey = m[1].trim().toLowerCase().replace(/[.\s]+/g, "");
+			if (bookKey in BOOK_NAMES) {
+				return { bookKey, chapter: parseInt(m[2], 10), verse: parseInt(m[3], 10), text: m[4], explicit: true };
+			}
+		}
+		m = line.match(/^(\d{1,3}):(\d{1,3})\s+(\S.*)$/s);
+		if (m) return { chapter: parseInt(m[1], 10), verse: parseInt(m[2], 10), text: m[3], explicit: false };
+		m = line.match(/^(\d{1,3})\s+(\S.*)$/s); // no "1." / "1)" - that's list numbering, not a verse
+		if (m) return { verse: parseInt(m[1], 10), text: m[2], explicit: false };
+		return { text: line };
+	});
+
+	const candidates = parsed.filter(p => p.verse !== undefined);
+	if (!candidates.length) return null;
+	if (candidates.some(c => (c.verse as number) < 1 || c.chapter === 0)) return null; // no verse/chapter zero
+
+	if (!candidates.every(c => c.explicit)) {
+		if (candidates.length < 2) return null;
+		const coherent = candidates.every((c, i) => {
+			if (i === 0) return true;
+			const prev = candidates[i - 1];
+			const sameChapter = c.chapter === undefined || prev.chapter === undefined || c.chapter === prev.chapter;
+			if (sameChapter && c.verse === (prev.verse as number) + 1) return true;
+			return c.chapter !== undefined && prev.chapter !== undefined && c.chapter === prev.chapter + 1 && c.verse === 1;
+		});
+		if (!coherent) return null;
+	}
+
+	const chapters = new Set(candidates.filter(c => c.chapter !== undefined).map(c => c.chapter));
+	const multiChapter = chapters.size > 1;
+	// Lines before the first verse line (pericope headings, "New
+	// International Version") can't be verse content - drop them. Later
+	// verse-less lines still join the previous verse.
+	const firstVerseIdx = parsed.findIndex(p => p.verse !== undefined);
+	const marked = parsed.slice(firstVerseIdx).map((p) => {
+		if (p.verse === undefined) return p.text; // continuation line — joins the previous verse
+		const ref = multiChapter && p.chapter !== undefined ? `${p.chapter}:${p.verse}` : String(p.verse);
+		return `[${ref}] ${p.text}`;
+	}).join("\n");
+
+	// Accordance's per-verse "Rom 3:21 …" prefixes carry the passage
+	// reference even without a header/citation - reconstruct it from the
+	// first book line.
+	let derivedRef: string | undefined;
+	const firstBook = parsed.find(p => p.bookKey);
+	if (firstBook && !multiChapter && firstBook.bookKey) {
+		const bookName = BOOK_NAMES[firstBook.bookKey] || firstBook.bookKey;
+		const first = candidates[0].verse as number;
+		const last = candidates[candidates.length - 1].verse as number;
+		derivedRef = `${bookName} ${firstBook.chapter}:${first}` + (last !== first ? `-${last}` : "");
+	}
+	return { marked, derivedRef };
+}
+
+interface FlowAccept {
+	start: number;
+	end: number;
+	delimStart: number;
+	delim: string;
+	chapter: number | null;
+	verse: number;
+}
+
+// Flow mode: verse numbers embedded in running text ("…the Prophets— 22 the
+// righteousness of God…"). A number bounded by whitespace and followed by a
+// word only counts once a consecutive chain is established from the anchor -
+// the detected reference's start verse, or, with no reference, a number at
+// the very start of the text. "c:v" tokens are c:v-shaped like clock times
+// and cross-references ("see 16:25"), so they only count when they
+// corroborate the chain: the reference's own chapter as the anchor, or a
+// restart at the next chapter's verse 1. Rejected numbers stay as ordinary
+// text. Returns marked-up text or null.
+//
+// Ported without the regex /d (indices) flag - this plugin's TS target
+// predates it - by capturing the leading delimiter in its own group instead
+// of a lookbehind, so match/group offsets can be computed with plain
+// .index + length arithmetic.
+function detectVerseFlow(body: string, expectedStart: number | null, expectedChapter: number | null): string | null {
+	const tokenRegex = /(^|[\s"'“‘(])(\d{1,3})(?::(\d{1,3}))?(?=\s+["'“‘(]?\p{L})/gu;
+	const OPENING_DELIMS = new Set(["\"", "'", "“", "‘", "("]);
+	const accepted: FlowAccept[] = [];
+	let expected = expectedStart;
+	let currentChapter = expectedChapter;
+	let multiChapter = false;
+	let sawLeadingText = false;
+
+	for (const m of body.matchAll(tokenRegex)) {
+		const delim = m[1] ?? "";
+		const delimStart = m.index as number;
+		const numStart = delimStart + delim.length;
+		const numEnd = delimStart + m[0].length;
+		const chapter = m[3] ? parseInt(m[2], 10) : null;
+		const verse = m[3] ? parseInt(m[3], 10) : parseInt(m[2], 10);
+		if (verse < 1 || chapter === 0) continue; // no verse/chapter zero
+
+		if (!accepted.length) {
+			sawLeadingText = body.slice(0, numStart).trim().length > 0;
+			if (chapter !== null) {
+				// A "c:v" anchor must corroborate the detected reference: its
+				// own chapter, or - when leading text is the tail of an
+				// unnumbered first verse - the next chapter starting over at
+				// verse 1.
+				const ownChapter = expectedChapter !== null && chapter === expectedChapter &&
+					(expected === null || verse === expected || (sawLeadingText && verse === (expected as number) + 1));
+				const nextChapter = expectedChapter !== null && sawLeadingText &&
+					chapter === expectedChapter + 1 && verse === 1;
+				if (!ownChapter && !nextChapter) continue;
+			} else if (expected !== null) {
+				// Anchor: must match the reference (allowing +1 when text
+				// precedes it - a copy that starts mid-verse).
+				if (verse !== expected && !(sawLeadingText && verse === expected + 1)) continue;
+			} else if (sawLeadingText) {
+				continue; // no reference to anchor on - only trust a number at the very start
+			}
+		} else if (chapter !== null) {
+			// Mid-chain "c:v": the next chapter starting over at verse 1
+			// (chapter boundaries in long copies) or a redundant prefix on
+			// the expected verse - anything else ("see 16:25") is ordinary
+			// text.
+			const restart = (currentChapter === null || chapter === currentChapter + 1) && verse === 1;
+			const redundant = (currentChapter === null || chapter === currentChapter) && verse === expected;
+			if (!restart && !redundant) continue;
+		} else if (verse !== expected) {
+			continue; // not the next verse - an ordinary number in the text
+		}
+		if (chapter !== null) {
+			if (currentChapter !== null && chapter !== currentChapter) multiChapter = true;
+			currentChapter = chapter;
+		}
+		accepted.push({ start: numStart, end: numEnd, delimStart, delim, chapter: currentChapter, verse });
+		expected = verse + 1;
+	}
+
+	const strongEnough = accepted.length >= 2 || (accepted.length === 1 && expectedStart !== null);
+	if (!strongEnough) return null;
+
+	let out = "";
+	let pos = 0;
+	let firstMarkerAt = 0;
+	accepted.forEach((a, idx) => {
+		const ref = multiChapter && a.chapter !== null ? `${a.chapter}:${a.verse}` : String(a.verse);
+		// An opening quote/paren immediately before the number belongs to
+		// the verse that follows it, not to the previous verse's text.
+		const opensVerse = OPENING_DELIMS.has(a.delim);
+		const cut = opensVerse ? a.delimStart : a.start;
+		if (idx === 0) firstMarkerAt = out.length + (cut - pos);
+		out += body.slice(pos, cut) + `[${ref}] ` + (opensVerse ? a.delim : "");
+		pos = a.end;
+		if (opensVerse && body[pos] === " ") pos += 1; // "“22 even" → "[22] “even"
+	});
+	out += body.slice(pos);
+
+	if (sawLeadingText) {
+		const a0 = accepted[0];
+		const continuesRef = expectedStart !== null &&
+			(a0.verse === expectedStart + 1 ||
+				(a0.chapter !== null && expectedChapter !== null && a0.chapter === expectedChapter + 1 && a0.verse === 1));
+		if (continuesRef) {
+			// Text before the first number is the reference's own first verse.
+			const headRef = multiChapter && expectedChapter !== null
+				? `${expectedChapter}:${expectedStart}` : String(expectedStart);
+			out = `[${headRef}] ${out}`;
+		} else {
+			// Leading text at the reference's own start verse can't be verse
+			// content (a pericope heading, "New International Version") -
+			// drop it.
+			out = out.slice(firstMarkerAt);
+		}
+	}
+	return out;
+}
+
+// Parse pasted passage text into verse-marked chunks, escalating through
+// detection strategies until one proves itself (see section comment above).
+// Backward compatible with plain non-passage paste: 'none' detection returns
+// the whole body as a single ref-less chunk, exactly like today's fallback.
+function parsePastedText(raw: string): { chunks: MarkedVerse[]; passageRef?: string; detection: "markers" | "lines" | "flow" | "none" } {
+	const normalized = normalizePaste(raw);
+	const { ref, body } = extractReference(normalized);
+	const passageRef = ref ? ref.refString : undefined;
+	const expectedStart = ref?.startVerse ?? null;
+	const expectedChapter = ref?.chapter ?? null;
+
+	if (/\[\d+(?::\d+)?\]/.test(body)) {
+		return { chunks: splitOnMarkers(body), passageRef, detection: "markers" };
+	}
+
+	const lineResult = detectVerseLines(body);
+	if (lineResult !== null) {
+		return { chunks: splitOnMarkers(lineResult.marked), passageRef: passageRef || lineResult.derivedRef, detection: "lines" };
+	}
+
+	const flowMarked = detectVerseFlow(body, expectedStart, expectedChapter);
+	if (flowMarked !== null) {
+		return { chunks: splitOnMarkers(flowMarked), passageRef, detection: "flow" };
+	}
+
+	const trimmed = body.trim();
+	return { chunks: trimmed ? [{ ref: undefined, text: trimmed }] : [], passageRef, detection: "none" };
+}
+
 interface Bracket {
 	id: number;
 	start: number;
@@ -170,6 +617,13 @@ interface Bracket {
 	parentBracketId?: number;
 	parentBracketId2?: number;
 	parentBracketIds?: number[];
+	// Set by double-clicking a logical label box (createCornerBox); toggled
+	// off the same way. Paired with topLabel/bottomLabel the same way those
+	// two fields are - a single-node bracket only ever has one label box
+	// (createCornerBox is always called with isTop=true for it, see
+	// centerLabel's call site), so mainPointTop alone covers that case too.
+	mainPointTop?: boolean;
+	mainPointBottom?: boolean;
 }
 
 interface Corner {
@@ -699,6 +1153,8 @@ export class DAView extends TextFileView {
 		instructions.createEl("strong", { text: "Operations:" });
 		instructions.createEl("br");
 		instructions.appendText("Right-click box = edit label");
+		instructions.createEl("br");
+		instructions.appendText("Double-click box = mark/unmark as main point");
 		instructions.createEl("br");
 		instructions.appendText("Select spine + Delete = remove bracket");
 		instructions.createEl("br");
@@ -1395,6 +1851,72 @@ export class DAView extends TextFileView {
 
 	// ---------- column assignment ----------
 
+	// Does bracket i strictly contain bracket j by row range? Ties (identical
+	// spans) break toward the earlier-created bracket staying "outer", same
+	// tie-break a nested-brackets renderer uses when two spans coincide.
+	private bracketStrictlyContains(i: number, j: number): boolean {
+		if (i === j) return false;
+		const brackets = this.brackets;
+		const bi = brackets[i], bj = brackets[j];
+		if (bi.start <= bj.start && bi.end >= bj.end) {
+			if (bi.start === bj.start && bi.end === bj.end) return j < i;
+			return true;
+		}
+		return false;
+	}
+
+	// The nesting depth implied by structure alone: 1 + the deepest depth of
+	// any bracket i strictly contains (by row range) or is explicitly
+	// parented to (a corner-linked bilateral bracket bridging two sibling
+	// brackets, which row ranges alone can't express). Computed once via
+	// post-order DFS - each bracket is only visited after everything it
+	// depends on is finalized - so, unlike hunting for a free column by
+	// trial and error in array-index order, a container can never be
+	// finalized before something nested inside it. That ordering bug was
+	// latent in the old crossing-search loop: a bracket processed before its
+	// own child (whenever the child had a higher array index) picked its
+	// column without ever seeing the child, since the child's column was
+	// still unassigned at that point.
+	//
+	// This alone isn't sufficient for placement, because this bracket model
+	// - unlike a strict discourse-tree of nested spans - also allows
+	// non-nesting bridges (a bracket parented to two sibling brackets'
+	// corners, for a bilateral relationship) that can genuinely cross one
+	// another on screen. assignColumns resolves those with its existing
+	// crossing/corner-clearance search, just seeded from this depth instead
+	// of from 0.
+	bracketNestingDepth(): number[] {
+		const brackets = this.brackets;
+		const n = brackets.length;
+		const idToIdx: Record<number, number> = {};
+		brackets.forEach((b, i) => { idToIdx[b.id] = i; });
+
+		const depth = new Array(n).fill(0);
+		const state = new Array<0 | 1 | 2>(n).fill(0); // 0 unvisited, 1 in progress, 2 done
+		const visit = (i: number) => {
+			if (state[i] !== 0) return; // done, or a cycle (shouldn't happen via the UI) — treat as a leaf
+			state[i] = 1;
+			let d = 0;
+			for (let j = 0; j < n; j++) {
+				if (this.bracketStrictlyContains(i, j)) {
+					visit(j);
+					d = Math.max(d, depth[j] + 1);
+				}
+			}
+			for (const pid of getParentIds(brackets[i])) {
+				const pi = idToIdx[pid];
+				if (pi !== undefined && pi !== i) {
+					visit(pi);
+					d = Math.max(d, depth[pi] + 1);
+				}
+			}
+			depth[i] = d;
+			state[i] = 2;
+		};
+		for (let i = 0; i < n; i++) visit(i);
+		return depth;
+	}
+
 	assignColumns(): number[] {
 		const brackets = this.brackets;
 		const n = brackets.length;
@@ -1417,74 +1939,56 @@ export class DAView extends TextFileView {
 		});
 
 		const colOf = new Array(n).fill(-1);
-		const remaining = new Set(brackets.map((_, i) => i));
 
-		const parentsAssigned = (b: Bracket): boolean => {
+		// Process brackets in ascending nesting-depth order (children/parents
+		// before their dependents) instead of raw array order, so every
+		// minCol computation below always sees real, already-assigned
+		// columns for anything it depends on.
+		const depth = this.bracketNestingDepth();
+		const order = brackets.map((_, i) => i).sort((a, b) => depth[a] - depth[b]);
+
+		for (const i of order) {
+			const b = brackets[i];
+
+			let minCol = 0;
 			for (const pid of getParentIds(b)) {
 				const pi = idToIdx[pid];
-				if (pi === undefined || colOf[pi] === -1) return false;
+				if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
 			}
-			return true;
-		};
 
-		let safetyLimit = n * n + 10;
-		while (remaining.size > 0 && safetyLimit-- > 0) {
-			let progress = false;
-			for (const i of [...remaining]) {
-				const b = brackets[i];
-				if (!parentsAssigned(b)) continue;
+			brackets.forEach((other, j) => {
+				if (j === i || colOf[j] === -1) return;
+				if (this.bracketStrictlyContains(i, j)) minCol = Math.max(minCol, colOf[j] + 1);
+			});
 
-				let minCol = 0;
-				for (const pid of getParentIds(b)) {
-					const pi = idToIdx[pid];
-					if (pi !== undefined && colOf[pi] !== -1) minCol = Math.max(minCol, colOf[pi] + 1);
-				}
+			for (let col = minCol; ; col++) {
+				const effPos_i = col * COL_STEP - minIndents[i] * INDENT_STEP;
 
-				brackets.forEach((other, j) => {
-					if (j === i || colOf[j] === -1) return;
+				const crosses = brackets.some((other, j) => {
+					if (j === i || colOf[j] === -1) return false;
+
 					const s1 = b.start, e1 = b.end;
 					const s2 = other.start, e2 = other.end;
-					const strictlyContains = s1 <= s2 && e1 >= e2 && (s1 < s2 || e1 > e2);
-					if (strictlyContains) minCol = Math.max(minCol, colOf[j] + 1);
+					const overlaps = s1 < e2 && e1 > s2;
+					const contained = (s1 >= s2 && e1 <= e2) || (s2 >= s1 && e2 <= e1);
+
+					if (colOf[j] === col && overlaps && !contained) return true;
+
+					const top1 = b.attachToRow !== undefined ? b.attachToRow : b.start;
+					const top2 = other.attachToRow !== undefined ? other.attachToRow : other.start;
+					const sharesCorner = top1 === top2 || top1 === e2 || e1 === top2 || e1 === e2;
+					if (sharesCorner) {
+						const effPos_j = colOf[j] * COL_STEP - minIndents[j] * INDENT_STEP;
+						if (Math.abs(effPos_i - effPos_j) < BOX_CLEARANCE) return true;
+					}
+
+					return false;
 				});
 
-				for (let col = minCol; ; col++) {
-					const effPos_i = col * COL_STEP - minIndents[i] * INDENT_STEP;
-
-					const crosses = brackets.some((other, j) => {
-						if (j === i || colOf[j] === -1) return false;
-
-						const s1 = b.start, e1 = b.end;
-						const s2 = other.start, e2 = other.end;
-						const overlaps = s1 < e2 && e1 > s2;
-						const contained = (s1 >= s2 && e1 <= e2) || (s2 >= s1 && e2 <= e1);
-
-						if (colOf[j] === col && overlaps && !contained) return true;
-
-						const top1 = b.attachToRow !== undefined ? b.attachToRow : b.start;
-						const top2 = other.attachToRow !== undefined ? other.attachToRow : other.start;
-						const sharesCorner = top1 === top2 || top1 === e2 || e1 === top2 || e1 === e2;
-						if (sharesCorner) {
-							const effPos_j = colOf[j] * COL_STEP - minIndents[j] * INDENT_STEP;
-							if (Math.abs(effPos_i - effPos_j) < BOX_CLEARANCE) return true;
-						}
-
-						return false;
-					});
-
-					if (!crosses) {
-						colOf[i] = col;
-						break;
-					}
+				if (!crosses) {
+					colOf[i] = col;
+					break;
 				}
-
-				remaining.delete(i);
-				progress = true;
-			}
-			if (!progress) {
-				const i = [...remaining][0];
-				colOf[i] = 0;
-				remaining.delete(i);
 			}
 		}
 
@@ -1765,7 +2269,7 @@ export class DAView extends TextFileView {
 					group.appendChild(arm);
 				});
 
-				this.createCornerBox(group, b.centerLabel || "", leftX, yCenter, true, b.id);
+				this.createCornerBox(group, b.centerLabel || "", leftX, yCenter, true, b.id, !!b.mainPointTop);
 
 				if (this.selectedBracketId === b.id || this.selectedCorners.some(c => c.bracketId === b.id)) {
 					const highlight = createSvg("line");
@@ -1806,8 +2310,8 @@ export class DAView extends TextFileView {
 				bottomArm.setAttribute("stroke", "var(--da-muted)"); bottomArm.setAttribute("stroke-width", "2.5");
 				group.appendChild(bottomArm);
 
-				this.createCornerBox(group, b.topLabel || "", leftX, y1, true, b.id);
-				this.createCornerBox(group, b.bottomLabel || "", leftX, y2, false, b.id);
+				this.createCornerBox(group, b.topLabel || "", leftX, y1, true, b.id, !!b.mainPointTop);
+				this.createCornerBox(group, b.bottomLabel || "", leftX, y2, false, b.id, !!b.mainPointBottom);
 
 				if (this.selectedBracketId === b.id || this.selectedCorners.some(c => c.bracketId === b.id)) {
 					const highlight = createSvg("line");
@@ -1822,7 +2326,7 @@ export class DAView extends TextFileView {
 		});
 	}
 
-	createCornerBox(group: SVGElement, text: string, spineX: number, y: number, isTop: boolean, bracketId: number): void {
+	createCornerBox(group: SVGElement, text: string, spineX: number, y: number, isTop: boolean, bracketId: number, isMainPoint: boolean): void {
 		const size = 32;
 		let boxX: number, connX1: number, connX2: number;
 
@@ -1843,9 +2347,23 @@ export class DAView extends TextFileView {
 		rect.setAttribute("height", String(size));
 		rect.setAttribute("rx", "4");
 		const isSelected = this.selectedCorners.some(c => c.bracketId === bracketId && c.isTop === isTop);
-		rect.setAttribute("fill", isSelected ? "var(--da-accent-soft-bg)" : (text ? "var(--da-surface)" : "var(--da-row-bg)"));
-		rect.setAttribute("stroke", isSelected ? "var(--da-accent)" : (text ? "var(--da-muted)" : "var(--da-border-strong)"));
-		rect.setAttribute("stroke-width", isSelected ? "2.5" : "1.5");
+		// Selection (accent) wins when both apply - it's the active,
+		// in-progress action; the main-point mark (its own configurable
+		// color, distinct from accent - see COLOR_TOKENS "mainPoint"/
+		// "mainPointSoftBg") is the persisted one and shows otherwise.
+		if (isSelected) {
+			rect.setAttribute("fill", "var(--da-accent-soft-bg)");
+			rect.setAttribute("stroke", "var(--da-accent)");
+			rect.setAttribute("stroke-width", "2.5");
+		} else if (isMainPoint) {
+			rect.setAttribute("fill", "var(--da-main-point-soft-bg)");
+			rect.setAttribute("stroke", "var(--da-main-point)");
+			rect.setAttribute("stroke-width", "2.5");
+		} else {
+			rect.setAttribute("fill", text ? "var(--da-surface)" : "var(--da-row-bg)");
+			rect.setAttribute("stroke", text ? "var(--da-muted)" : "var(--da-border-strong)");
+			rect.setAttribute("stroke-width", "1.5");
+		}
 		rect.setAttribute("pointer-events", "all");
 
 		rect.addEventListener("click", e => {
@@ -1858,6 +2376,23 @@ export class DAView extends TextFileView {
 				this.selectedCorners.push(cornerObj);
 			}
 			this.selectedBracketId = null;
+			this.renderCanvas();
+		});
+
+		// Double-click marks/unmarks this label as the main point. The two
+		// single clicks that compose the double-click still fire the
+		// listener above and toggle selectedCorners twice, netting out to
+		// whatever it was before - harmless, and how every other
+		// click-to-toggle box in this canvas already behaves under a
+		// double-click.
+		rect.addEventListener("dblclick", e => {
+			e.stopImmediatePropagation();
+			e.preventDefault();
+			const bracket = this.brackets.find(x => x.id === bracketId);
+			if (!bracket) return;
+			this.saveToHistory();
+			if (isTop) bracket.mainPointTop = !bracket.mainPointTop;
+			else bracket.mainPointBottom = !bracket.mainPointBottom;
 			this.renderCanvas();
 		});
 
@@ -2082,34 +2617,26 @@ export class DAView extends TextFileView {
 		// without a lookbehind (unsupported on iOS < 16.4) by first marking the
 		// split points, then splitting on the marker.
 		const SPLIT_MARKER = "\u0000";
-		// Verse-numbered pastes (e.g. copied from Bible software) put each
-		// verse on its own line, prefixed with its number and a space -
-		// optionally indented, e.g. " 6 since indeed...". Detect that prefix
-		// per line, strip it, and carry the verse number forward onto every
-		// proposition split out of that line (and any following unnumbered
-		// lines) so multi-sentence verses still land in one group.
-		const VERSE_LINE = /^(\d+)\s+(.*)$/;
+		// parsePastedText (see the "passage-paste verse detection" section
+		// above) reduces whatever shape the paste arrived in - explicit [n]
+		// markers, superscript verse numbers, "Rom 3:21" line prefixes, verse
+		// numbers embedded mid-paragraph, or a detected reference
+		// header/trailer that gets stripped rather than imported as a bogus
+		// proposition - down to one chunk of text per verse, each carrying
+		// its own verse ref (undefined when no detection stage could anchor
+		// one). Each chunk is then split into sentences and lettered within
+		// its verse group exactly as before.
+		const { chunks } = parsePastedText(text);
 		const newProps: Proposition[] = [];
-		let currentVerse: number | undefined = undefined;
-		let letterIdx = -1;
-		text.split(/\n+/).forEach(rawLine => {
-			const line = rawLine.trim();
-			if (!line) return;
-			let content = line;
-			const m = line.match(VERSE_LINE);
-			if (m) {
-				currentVerse = parseInt(m[1], 10);
-				letterIdx = -1;
-				content = m[2].trim();
-			}
-			if (!content) return;
-			content
+		chunks.forEach(chunk => {
+			let letterIdx = -1;
+			chunk.text
 				.replace(/([.?!;])\s+/g, `$1${SPLIT_MARKER}`)
 				.split(SPLIT_MARKER)
 				.map(p => p.trim())
 				.filter(p => p.length > 0)
 				.forEach(p => {
-					const verseLabel = currentVerse !== undefined ? `${currentVerse}${nextVerseLetter(++letterIdx)}` : undefined;
+					const verseLabel = chunk.ref !== undefined ? `${chunk.ref}${nextVerseLetter(++letterIdx)}` : undefined;
 					newProps.push({ id: Date.now() + newProps.length, text: p, level: 0, verseLabel });
 				});
 		});
