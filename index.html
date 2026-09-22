@@ -92,8 +92,7 @@
 	.toolbar-zoom-label { font-size: 0.8rem; color: #64748b; width: 36px; text-align: center; }
 
 	/* ---------- Sentence Flow ---------- */
-	.sf-panel { display: flex; flex-direction: column; overflow: hidden; background: #f8fafc; height: 100%; }
-	.sf-toolbar { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 10px 32px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+	.sf-panel { display: flex; flex: 1 1 0%; flex-direction: column; overflow: hidden; background: #f8fafc; height: 100%; min-width: 0; }
 	.sf-fmt-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
 	.sf-fmt-btn:nth-of-type(2) { font-style: italic; }
 	.sf-fmt-btn:nth-of-type(3) { text-decoration: underline; }
@@ -102,7 +101,7 @@
 	.sf-tabwidth { display: flex; align-items: center; gap: 6px; margin-inline-start: 12px; font-size: 0.8rem; color: #64748b; }
 	.sf-tabwidth-input { width: 56px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem; }
 	.sf-canvas-wrap { flex: 1 1 0%; min-height: 0; overflow: auto; padding: 32px; }
-	.sf-canvas { min-height: 100%; max-width: 840px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); color: #0f172a; font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif; font-size: 1rem; line-height: 1.6; white-space: pre-wrap; outline: none; }
+	.sf-canvas { min-height: 100%; width: 100%; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); color: #0f172a; font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif; font-size: 1rem; line-height: 1.6; white-space: pre-wrap; outline: none; box-sizing: border-box; }
 	.da-tab { display: inline-block; vertical-align: bottom; }
 
 	/* Georgia (and most serif system fonts) lack glyphs for the polytonic Greek
@@ -220,6 +219,16 @@
                 <button type="button" onclick="resetAll()" class="toolbar-btn toolbar-btn-danger" title="Reset Everything">Reset All</button>
                 <button type="button" onclick="showInstructions()" class="toolbar-btn" title="Instructions" aria-label="Instructions">?</button>
             </div>
+            <div class="tab-toolbar toolbar-hidden" id="sentenceflow-toolbar">
+                <button type="button" class="sf-fmt-btn" data-fmt="bold" title="Bold (Ctrl+B)" aria-label="Bold" onmousedown="event.preventDefault();" onclick="applyNotesFormat('bold')">B</button>
+                <button type="button" class="sf-fmt-btn" data-fmt="italic" title="Italic (Ctrl+I)" aria-label="Italic" onmousedown="event.preventDefault();" onclick="applyNotesFormat('italic')">I</button>
+                <button type="button" class="sf-fmt-btn" data-fmt="underline" title="Underline (Ctrl+U)" aria-label="Underline" onmousedown="event.preventDefault();" onclick="applyNotesFormat('underline')">U</button>
+                <div class="sf-tabwidth">
+                    <span>Default tab:</span>
+                    <input id="notes-default-tab-width" class="sf-tabwidth-input" type="number" min="0.1" step="0.1" onchange="onNotesTabWidthChange()">
+                    <span>in</span>
+                </div>
+            </div>
         </div>
 
         <div class="flex app-body-row">
@@ -250,16 +259,6 @@
             </div>
 
             <div id="sentenceflow-panel" class="tab-panel tab-panel-hidden sf-panel">
-                <div class="sf-toolbar">
-                    <button type="button" class="sf-fmt-btn" data-fmt="bold" title="Bold (Ctrl+B)" aria-label="Bold" onmousedown="event.preventDefault();" onclick="applyNotesFormat('bold')">B</button>
-                    <button type="button" class="sf-fmt-btn" data-fmt="italic" title="Italic (Ctrl+I)" aria-label="Italic" onmousedown="event.preventDefault();" onclick="applyNotesFormat('italic')">I</button>
-                    <button type="button" class="sf-fmt-btn" data-fmt="underline" title="Underline (Ctrl+U)" aria-label="Underline" onmousedown="event.preventDefault();" onclick="applyNotesFormat('underline')">U</button>
-                    <div class="sf-tabwidth">
-                        <span>Default tab:</span>
-                        <input id="notes-default-tab-width" class="sf-tabwidth-input" type="number" min="0.1" step="0.1" onchange="onNotesTabWidthChange()">
-                        <span>in</span>
-                    </div>
-                </div>
                 <div class="sf-canvas-wrap">
                     <div id="notes-canvas" class="sf-canvas" contenteditable="true" spellcheck="false" tabindex="0" dir="ltr"></div>
                 </div>
@@ -1798,6 +1797,8 @@ function exportPNG() {
             });
             const toolbar = document.getElementById('brackets-toolbar');
             if (toolbar) toolbar.classList.toggle('toolbar-hidden', activeTab !== 'brackets');
+            const sfToolbar = document.getElementById('sentenceflow-toolbar');
+            if (sfToolbar) sfToolbar.classList.toggle('toolbar-hidden', activeTab !== 'sentenceflow');
             const bracketsPanel = document.getElementById('brackets-panel');
             const sfPanel = document.getElementById('sentenceflow-panel');
             if (bracketsPanel) bracketsPanel.classList.toggle('tab-panel-hidden', activeTab !== 'brackets');
