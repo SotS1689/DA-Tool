@@ -92,6 +92,69 @@ interface Proposition {
 	id: number;
 	text: string;
 	level: number;
+	// The row label ("5a", "12c", ...) this proposition shows. Assigned by a
+	// verse-numbered paste, by splitting/inserting next to a labeled row, or
+	// by typing one in manually - see `verseLabelManual` for how those two
+	// sources are kept from fighting each other. Undefined means "no label
+	// assigned" - that row falls back to plain sequential numbering (see
+	// computeRowLabels).
+	verseLabel?: string;
+	// True once a human has typed this row's label in directly. A manual
+	// label is permanent: renumberVerseGroup skips it entirely, so nothing
+	// auto-assigned ever overwrites it, no matter what else in its verse
+	// group gets split or inserted later.
+	verseLabelManual?: boolean;
+}
+
+function nextVerseLetter(letterIdx: number): string {
+	return letterIdx < 26
+		? String.fromCharCode(97 + letterIdx)
+		: String.fromCharCode(97 + Math.floor(letterIdx / 26) - 1) + String.fromCharCode(97 + (letterIdx % 26));
+}
+
+// Splits a label into its verse-group identity (`base`) and trailing letters,
+// e.g. "5b" -> { base: "5", letters: "b" }. A label with no trailing letters
+// (a bare manual label like "5", or arbitrary text like "Intro") is its own
+// base with no letters.
+function splitVerseLabel(label: string): { base: string; letters: string } {
+	const m = label.match(/^(.*?)([a-z]+)$/);
+	return m ? { base: m[1], letters: m[2] } : { base: label, letters: "" };
+}
+
+// Re-letters every non-manual label sharing `base`, in row order, so they
+// always read a, b, c, ... top to bottom - regardless of what order their
+// propositions were split or inserted in. This is the fix for splitting
+// "5a" twice in different orders (tail first, then what's left of the head)
+// each independently proposing "5b" and colliding: instead of guessing a
+// sibling's letter from where it came from, every creation event just drops
+// a placeholder into the group and calls this to make the whole group
+// consistent again. Manually-typed labels (verseLabelManual) are left
+// completely alone, including their letter being reserved so an auto label
+// never lands on top of them.
+function renumberVerseGroup(props: Proposition[], base: string): void {
+	const reserved = new Set(
+		props
+			.filter(p => p.verseLabelManual && p.verseLabel !== undefined && splitVerseLabel(p.verseLabel).base === base)
+			.map(p => p.verseLabel as string)
+	);
+	let letterIdx = -1;
+	props.forEach(p => {
+		if (p.verseLabelManual || p.verseLabel === undefined) return;
+		if (splitVerseLabel(p.verseLabel).base !== base) return;
+		let candidate: string;
+		do {
+			candidate = `${base}${nextVerseLetter(++letterIdx)}`;
+		} while (reserved.has(candidate));
+		p.verseLabel = candidate;
+	});
+}
+
+// Row numbers/labels are always read straight off the proposition, with the
+// only computed fallback being plain 1-based position for rows that never
+// got a label (see the `verseLabel` field comment for why nothing here is
+// recomputed from adjacency).
+function computeRowLabels(props: Proposition[]): string[] {
+	return props.map((p, i) => p.verseLabel ?? String(i + 1));
 }
 
 interface Bracket {
@@ -1061,6 +1124,7 @@ export class DAView extends TextFileView {
 			hint.createSpan({ text: "Paste and split above." });
 		}
 
+		const rowLabels = computeRowLabels(this.propositions);
 		this.propositions.forEach((prop, i) => {
 			const row = createDiv({ cls: `da-prop-row${i === this.sidebarSelected ? " da-prop-row-selected" : ""}` });
 			row.dataset.index = String(i);
@@ -1147,7 +1211,7 @@ export class DAView extends TextFileView {
 				this.renderCanvas();
 			});
 
-			const numBadge = createDiv({ cls: "da-num-badge", text: String(i + 1) });
+			const numBadge = createDiv({ cls: "da-num-badge", text: rowLabels[i] });
 
 			const textEl = createDiv({ cls: "da-prop-text", text: prop.text });
 			textEl.contentEditable = "true";
@@ -1230,6 +1294,7 @@ export class DAView extends TextFileView {
 			return;
 		}
 
+		const rowLabels = computeRowLabels(this.propositions);
 		this.propositions.forEach((prop, i) => {
 			const isSelected = this.selectedIndices.includes(i);
 			const row = createDiv({ cls: `da-proposition-box${isSelected ? " selected" : ""}` });
@@ -1249,7 +1314,32 @@ export class DAView extends TextFileView {
 			row.addEventListener("mousedown", e => { e.stopPropagation(); this.handleMainRowClick(i); });
 			row.addEventListener("dblclick", e => { e.stopImmediatePropagation(); this.splitProposition(i, e); });
 
-			const numEl = createDiv({ cls: "da-row-num", text: String(i + 1) });
+			const numEl = createDiv({ cls: "da-row-num", text: rowLabels[i], attr: { title: "Click to edit this row's label" } });
+			// Click-to-edit this row's label (e.g. "5a") directly, as free
+			// text - whatever's typed is stored verbatim and wins over
+			// anything auto-detected (see the `verseLabel` field comment).
+			// Stop the row's own mousedown/dblclick handlers from firing so
+			// this doesn't also toggle selection or split the proposition.
+			numEl.addEventListener("mousedown", e => e.stopPropagation());
+			numEl.addEventListener("dblclick", e => e.stopImmediatePropagation());
+			let cancelled = false;
+			numEl.addEventListener("click", e => {
+				e.stopImmediatePropagation();
+				if (numEl.isContentEditable) return;
+				cancelled = false;
+				numEl.contentEditable = "true";
+				numEl.innerText = prop.verseLabel ?? "";
+				numEl.focus();
+			});
+			numEl.addEventListener("keydown", e => {
+				if (e.key === "Enter") { e.preventDefault(); numEl.blur(); }
+				else if (e.key === "Escape") { e.preventDefault(); cancelled = true; numEl.blur(); }
+			});
+			numEl.addEventListener("blur", () => {
+				numEl.contentEditable = "false";
+				if (cancelled) { numEl.innerText = rowLabels[i]; return; }
+				this.updatePropositionVerseLabel(i, numEl.innerText);
+			});
 
 			const textEl = createDiv({ cls: "da-row-text", text: prop.text });
 			textEl.contentEditable = "true";
@@ -1992,14 +2082,45 @@ export class DAView extends TextFileView {
 		// without a lookbehind (unsupported on iOS < 16.4) by first marking the
 		// split points, then splitting on the marker.
 		const SPLIT_MARKER = "\u0000";
-		const parts = text
-			.replace(/([.?!;])\s+/g, `$1${SPLIT_MARKER}`)
-			.replace(/\n+/g, SPLIT_MARKER)
-			.split(SPLIT_MARKER)
-			.map(p => p.trim())
-			.filter(p => p.length > 0);
-		const newProps = parts.map((p, i) => ({ id: Date.now() + i, text: p, level: 0 }));
+		// Verse-numbered pastes (e.g. copied from Bible software) put each
+		// verse on its own line, prefixed with its number and a space -
+		// optionally indented, e.g. " 6 since indeed...". Detect that prefix
+		// per line, strip it, and carry the verse number forward onto every
+		// proposition split out of that line (and any following unnumbered
+		// lines) so multi-sentence verses still land in one group.
+		const VERSE_LINE = /^(\d+)\s+(.*)$/;
+		const newProps: Proposition[] = [];
+		let currentVerse: number | undefined = undefined;
+		let letterIdx = -1;
+		text.split(/\n+/).forEach(rawLine => {
+			const line = rawLine.trim();
+			if (!line) return;
+			let content = line;
+			const m = line.match(VERSE_LINE);
+			if (m) {
+				currentVerse = parseInt(m[1], 10);
+				letterIdx = -1;
+				content = m[2].trim();
+			}
+			if (!content) return;
+			content
+				.replace(/([.?!;])\s+/g, `$1${SPLIT_MARKER}`)
+				.split(SPLIT_MARKER)
+				.map(p => p.trim())
+				.filter(p => p.length > 0)
+				.forEach(p => {
+					const verseLabel = currentVerse !== undefined ? `${currentVerse}${nextVerseLetter(++letterIdx)}` : undefined;
+					newProps.push({ id: Date.now() + newProps.length, text: p, level: 0, verseLabel });
+				});
+		});
 		this.propositions = this.propositions.concat(newProps);
+		// Re-settle each verse this paste touched, in case it collides with
+		// propositions from an earlier paste/edit sharing the same number
+		// (see renumberVerseGroup's comment).
+		const touchedBases = new Set(
+			newProps.map(p => p.verseLabel).filter((l): l is string => l !== undefined).map(l => splitVerseLabel(l).base)
+		);
+		touchedBases.forEach(base => renumberVerseGroup(this.propositions, base));
 		this.selectedIndices = [];
 		this.sidebarSelected = -1;
 		this.renderSidebarList();
@@ -2010,7 +2131,15 @@ export class DAView extends TextFileView {
 
 	addNewProposition(): void {
 		this.saveToHistory();
-		const newProp: Proposition = { id: Date.now(), text: "New proposition…", level: 0 };
+		// New rows join the verse group of whatever they're inserted after,
+		// then renumberVerseGroup settles the letters by row order (same
+		// mechanism as splitProposition - see its comment). A row with no
+		// labeled neighbor to join is left unlabeled.
+		const after = this.sidebarSelected >= 0
+			? this.propositions[this.sidebarSelected]
+			: this.propositions[this.propositions.length - 1];
+		const verseLabel = after?.verseLabel;
+		const newProp: Proposition = { id: Date.now(), text: "New proposition…", level: 0, verseLabel };
 		if (this.sidebarSelected >= 0) {
 			const insertedAt = this.sidebarSelected + 1;
 			this.propositions.splice(insertedAt, 0, newProp);
@@ -2020,6 +2149,7 @@ export class DAView extends TextFileView {
 			this.propositions.push(newProp);
 			this.sidebarSelected = this.propositions.length - 1;
 		}
+		if (verseLabel !== undefined) renumberVerseGroup(this.propositions, splitVerseLabel(verseLabel).base);
 		this.renderSidebarList();
 		this.renderMainRows();
 		this.renderCanvas();
@@ -2045,6 +2175,34 @@ export class DAView extends TextFileView {
 				this.renderCanvas();
 			}, 0);
 		}
+	}
+
+	// Commits a manual edit to a row's label (typed into the row-number badge
+	// itself, see renderMainRows). Whatever is typed becomes the row's label
+	// verbatim and sticks from then on - it's never recomputed by a paste,
+	// a split, or a reorder (see the `verseLabel` field comment). Clearing it
+	// drops the row back to plain sequential numbering.
+	updatePropositionVerseLabel(index: number, raw: string): void {
+		const prop = this.propositions[index];
+		if (!prop) return;
+		const trimmed = raw.trim();
+		const next = trimmed === "" ? undefined : trimmed;
+		if (next === prop.verseLabel && !!next === !!prop.verseLabelManual) { this.renderMainRows(); return; }
+		this.saveToHistory();
+		prop.verseLabel = next;
+		// Clearing the label back to "unassigned" also releases the manual
+		// lock, so a future split/paste is free to auto-label this row again.
+		prop.verseLabelManual = next !== undefined;
+		// Deferred for the same reason as updatePropositionText: this runs
+		// from a 'blur' handler mid-way through the browser's native
+		// mousedown -> focus-change -> click sequence for whatever was
+		// clicked next, and rebuilding now would yank that target out from
+		// under it.
+		window.setTimeout(() => {
+			this.renderSidebarList();
+			this.renderMainRows();
+			this.renderCanvas();
+		}, 0);
 	}
 
 	indentSidebar(i: number, delta: number): void {
@@ -2137,14 +2295,25 @@ export class DAView extends TextFileView {
 		}
 		const first = text.substring(0, splitPos).trim();
 		const second = text.substring(splitPos).trim();
+		// The original row keeps its own label (and its manual lock, if any)
+		// untouched. The new sibling starts out sharing that same verse group
+		// but with no letter decided yet - renumberVerseGroup below settles
+		// every non-manual label in the group by row order right after the
+		// insert, which is what keeps splits correct no matter what order
+		// they happen in (see that function's comment) while never touching
+		// anything reorder-only ever does (see the `verseLabel` field
+		// comment).
+		const origLabel = this.propositions[index].verseLabel;
+		const verseLabel = origLabel;
 		if (first && second) {
 			this.propositions[index].text = first;
-			this.propositions.splice(index + 1, 0, { id: Date.now(), text: second, level: this.propositions[index].level });
+			this.propositions.splice(index + 1, 0, { id: Date.now(), text: second, level: this.propositions[index].level, verseLabel });
 		} else {
 			const mid = Math.floor(text.length / 2);
 			this.propositions[index].text = text.substring(0, mid).trim();
-			this.propositions.splice(index + 1, 0, { id: Date.now(), text: text.substring(mid).trim(), level: this.propositions[index].level });
+			this.propositions.splice(index + 1, 0, { id: Date.now(), text: text.substring(mid).trim(), level: this.propositions[index].level, verseLabel });
 		}
+		if (origLabel !== undefined) renumberVerseGroup(this.propositions, splitVerseLabel(origLabel).base);
 
 		this.shiftReferencesForInsertion(index + 1);
 

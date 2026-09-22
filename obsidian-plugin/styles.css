@@ -413,12 +413,13 @@
 .da-tool-view .da-drag-handle:hover { color: var(--da-faint); }
 
 .da-tool-view .da-num-badge {
-	width: 22px;
+	min-width: 22px;
 	height: 22px;
+	padding: 0 4px;
 	flex-shrink: 0;
 	background: var(--da-surface);
 	color: var(--da-faint);
-	border-radius: 12px;
+	border-radius: 11px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -541,8 +542,17 @@
 	font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 	font-size: 0.72rem;
 	color: var(--da-faint);
-	width: 24px;
+	min-width: 24px;
 	flex-shrink: 0;
+	cursor: pointer;
+	border-radius: 4px;
+	padding: 1px 2px;
+}
+.da-tool-view .da-row-num:hover { background: var(--da-surface); color: var(--da-text); }
+.da-tool-view .da-row-num[contenteditable="true"] {
+	cursor: text;
+	background: var(--da-bg);
+	outline: 1px solid var(--da-accent);
 }
 
 .da-tool-view .da-row-text {
