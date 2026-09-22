@@ -101,7 +101,7 @@
 	.sf-tabwidth { display: flex; align-items: center; gap: 6px; margin-inline-start: 12px; font-size: 0.8rem; color: #64748b; }
 	.sf-tabwidth-input { width: 56px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem; }
 	.sf-canvas-wrap { flex: 1 1 0%; min-height: 0; overflow: auto; padding: 32px; }
-	.sf-canvas { min-height: 100%; width: 100%; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); color: #0f172a; font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif; font-size: 1rem; line-height: 1.6; white-space: pre-wrap; outline: none; box-sizing: border-box; }
+	.sf-canvas { min-height: 100%; width: 100%; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); color: #0f172a; font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif; font-size: 1rem; line-height: 1.6; white-space: pre-wrap; outline: none; box-sizing: border-box; transform-origin: top left; transition: transform 0.15s ease; }
 	.da-tab { display: inline-block; vertical-align: bottom; }
 
 	/* Georgia (and most serif system fonts) lack glyphs for the polytonic Greek
@@ -228,6 +228,12 @@
                     <input id="notes-default-tab-width" class="sf-tabwidth-input" type="number" min="0.1" step="0.1" onchange="onNotesTabWidthChange()">
                     <span>in</span>
                 </div>
+                <div class="toolbar-zoom">
+                    <button type="button" onclick="adjustNotesZoom(-0.1)" class="toolbar-btn" title="Zoom Out" aria-label="Zoom Out">−</button>
+                    <span id="sf-zoom-label" class="toolbar-zoom-label">100%</span>
+                    <button type="button" onclick="adjustNotesZoom(0.1)" class="toolbar-btn" title="Zoom In" aria-label="Zoom In">+</button>
+                    <button type="button" onclick="resetNotesZoom()" class="toolbar-btn" title="Reset Zoom" aria-label="Reset Zoom">↺</button>
+                </div>
             </div>
         </div>
 
@@ -293,7 +299,7 @@
         </div>
     </div>
 
-<script id="project-data" type="application/json">{"propositions":[],"brackets":[],"zoomLevel":1,"isRTL":false,"notes":{"lines":[],"defaultTabWidth":24},"timestamp":"2026-05-05T13:11:07.527Z"}</script>
+<script id="project-data" type="application/json">{"propositions":[],"brackets":[],"zoomLevel":1,"isRTL":false,"notes":{"lines":[],"defaultTabWidth":24,"zoomLevel":1},"timestamp":"2026-05-05T13:11:07.527Z"}</script>
 	
         <script>
         let propositions = [];
@@ -311,6 +317,7 @@
         let activeTab = 'brackets';
         let notesLines = [];
         let notesDefaultTabWidth = 24; // px (0.25in @ 96dpi)
+        let notesZoomLevel = 1;
         let _notesLayoutScheduled = false;
         let _notesMeasureCtx = null;
 
@@ -355,31 +362,48 @@
         }
 
         function applyZoom() {
+            // workspace-scaler has min-width:100% (see #workspace-scaler CSS), so
+            // it always spans at least the full container width even when the
+            // diagram itself is narrower - a plain scale() from a fixed corner is
+            // enough to keep that corner pinned at every zoom level, LTR or RTL.
+            // This used to also translateX() the scaler to flush it against the
+            // opposite edge whenever the zoomed-out diagram got narrower than the
+            // container, which made the pinned corner visibly jump around as you
+            // zoomed - removed in favor of a single consistent anchor.
             const scaler = document.getElementById("workspace-scaler");
-            const container = document.getElementById("diagram-container");
             if (scaler) {
-                // Creative zoom-out anchor: keep transform-origin at top-left (safe for
-                // zoomed-in scrolling/panning) but push the content rightward with translateX
-                // so propositions remain visible at the top-right when zoomed out in LTR mode.
-                // translateX is purely visual — it doesn't affect layout, scroll extent, or
-                // pointer-event coordinates, so all existing interactions are preserved.
-                if (!isRTL && zoomLevel < 1 && container) {
-                    const containerW = container.clientWidth;
-                    const naturalW = scaler.offsetWidth;  // layout width, unaffected by transform
-                    const scaledW = naturalW * zoomLevel;
-                    if (scaledW < containerW) {
-                        // Slide content to the right so its right edge meets the viewport's right edge.
-                        const tx = containerW - scaledW;
-                        scaler.style.transform = `translateX(${tx}px) scale(${zoomLevel})`;
-                    } else {
-                        scaler.style.transform = `scale(${zoomLevel})`;
-                    }
-                } else {
-                    scaler.style.transform = `scale(${zoomLevel})`;
-                }
+                scaler.style.transformOrigin = isRTL ? 'top right' : 'top left';
+                scaler.style.transform = `scale(${zoomLevel})`;
             }
             const label = document.getElementById("zoom-label");
             if (label) label.textContent = Math.round(zoomLevel * 100) + "%";
+        }
+
+        // Sentence Flow has its own independent zoom level (notesZoomLevel), kept
+        // separate from the bracket workspace's zoomLevel since they're different
+        // canvases. The canvas's own width always fills its wrap (see .sf-canvas),
+        // so unlike the bracket workspace's variable-width diagram, a plain CSS
+        // transform-origin is enough to pin the anchor corner - no
+        // translateX/scroll bookkeeping needed: top-left in normal mode, top-right
+        // in Hebrew (RTL) mode, matching each mode's reading direction.
+        function adjustNotesZoom(delta) {
+            notesZoomLevel = Math.min(3, Math.max(0.3, Math.round((notesZoomLevel + delta) * 10) / 10));
+            applyNotesZoom();
+        }
+
+        function resetNotesZoom() {
+            notesZoomLevel = 1;
+            applyNotesZoom();
+        }
+
+        function applyNotesZoom() {
+            const canvas = document.getElementById('notes-canvas');
+            if (canvas) {
+                canvas.style.transformOrigin = isRTL ? 'top right' : 'top left';
+                canvas.style.transform = `scale(${notesZoomLevel})`;
+            }
+            const label = document.getElementById('sf-zoom-label');
+            if (label) label.textContent = Math.round(notesZoomLevel * 100) + "%";
         }
 
         function toggleRTL() {
@@ -409,13 +433,14 @@
                 notesCanvas.dir = isRTL ? 'rtl' : 'ltr';
                 scheduleNotesLayout();
             }
+            applyNotesZoom();
         }
 
         function saveToHistory() {
             historyStack.push(JSON.stringify({propositions: JSON.parse(JSON.stringify(propositions)), brackets: JSON.parse(JSON.stringify(brackets)), selectedIndices, selectedBracketId, selectedCorners}));
             if (historyStack.length > 20) historyStack.shift();
             if (document.getElementById('notes-canvas')) notesLines = serializeNotesLines();
-            localStorage.setItem('bracketerData', JSON.stringify({propositions, brackets, notes: {lines: notesLines, defaultTabWidth: notesDefaultTabWidth}}));
+            localStorage.setItem('bracketerData', JSON.stringify({propositions, brackets, notes: {lines: notesLines, defaultTabWidth: notesDefaultTabWidth, zoomLevel: notesZoomLevel}}));
         }
 
         function loadFromStorage() {
@@ -428,6 +453,7 @@
                 const notes = data.notes || {};
                 notesLines = notes.lines || [];
                 notesDefaultTabWidth = notes.defaultTabWidth || 24;
+                notesZoomLevel = notes.zoomLevel || 1;
             }
         }
 
@@ -1543,8 +1569,8 @@ const bracketLeftX = (() => {
                 saveToHistory();
                 propositions = []; brackets = []; selectedIndices = []; selectedBracketId = null; selectedCorners = []; sidebarSelected = -1;
                 document.getElementById('paste-area').value = '';
-                notesLines = []; notesDefaultTabWidth = 24;
-                renderSidebarList(); renderMainRows(); renderCanvas(); renderNotesTab();
+                notesLines = []; notesDefaultTabWidth = 24; notesZoomLevel = 1;
+                renderSidebarList(); renderMainRows(); renderCanvas(); renderNotesTab(); applyNotesZoom();
                 localStorage.removeItem('bracketerData');
             }
         }
@@ -1667,6 +1693,7 @@ function exportPNG() {
 					renderMainRows();
 					renderCanvas();
 					renderNotesTab();
+					applyNotesZoom();
 				}
 				initializeCanvasClick();
 				wireSentenceFlowEvents();
@@ -2383,12 +2410,14 @@ function loadEmbeddedProjectData() {
         const notes = saved.notes || {};
         notesLines = notes.lines || [];
         notesDefaultTabWidth = notes.defaultTabWidth || 24;
+        notesZoomLevel = notes.zoomLevel || 1;
         migrateSingleNodeBrackets();
 
         renderSidebarList();
         renderMainRows();
         renderCanvas();
         renderNotesTab();
+        applyNotesZoom();
 
         if (isRTL) {
             toggleRTL();
@@ -2410,7 +2439,7 @@ function loadEmbeddedProjectData() {
 				brackets,
 				zoomLevel,
 				isRTL,
-				notes: { lines: notesLines, defaultTabWidth: notesDefaultTabWidth },
+				notes: { lines: notesLines, defaultTabWidth: notesDefaultTabWidth, zoomLevel: notesZoomLevel },
 				timestamp: new Date().toISOString()
 			};
 
