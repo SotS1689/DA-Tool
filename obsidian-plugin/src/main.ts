@@ -1,23 +1,23 @@
 import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
-import { COLOR_TOKENS, DA_TOOL_ICON, DAToolSettings, DAView, VIEW_TYPE_DA } from "./DAView";
+import { COLOR_THEMES, COLOR_TOKENS, colorThemeClasses, DA_TOOL_ICON, DAToolSettings, DAView, VIEW_TYPE_DA } from "./DAView";
 import { openColorPickerPopover } from "./ColorPicker";
 
 const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 
 function defaultSettings(): DAToolSettings {
 	return {
-		useThemeColors: false,
+		colorTheme: "standard",
 		colorOverrides: {},
 	};
 }
 
-// Resolves a token's current effective color (standard default, or the
-// active Obsidian theme's mapped color when useThemeColors is on) as a hex
+// Resolves a token's current effective color (standard default, the active
+// Obsidian theme's mapped color, or a colour scheme's value) as a hex
 // string, by rendering it off-screen and letting the browser normalize
 // whatever the CSS custom property resolves to (a literal hex, var(...), or
 // a color-mix(...) expression) into an rgb() we can parse.
-function resolveEffectiveColor(cssVar: string, useThemeColors: boolean): string {
-	const probe = createDiv({ cls: "da-tool-view" + (useThemeColors ? " da-theme-adopt" : "") });
+function resolveEffectiveColor(cssVar: string, colorTheme: string): string {
+	const probe = createDiv({ cls: ["da-tool-view", ...colorThemeClasses(colorTheme)] });
 	probe.setCssStyles({ position: "fixed", top: "-9999px", left: "-9999px" });
 	document.body.appendChild(probe);
 	const raw = getComputedStyle(probe).getPropertyValue(cssVar).trim();
@@ -124,6 +124,11 @@ export default class DAToolPlugin extends Plugin {
 		this.settings = Object.assign(defaultSettings(), loaded, {
 			colorOverrides: Object.assign({}, loaded?.colorOverrides),
 		});
+		// Settings saved before the colour theme dropdown only had an
+		// on/off "adopt Obsidian theme colors" flag.
+		if (!loaded?.colorTheme && loaded?.useThemeColors) this.settings.colorTheme = "obsidian";
+		if (!COLOR_THEMES.some(t => t.id === this.settings.colorTheme)) this.settings.colorTheme = "standard";
+		delete (this.settings as DAToolSettings & { useThemeColors?: boolean }).useThemeColors;
 
 		this.registerView(VIEW_TYPE_DA, (leaf) => new DAView(leaf, this));
 		this.registerExtensions(["da"], VIEW_TYPE_DA);
@@ -218,11 +223,12 @@ class DAToolSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("Adopt Obsidian theme colors")
-			.setDesc("When on, the tool follows your current Obsidian theme instead of its own standard palette. Also toggleable per-file from the toolbar.")
-			.addToggle(toggle => {
-				toggle.setValue(this.plugin.settings.useThemeColors).onChange(async (value) => {
-					this.plugin.settings.useThemeColors = value;
+			.setName("Color theme")
+			.setDesc("Standard is the tool's own palette; Theme follows your current Obsidian theme. The color schemes switch between their light and dark versions with Obsidian's own light/dark mode. Also available from the dropdown in the toolbar.")
+			.addDropdown(dropdown => {
+				for (const t of COLOR_THEMES) dropdown.addOption(t.id, t.label);
+				dropdown.setValue(this.plugin.settings.colorTheme).onChange(async (value) => {
+					this.plugin.settings.colorTheme = value;
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllViews();
 					this.display();
@@ -231,13 +237,13 @@ class DAToolSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl).setName("Custom colors").setHeading();
 		containerEl.createEl("p", {
-			text: "Override any individual color. Colors left alone follow the standard/theme setting above; use the reset button to remove an override.",
+			text: "Override any individual color. Colors left alone follow the color theme above; use the reset button to remove an override.",
 			cls: "setting-item-description",
 		});
 
 		for (const token of COLOR_TOKENS) {
 			const override = this.plugin.settings.colorOverrides[token.id];
-			const effective = override || resolveEffectiveColor(token.cssVar, this.plugin.settings.useThemeColors);
+			const effective = override || resolveEffectiveColor(token.cssVar, this.plugin.settings.colorTheme);
 
 			const setting = new Setting(containerEl)
 				.setName(token.label);

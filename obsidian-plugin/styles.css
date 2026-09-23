@@ -95,6 +95,329 @@
 	background: var(--da-bg);
 }
 
+/* ---- colour schemes (ported from BibleSearch) ----
+   Chosen from the header dropdown / settings. Each scheme has a light and a
+   dark variant; the dark one applies automatically while Obsidian itself is
+   in dark mode (body.theme-dark), so the view always matches the app.
+   Values are literal hex (no color-mix) so the settings tab's swatches can
+   resolve them. Manual color overrides still win (inline custom properties). */
+.da-tool-view.da-scheme-blue {
+	--da-bg: #e8f0fa;
+	--da-surface: #ffffff;
+	--da-row-bg: #d0e4f8;
+	--da-text: #0a1a2e;
+	--da-muted: #4a6880;
+	--da-faint: #8095a6;
+	--da-border: #aacae8;
+	--da-border-strong: #88a8c4;
+	--da-accent: #1a6fa8;
+	--da-accent-hover: #165e8f;
+	--da-accent-soft-bg: #c0d8f4;
+	--da-on-accent: #ffffff;
+	--da-secondary: #4a6880;
+	--da-secondary-hover: #3b5366;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #fef3c7;
+	--da-warn-hover: #fcd34d;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #fca5a5;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #fff7ed;
+}
+body.theme-dark .da-tool-view.da-scheme-blue {
+	--da-bg: #0d1b2e;
+	--da-surface: #122240;
+	--da-row-bg: #1a3a6e;
+	--da-text: #dce8ff;
+	--da-muted: #7a9abf;
+	--da-faint: #5b7699;
+	--da-border: #1e3a6a;
+	--da-border-strong: #3e5c88;
+	--da-accent: #0088ab;
+	--da-accent-hover: #269ab8;
+	--da-accent-soft-bg: #1a3a6e;
+	--da-on-accent: #ffffff;
+	--da-secondary: #456592;
+	--da-secondary-hover: #54749f;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #4f4923;
+	--da-warn-hover: #876f19;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #5c2936;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #322c27;
+}
+.da-tool-view.da-scheme-yellow {
+	--da-bg: #fffce8;
+	--da-surface: #ffffff;
+	--da-row-bg: #fff8c0;
+	--da-text: #1a1600;
+	--da-muted: #706020;
+	--da-faint: #9b9063;
+	--da-border: #e0d060;
+	--da-border-strong: #b9a94a;
+	--da-accent: #b07800;
+	--da-accent-hover: #966600;
+	--da-accent-soft-bg: #fff0a0;
+	--da-on-accent: #ffffff;
+	--da-secondary: #706020;
+	--da-secondary-hover: #5a4d1a;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #fef3c7;
+	--da-warn-hover: #fcd34d;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #fca5a5;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #fff7ed;
+}
+body.theme-dark .da-tool-view.da-scheme-yellow {
+	--da-bg: #1c1a00;
+	--da-surface: #2a2600;
+	--da-row-bg: #3d3700;
+	--da-text: #fff8d6;
+	--da-muted: #a09060;
+	--da-faint: #7d7043;
+	--da-border: #4a4200;
+	--da-border-strong: #685d22;
+	--da-accent: #f0a500;
+	--da-accent-hover: #f2b226;
+	--da-accent-soft-bg: #3d3700;
+	--da-on-accent: #ffffff;
+	--da-secondary: #6a5f2b;
+	--da-secondary-hover: #786c3a;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #5a4802;
+	--da-warn-hover: #8d6e04;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #662918;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #3e2b01;
+}
+.da-tool-view.da-scheme-red {
+	--da-bg: #fff0f0;
+	--da-surface: #ffffff;
+	--da-row-bg: #fde0e0;
+	--da-text: #1a0000;
+	--da-muted: #804040;
+	--da-faint: #a67979;
+	--da-border: #f0aaaa;
+	--da-border-strong: #c98585;
+	--da-accent: #c0392b;
+	--da-accent-hover: #a33025;
+	--da-accent-soft-bg: #fac8c8;
+	--da-on-accent: #ffffff;
+	--da-secondary: #804040;
+	--da-secondary-hover: #663333;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #fef3c7;
+	--da-warn-hover: #fcd34d;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #fca5a5;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #fff7ed;
+}
+body.theme-dark .da-tool-view.da-scheme-red {
+	--da-bg: #1e0a0a;
+	--da-surface: #2e1010;
+	--da-row-bg: #4a1818;
+	--da-text: #ffe0e0;
+	--da-muted: #a06060;
+	--da-faint: #7e4848;
+	--da-border: #5a2020;
+	--da-border-strong: #723636;
+	--da-accent: #e94560;
+	--da-accent-hover: #ec6178;
+	--da-accent-soft-bg: #4a1818;
+	--da-on-accent: #ffffff;
+	--da-secondary: #713838;
+	--da-secondary-hover: #7e4343;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #5b3d09;
+	--da-warn-hover: #8e6709;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #671e1e;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #401e09;
+}
+.da-tool-view.da-scheme-green {
+	--da-bg: #f0faf2;
+	--da-surface: #ffffff;
+	--da-row-bg: #d8f4e0;
+	--da-text: #001a08;
+	--da-muted: #3a6848;
+	--da-faint: #75957f;
+	--da-border: #90d8a8;
+	--da-border-strong: #72b186;
+	--da-accent: #1a7a40;
+	--da-accent-hover: #166836;
+	--da-accent-soft-bg: #b8ecc8;
+	--da-on-accent: #ffffff;
+	--da-secondary: #3a6848;
+	--da-secondary-hover: #2e533a;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #fef3c7;
+	--da-warn-hover: #fcd34d;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #fca5a5;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #fff7ed;
+}
+body.theme-dark .da-tool-view.da-scheme-green {
+	--da-bg: #0a1a0e;
+	--da-surface: #102818;
+	--da-row-bg: #1a4228;
+	--da-text: #d8ffe8;
+	--da-muted: #6a9a7a;
+	--da-faint: #4f785d;
+	--da-border: #1e4830;
+	--da-border-strong: #39654a;
+	--da-accent: #4caf82;
+	--da-accent-hover: #67bb95;
+	--da-accent-soft-bg: #1a4228;
+	--da-on-accent: #ffffff;
+	--da-secondary: #3e6a4d;
+	--da-secondary-hover: #4a7759;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #4d480c;
+	--da-warn-hover: #856e0b;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #5a2921;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #2f2b0d;
+}
+.da-tool-view.da-scheme-purple {
+	--da-bg: #f6f0ff;
+	--da-surface: #ffffff;
+	--da-row-bg: #ecdeff;
+	--da-text: #0e001a;
+	--da-muted: #604880;
+	--da-faint: #907fa6;
+	--da-border: #c8a8f0;
+	--da-border-strong: #a486c9;
+	--da-accent: #7030b0;
+	--da-accent-hover: #5f2996;
+	--da-accent-soft-bg: #dcc8ff;
+	--da-on-accent: #ffffff;
+	--da-secondary: #604880;
+	--da-secondary-hover: #4d3a66;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #fef3c7;
+	--da-warn-hover: #fcd34d;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #fca5a5;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #fff7ed;
+}
+body.theme-dark .da-tool-view.da-scheme-purple {
+	--da-bg: #120a1e;
+	--da-surface: #1e1030;
+	--da-row-bg: #301848;
+	--da-text: #eedeff;
+	--da-muted: #8860aa;
+	--da-faint: #684885;
+	--da-border: #3a1a60;
+	--da-border-strong: #55327a;
+	--da-accent: #c06aff;
+	--da-accent-hover: #c980ff;
+	--da-accent-soft-bg: #301848;
+	--da-on-accent: #ffffff;
+	--da-secondary: #583874;
+	--da-secondary-hover: #654383;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #533d17;
+	--da-warn-hover: #896712;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #5f1e2b;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #361e1a;
+}
+.da-tool-view.da-scheme-cream {
+	--da-bg: #fdf8f0;
+	--da-surface: #fffcf6;
+	--da-row-bg: #f5ece0;
+	--da-text: #1a1008;
+	--da-muted: #806848;
+	--da-faint: #a6947c;
+	--da-border: #d8c8a8;
+	--da-border-strong: #b9a686;
+	--da-accent: #8a5a2a;
+	--da-accent-hover: #754c24;
+	--da-accent-soft-bg: #eeddc8;
+	--da-on-accent: #ffffff;
+	--da-secondary: #806848;
+	--da-secondary-hover: #66533a;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #fef3c7;
+	--da-warn-hover: #fcd34d;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #fca5a5;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #fff7ed;
+}
+body.theme-dark .da-tool-view.da-scheme-cream {
+	--da-bg: #1c1810;
+	--da-surface: #2a2418;
+	--da-row-bg: #3c3424;
+	--da-text: #f5eddc;
+	--da-muted: #9a8a70;
+	--da-faint: #786b56;
+	--da-border: #4a3e2a;
+	--da-border-strong: #665942;
+	--da-accent: #d4a050;
+	--da-accent-hover: #daae6a;
+	--da-accent-soft-bg: #3c3424;
+	--da-on-accent: #ffffff;
+	--da-secondary: #665b46;
+	--da-secondary-hover: #746852;
+	--da-success: #10b981;
+	--da-success-hover: #059669;
+	--da-warn-bg: #5a460e;
+	--da-warn-hover: #8d6d0c;
+	--da-danger: #ef4444;
+	--da-danger-hover: #dc2626;
+	--da-danger-bg: #662722;
+	--da-main-point: #d97706;
+	--da-main-point-soft-bg: #3e290e;
+}
+
+/* ---------- colour theme dropdown (header) ---------- */
+.da-tool-view .da-theme-select {
+	height: 30px;
+	padding: 0 8px;
+	border-radius: 8px;
+	border: 1px solid var(--da-border-strong);
+	background: var(--da-surface);
+	color: var(--da-text);
+	font-size: 0.8rem;
+	cursor: pointer;
+	box-shadow: none;
+}
+.da-tool-view .da-theme-select:hover {
+	border-color: var(--da-faint);
+}
+
 /* ---------- header ---------- */
 
 .da-tool-view .da-header {

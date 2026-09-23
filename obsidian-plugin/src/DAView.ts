@@ -42,9 +42,9 @@ class ConfirmModal extends Modal {
 }
 
 // Every color token the view's stylesheet exposes as a CSS custom property
-// (see styles.css, both the standard and .da-theme-adopt token blocks). The
+// (see styles.css: the standard, .da-theme-adopt and .da-scheme-* token blocks). The
 // settings tab (main.ts) renders one color picker per entry here so every
-// color can be overridden manually, regardless of standard/theme mode.
+// color can be overridden manually, regardless of the chosen colour theme.
 export interface ColorToken {
 	id: string;
 	cssVar: string;
@@ -67,7 +67,7 @@ export const COLOR_TOKENS: ColorToken[] = [
 	{ id: "onAccent", cssVar: "--da-on-accent", label: "Text on accent", desc: "Text drawn on top of accent-colored buttons." },
 	{ id: "secondary", cssVar: "--da-secondary", label: "Secondary button", desc: "The single-node bracket / secondary action color." },
 	{ id: "secondaryHover", cssVar: "--da-secondary-hover", label: "Secondary button (hover)", desc: "" },
-	{ id: "success", cssVar: "--da-success", label: "Success", desc: "Support button and RTL/theme switch (on state)." },
+	{ id: "success", cssVar: "--da-success", label: "Success", desc: "Support button and RTL switch (on state)." },
 	{ id: "successHover", cssVar: "--da-success-hover", label: "Success (hover)", desc: "" },
 	{ id: "warnBg", cssVar: "--da-warn-bg", label: "Warning background", desc: "Clear All Brackets button." },
 	{ id: "warnHover", cssVar: "--da-warn-hover", label: "Warning (hover)", desc: "" },
@@ -78,8 +78,32 @@ export const COLOR_TOKENS: ColorToken[] = [
 	{ id: "mainPointSoftBg", cssVar: "--da-main-point-soft-bg", label: "Main point (soft background)", desc: "Fill of a label box marked as the main point." },
 ];
 
+// The header dropdown / settings choices. "standard" is the tool's own
+// palette, "obsidian" adopts the active Obsidian theme (.da-theme-adopt),
+// and the rest are the BibleSearch colour schemes (.da-scheme-<id> in
+// styles.css), whose light/dark variant follows Obsidian's own mode.
+export const COLOR_THEMES: { id: string; label: string }[] = [
+	{ id: "standard", label: "Standard" },
+	{ id: "obsidian", label: "Theme" },
+	{ id: "blue", label: "Blue" },
+	{ id: "yellow", label: "Yellow" },
+	{ id: "red", label: "Red" },
+	{ id: "green", label: "Green" },
+	{ id: "purple", label: "Purple" },
+	{ id: "cream", label: "Cream" },
+];
+
+// The class(es) a view root needs for the given colour theme.
+export function colorThemeClasses(theme: string): string[] {
+	if (theme === "obsidian") return ["da-theme-adopt"];
+	if (theme !== "standard" && COLOR_THEMES.some(t => t.id === theme)) return [`da-scheme-${theme}`];
+	return [];
+}
+
+const ALL_COLOR_THEME_CLASSES = COLOR_THEMES.flatMap(t => colorThemeClasses(t.id));
+
 export interface DAToolSettings {
-	useThemeColors: boolean;
+	colorTheme: string;
 	// Maps ColorToken.id -> a manual hex override. Absent/empty means "use the
 	// standard or theme-adopted default for that token".
 	colorOverrides: Record<string, string>;
@@ -1030,9 +1054,8 @@ export class DAView extends TextFileView {
 		headerRight.createEl("button", { cls: "da-btn", text: "🔗", attr: { "data-action": "show-lr", title: "Logical Relations", "aria-label": "Logical Relations" } });
 		headerRight.createEl("button", { cls: "da-btn", text: "📖", attr: { "data-action": "show-resources", title: "Resources", "aria-label": "Resources" } });
 		headerRight.createEl("button", { cls: "da-btn", text: "📷", attr: { "data-action": "export-png", title: "Export PNG", "aria-label": "Export PNG" } });
-		headerRight.createSpan({ cls: "da-label", text: "Colors" });
-		headerRight.createEl("button", { cls: "da-switch", attr: { id: "theme-toggle", role: "switch", "aria-checked": "false" } }, btn => {
-			btn.createSpan({ cls: "da-switch-thumb", attr: { id: "theme-thumb" } });
+		headerRight.createEl("select", { cls: "da-theme-select", attr: { id: "theme-select", title: "Color theme", "aria-label": "Color theme" } }, sel => {
+			for (const t of COLOR_THEMES) sel.createEl("option", { text: t.label, attr: { value: t.id } });
 		});
 		headerRight.createSpan({ cls: "da-label", text: "RTL" });
 		headerRight.createEl("button", { cls: "da-switch", attr: { id: "rtl-toggle", role: "switch", "aria-checked": "false" } }, btn => {
@@ -1284,8 +1307,8 @@ export class DAView extends TextFileView {
 		const rtlToggle = this.byId("rtl-toggle");
 		if (rtlToggle) this.registerDomEvent(rtlToggle, "click", () => this.toggleRTL());
 
-		const themeToggle = this.byId("theme-toggle");
-		if (themeToggle) this.registerDomEvent(themeToggle, "click", () => this.toggleThemeColors());
+		const themeSelect = this.byId("theme-select") as HTMLSelectElement | null;
+		if (themeSelect) this.registerDomEvent(themeSelect, "change", () => this.setColorTheme(themeSelect.value));
 
 		this.initializeCanvasClick();
 		this.initializePanning();
@@ -1547,13 +1570,14 @@ export class DAView extends TextFileView {
 
 	// ---------- theme coloring ----------
 
-	// Applies the vault-wide theme-coloring preference and any manual color
-	// overrides to this view's DOM and toggle switch. Called on open and after
-	// any view/settings tab changes either setting, so every open DA view
-	// stays in sync with the shared plugin settings.
+	// Applies the vault-wide colour theme and any manual color overrides to
+	// this view's DOM and theme dropdown. Called on open and after any
+	// view/settings tab changes either setting, so every open DA view stays
+	// in sync with the shared plugin settings.
 	refreshTheming(): void {
-		this.contentEl.classList.toggle("da-theme-adopt", this.plugin.settings.useThemeColors);
-		this.syncThemeToggleUi();
+		this.contentEl.classList.remove(...ALL_COLOR_THEME_CLASSES);
+		this.contentEl.classList.add(...colorThemeClasses(this.plugin.settings.colorTheme));
+		this.syncThemeSelectUi();
 		this.applyColorOverrides();
 	}
 
@@ -1569,21 +1593,13 @@ export class DAView extends TextFileView {
 		}
 	}
 
-	private syncThemeToggleUi(): void {
-		const btn = this.byId("theme-toggle");
-		const thumb = this.byId("theme-thumb");
-		if (!btn || !thumb) return;
-		if (this.plugin.settings.useThemeColors) {
-			btn.classList.add("da-switch-on");
-			btn.setAttribute("aria-checked", "true");
-		} else {
-			btn.classList.remove("da-switch-on");
-			btn.setAttribute("aria-checked", "false");
-		}
+	private syncThemeSelectUi(): void {
+		const sel = this.byId("theme-select") as HTMLSelectElement | null;
+		if (sel) sel.value = this.plugin.settings.colorTheme;
 	}
 
-	toggleThemeColors(): void {
-		this.plugin.settings.useThemeColors = !this.plugin.settings.useThemeColors;
+	setColorTheme(theme: string): void {
+		this.plugin.settings.colorTheme = COLOR_THEMES.some(t => t.id === theme) ? theme : "standard";
 		void this.plugin.saveSettings();
 		this.plugin.refreshAllViews();
 	}

@@ -39,7 +39,8 @@ Both flow tabs support:
 
 ### Customization (Obsidian)
 
-- Optionally adopt your Obsidian theme's colors, or pick custom colors for panels, brackets, selection, and the main-point highlight in the plugin settings
+- Pick a color theme from the toolbar dropdown: the standard palette, your Obsidian theme's colors, or one of six color schemes (Blue, Yellow, Red, Green, Purple, Cream) that switch between light and dark with Obsidian's own mode
+- Pick custom colors for panels, brackets, selection, and the main-point highlight in the plugin settings
 
 Everything is stored as plain JSON inside the `.da` file itself, so diagrams are portable, diffable, and work with whatever sync method you already use for your vault (Obsidian Sync, git, etc.).
 
