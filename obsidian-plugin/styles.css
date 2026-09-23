@@ -541,6 +541,11 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	color: var(--da-on-accent);
 	font-weight: 700;
 }
+.da-tool-view .da-support-icon {
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+}
 .da-tool-view .da-btn-support:hover {
 	background: var(--da-success-hover);
 	border-color: var(--da-faint);

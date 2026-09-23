@@ -1061,7 +1061,13 @@ export class DAView extends TextFileView {
 		headerRight.createEl("button", { cls: "da-switch", attr: { id: "rtl-toggle", role: "switch", "aria-checked": "false" } }, btn => {
 			btn.createSpan({ cls: "da-switch-thumb", attr: { id: "rtl-thumb" } });
 		});
-		headerRight.createEl("button", { cls: "da-btn da-btn-support", text: "☕ Support", attr: { "data-action": "open-external", "data-url": "https://buymeacoffee.com/reformedretrieval" } });
+		headerRight.createEl("button", { cls: "da-btn da-btn-support", attr: { "data-action": "open-external", "data-url": "https://buymeacoffee.com/reformedretrieval" } }, btn => {
+			// Coffee mug icon, same as BibleSearch's Support button.
+			btn.createSvg("svg", { cls: "da-support-icon", attr: { viewBox: "0 0 24 24", fill: "currentColor", "aria-hidden": "true" } }, svg => {
+				svg.createSvg("path", { attr: { d: "M2 21h18a1 1 0 0 1 0 2H2a1 1 0 0 1 0-2zM20.242 11.022a1 1 0 0 0-.242-.688 2.99 2.99 0 0 0-2-.734H16V6a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-2.022h2a3 3 0 0 0 3-3V11.02a1 1 0 0 0-.758-.998zM14 16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v10zm4-4.022V11.6h-2v-2h2a1 1 0 0 1 1 1v1.378a1 1 0 0 1-1 1z" } });
+			});
+			btn.createSpan({ text: "Support" });
+		});
 
 		const tabStrip = this.contentEl.createDiv({ cls: "da-tab-strip" });
 		const tabStripTabs = tabStrip.createDiv({ cls: "da-tab-strip-tabs" });
