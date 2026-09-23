@@ -2732,6 +2732,7 @@ export class DAView extends TextFileView {
 			let letterIdx = -1;
 			chunk.text
 				.replace(/([.?!;])\s+/g, `$1${SPLIT_MARKER}`)
+				.replace(/\n/g, SPLIT_MARKER)
 				.split(SPLIT_MARKER)
 				.map(p => p.trim())
 				.filter(p => p.length > 0)
