@@ -704,6 +704,30 @@
 	max-width: 28rem;
 }
 
+.da-tool-view .da-modal-wide {
+	max-width: 900px;
+}
+
+/* Text Flow Instructions: the source PDF's pages as images, always shown on
+ * white like paper regardless of theme. */
+.da-tool-view .da-tf-instructions-pages {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	background: var(--da-row-bg);
+}
+.da-tool-view .da-tf-instructions-page {
+	display: block;
+	width: 100%;
+	max-width: 820px;
+	height: auto;
+	background: #fff;
+	border: 1px solid var(--da-border);
+	border-radius: 4px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
 .da-tool-view .da-relationship-grid {
 	display: grid;
 	grid-template-columns: 1fr;

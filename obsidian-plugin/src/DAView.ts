@@ -1,5 +1,6 @@
 import { addIcon, App, Modal, Scope, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import html2canvas from "html2canvas";
+import { TEXT_FLOW_INSTRUCTION_PAGES } from "./textFlowInstructions";
 
 export const VIEW_TYPE_DA = "da-tool-view";
 
@@ -654,6 +655,23 @@ function emptyNotesData(): NotesData {
 	return { lines: [], defaultTabWidth: 24, zoomLevel: 1 };
 }
 
+// Sentence Flow and Text Flow are two independent instances of the same
+// Word-like canvas. Each keeps its own lines, tab width and zoom; the
+// "notes" methods act on the active flow tab unless given an explicit key.
+type FlowKey = "sentenceflow" | "textflow";
+const FLOW_KEYS: FlowKey[] = ["sentenceflow", "textflow"];
+
+interface FlowState extends NotesData {
+	canvasId: string;
+	zoomLabelId: string;
+	tabInputId: string;
+	layoutScheduled: boolean;
+}
+
+function isFlowTab(tab: string): tab is FlowKey {
+	return (FLOW_KEYS as string[]).includes(tab);
+}
+
 // A bracket's parent ids, regardless of whether they were recorded in the
 // older singular parentBracketId/parentBracketId2 fields (two-node brackets)
 // or the parentBracketIds array (single-node brackets, which can have >2 parents).
@@ -668,6 +686,7 @@ interface ProjectData {
 	zoomLevel: number;
 	isRTL: boolean;
 	notes: NotesData;
+	textFlow?: NotesData;
 	timestamp: string;
 }
 
@@ -757,15 +776,15 @@ export class DAView extends TextFileView {
 	isRTL = false;
 	dragSrcIndex: number | null = null;
 
-	activeTab: "brackets" | "sentenceflow" = "brackets";
-	notesLines: NotesLine[] = [];
-	notesDefaultTabWidth = 24;
-	notesZoomLevel = 1;
+	activeTab: "brackets" | FlowKey = "brackets";
+	flows: Record<FlowKey, FlowState> = {
+		sentenceflow: { canvasId: "notes-canvas", zoomLabelId: "sf-zoom-label", tabInputId: "notes-default-tab-width", layoutScheduled: false, ...emptyNotesData() },
+		textflow: { canvasId: "textflow-canvas", zoomLabelId: "tf-zoom-label", tabInputId: "textflow-default-tab-width", layoutScheduled: false, ...emptyNotesData() },
+	};
 
 	private loaded = false;
 	private domBuilt = false;
 	private resizeObserver: ResizeObserver | null = null;
-	private notesLayoutScheduled = false;
 	private measureCtx: CanvasRenderingContext2D | null = null;
 	private plugin: DAToolPluginHost;
 
@@ -783,7 +802,7 @@ export class DAView extends TextFileView {
 		this.scope = new Scope(this.app.scope);
 		const bindFormatKey = (key: string, command: string) => {
 			this.scope!.register(["Mod"], key, (evt) => {
-				if (this.activeTab !== "sentenceflow") return;
+				if (!isFlowTab(this.activeTab)) return;
 				evt.preventDefault();
 				this.applySentenceFlowFormat(command);
 				this.updateNotesFormatButtonStates();
@@ -807,7 +826,7 @@ export class DAView extends TextFileView {
 			if (!editable) return;
 			evt.preventDefault();
 			document.execCommand("cut");
-			if (active === this.byId("notes-canvas")) this.scheduleNotesLayout(true);
+			if (active?.classList.contains("da-sf-canvas") && isFlowTab(this.activeTab)) this.scheduleNotesLayout(true);
 			this.requestSave();
 			return false;
 		});
@@ -835,6 +854,26 @@ export class DAView extends TextFileView {
 		return Array.from(this.contentEl.querySelectorAll(selector)) as T[];
 	}
 
+	private curFlowKey(): FlowKey {
+		return this.activeTab === "textflow" ? "textflow" : "sentenceflow";
+	}
+
+	private flowCanvas(key: FlowKey = this.curFlowKey()): HTMLElement | null {
+		return this.byId(this.flows[key].canvasId);
+	}
+
+	private flowToJson(key: FlowKey): NotesData {
+		const f = this.flows[key];
+		return { lines: f.lines, defaultTabWidth: f.defaultTabWidth, zoomLevel: f.zoomLevel };
+	}
+
+	private loadFlowFromJson(key: FlowKey, data: Partial<NotesData> | undefined): void {
+		const f = this.flows[key];
+		f.lines = data?.lines || [];
+		f.defaultTabWidth = data?.defaultTabWidth || 24;
+		f.zoomLevel = data?.zoomLevel || 1;
+	}
+
 	private confirmAction(message: string, onConfirm: () => void): void {
 		new ConfirmModal(this.app, message, onConfirm).open();
 	}
@@ -842,19 +881,20 @@ export class DAView extends TextFileView {
 	// ---------- TextFileView contract ----------
 
 	getViewData(): string {
-		// The Sentence Flow canvas's DOM is the live source of truth while
-		// editing (browser-managed via execCommand), so pull it back into
-		// notesLines before serializing - otherwise saves would miss whatever
-		// was typed since the last sync.
+		// The flow canvases' DOM is the live source of truth while editing
+		// (browser-managed via execCommand), so pull it back into each flow's
+		// lines before serializing - otherwise saves would miss whatever was
+		// typed since the last sync.
 		if (this.domBuilt) {
-			this.notesLines = this.serializeNotesLines();
+			FLOW_KEYS.forEach(key => { this.flows[key].lines = this.serializeNotesLines(key); });
 		}
 		const data: ProjectData = {
 			propositions: this.propositions,
 			brackets: this.brackets,
 			zoomLevel: this.zoomLevel,
 			isRTL: this.isRTL,
-			notes: { lines: this.notesLines, defaultTabWidth: this.notesDefaultTabWidth, zoomLevel: this.notesZoomLevel },
+			notes: this.flowToJson("sentenceflow"),
+			textFlow: this.flowToJson("textflow"),
 			timestamp: new Date().toISOString(),
 		};
 		return JSON.stringify(data, null, 2);
@@ -874,10 +914,8 @@ export class DAView extends TextFileView {
 		this.brackets = parsed.brackets || [];
 		this.zoomLevel = parsed.zoomLevel || 1;
 		this.isRTL = parsed.isRTL || false;
-		const notes = parsed.notes || emptyNotesData();
-		this.notesLines = notes.lines || [];
-		this.notesDefaultTabWidth = notes.defaultTabWidth || 24;
-		this.notesZoomLevel = notes.zoomLevel || 1;
+		this.loadFlowFromJson("sentenceflow", parsed.notes);
+		this.loadFlowFromJson("textflow", parsed.textFlow);
 		this.migrateSingleNodeBrackets();
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
@@ -903,9 +941,7 @@ export class DAView extends TextFileView {
 		this.brackets = empty.brackets;
 		this.zoomLevel = empty.zoomLevel;
 		this.isRTL = empty.isRTL;
-		this.notesLines = [];
-		this.notesDefaultTabWidth = 24;
-		this.notesZoomLevel = 1;
+		FLOW_KEYS.forEach(key => this.loadFlowFromJson(key, undefined));
 		this.selectedIndices = [];
 		this.selectedBracketId = null;
 		this.selectedCorners = [];
@@ -1007,6 +1043,7 @@ export class DAView extends TextFileView {
 		const tabStrip = this.contentEl.createDiv({ cls: "da-tab-strip" });
 		const tabStripTabs = tabStrip.createDiv({ cls: "da-tab-strip-tabs" });
 		tabStripTabs.createEl("button", { cls: "da-tab-btn da-tab-btn-active", text: "Brackets", attr: { "data-tab": "brackets" } });
+		tabStripTabs.createEl("button", { cls: "da-tab-btn", text: "Text Flow", attr: { "data-tab": "textflow" } });
 		tabStripTabs.createEl("button", { cls: "da-tab-btn", text: "Sentence Flow", attr: { "data-tab": "sentenceflow" } });
 
 		const tabToolbar = tabStrip.createDiv({ cls: "da-tab-toolbar", attr: { id: "brackets-toolbar" } });
@@ -1042,24 +1079,8 @@ export class DAView extends TextFileView {
 
 		tabToolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "?", attr: { "data-action": "show-instructions", title: "Instructions", "aria-label": "Instructions" } });
 
-		const sfToolbar = tabStrip.createDiv({ cls: "da-tab-toolbar da-sf-toolbar da-tab-toolbar-hidden", attr: { id: "sentenceflow-toolbar" } });
-		sfToolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "B", attr: { "data-fmt": "bold", title: "Bold (Ctrl+B)", "aria-label": "Bold" } });
-		sfToolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "I", attr: { "data-fmt": "italic", title: "Italic (Ctrl+I)", "aria-label": "Italic" } });
-		sfToolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "U", attr: { "data-fmt": "underline", title: "Underline (Ctrl+U)", "aria-label": "Underline" } });
-
-		const tabWidthWrap = sfToolbar.createDiv({ cls: "da-sf-tabwidth" });
-		tabWidthWrap.createSpan({ text: "Default tab:" });
-		tabWidthWrap.createEl("input", {
-			cls: "da-sf-tabwidth-input",
-			attr: { id: "notes-default-tab-width", type: "number", min: "0.1", step: "0.1" },
-		});
-		tabWidthWrap.createSpan({ text: "in" });
-
-		const sfZoomRow = sfToolbar.createDiv({ cls: "da-zoom-row" });
-		sfZoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "−", attr: { "data-action": "sf-zoom-out", title: "Zoom Out", "aria-label": "Zoom Out" } });
-		sfZoomRow.createSpan({ cls: "da-zoom-label", text: "100%", attr: { id: "sf-zoom-label" } });
-		sfZoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "+", attr: { "data-action": "sf-zoom-in", title: "Zoom In", "aria-label": "Zoom In" } });
-		sfZoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↺", attr: { "data-action": "sf-zoom-reset", title: "Reset Zoom", "aria-label": "Reset Zoom" } });
+		this.buildFlowToolbar(tabStrip, "textflow", "tf");
+		this.buildFlowToolbar(tabStrip, "sentenceflow", "sf");
 
 		const bodyEl = this.contentEl.createDiv({ cls: "da-body da-tab-panel", attr: { id: "brackets-panel" } });
 
@@ -1081,7 +1102,8 @@ export class DAView extends TextFileView {
 		workspaceScaler.createSvg("svg", { cls: "da-bracket-svg", attr: { id: "bracket-svg", width: "365", height: "1200" } });
 		workspaceScaler.createDiv({ cls: "da-proposition-rows", attr: { id: "proposition-rows" } });
 
-		this.buildSentenceFlowPanel();
+		this.buildFlowPanel("textflow");
+		this.buildFlowPanel("sentenceflow");
 
 		const labelEditor = this.contentEl.createDiv({ cls: "da-label-editor", attr: { id: "label-editor", style: "display:none;" } });
 		labelEditor.createDiv({ cls: "da-label-editor-title", text: "EDIT LABEL" });
@@ -1171,18 +1193,54 @@ export class DAView extends TextFileView {
 		instructions.appendText("Click whitespace (anywhere in work area) = deselect");
 		instructions.createEl("br");
 		instructions.appendText("Click + drag = pan workspace");
+
+		const tfModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "textflow-instructions-modal" } });
+		const tfModalInner = tfModal.createDiv({ cls: "da-modal da-modal-wide" });
+		const tfModalHeader = tfModalInner.createDiv({ cls: "da-modal-header" });
+		tfModalHeader.createEl("h2", { cls: "da-modal-title", text: "Text Flow Instructions" });
+		tfModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-textflow-instructions" } });
+		tfModalInner.createDiv({ cls: "da-modal-body da-tf-instructions-pages", attr: { id: "textflow-instructions-pages" } });
 	}
 
-	// Builds the "Sentence Flow" tab: a Word-like scratch canvas for pasting
-	// and editing a passage's raw text, where Tab always jumps to the next
+	// Toolbar for a flow tab (Text Flow or Sentence Flow - identical apart
+	// from the Text Flow Instructions button). zoomPrefix namespaces the zoom
+	// buttons' data-actions ("sf-zoom-in", "tf-zoom-in", ...).
+	private buildFlowToolbar(tabStrip: HTMLElement, key: FlowKey, zoomPrefix: string): void {
+		const f = this.flows[key];
+		const toolbar = tabStrip.createDiv({ cls: "da-tab-toolbar da-sf-toolbar da-tab-toolbar-hidden", attr: { id: `${key}-toolbar` } });
+		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "B", attr: { "data-fmt": "bold", title: "Bold (Ctrl+B)", "aria-label": "Bold" } });
+		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "I", attr: { "data-fmt": "italic", title: "Italic (Ctrl+I)", "aria-label": "Italic" } });
+		toolbar.createEl("button", { cls: "da-btn da-sf-fmt-btn", text: "U", attr: { "data-fmt": "underline", title: "Underline (Ctrl+U)", "aria-label": "Underline" } });
+
+		const tabWidthWrap = toolbar.createDiv({ cls: "da-sf-tabwidth" });
+		tabWidthWrap.createSpan({ text: "Default tab:" });
+		tabWidthWrap.createEl("input", {
+			cls: "da-sf-tabwidth-input",
+			attr: { id: f.tabInputId, "data-flow": key, type: "number", min: "0.1", step: "0.1" },
+		});
+		tabWidthWrap.createSpan({ text: "in" });
+
+		const zoomRow = toolbar.createDiv({ cls: "da-zoom-row" });
+		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "−", attr: { "data-action": `${zoomPrefix}-zoom-out`, title: "Zoom Out", "aria-label": "Zoom Out" } });
+		zoomRow.createSpan({ cls: "da-zoom-label", text: "100%", attr: { id: f.zoomLabelId } });
+		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "+", attr: { "data-action": `${zoomPrefix}-zoom-in`, title: "Zoom In", "aria-label": "Zoom In" } });
+		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↺", attr: { "data-action": `${zoomPrefix}-zoom-reset`, title: "Reset Zoom", "aria-label": "Reset Zoom" } });
+
+		if (key === "textflow") {
+			toolbar.createEl("button", { cls: "da-btn", text: "Instructions", attr: { "data-action": "show-textflow-instructions", title: "Text Flow Instructions", "aria-label": "Text Flow Instructions" } });
+		}
+	}
+
+	// Builds a flow tab's panel: a Word-like scratch canvas for pasting and
+	// editing a passage's raw text, where Tab always jumps to the next
 	// multiple of the configurable default tab width (see layoutNotesTabs)
 	// so tabbed text aligns into columns across lines, plus indent (Ctrl+M /
 	// Ctrl+Shift+M) and basic bold/italic/underline formatting.
-	private buildSentenceFlowPanel(): void {
-		const panel = this.contentEl.createDiv({ cls: "da-tab-panel da-tab-panel-hidden da-sf-panel", attr: { id: "sentenceflow-panel" } });
+	private buildFlowPanel(key: FlowKey): void {
+		const panel = this.contentEl.createDiv({ cls: "da-tab-panel da-tab-panel-hidden da-sf-panel", attr: { id: `${key}-panel` } });
 
 		const canvasWrap = panel.createDiv({ cls: "da-sf-canvas-wrap" });
-		const canvas = canvasWrap.createDiv({ cls: "da-sf-canvas", attr: { id: "notes-canvas", contenteditable: "true", spellcheck: "false" } });
+		const canvas = canvasWrap.createDiv({ cls: "da-sf-canvas", attr: { id: this.flows[key].canvasId, contenteditable: "true", spellcheck: "false" } });
 		canvas.tabIndex = 0;
 	}
 
@@ -1199,6 +1257,8 @@ export class DAView extends TextFileView {
 		on("show-resources", () => this.showResources());
 		on("hide-resources", () => this.hideResources());
 		on("show-instructions", () => this.showInstructions());
+		on("show-textflow-instructions", () => this.showTextFlowInstructions());
+		on("hide-textflow-instructions", () => this.hideTextFlowInstructions());
 		on("hide-instructions", () => this.hideInstructions());
 		on("export-png", () => { void this.exportPNG(); });
 		on("insert-props", () => this.splitIntoPropositions());
@@ -1211,6 +1271,9 @@ export class DAView extends TextFileView {
 		on("sf-zoom-out", () => this.adjustNotesZoom(-0.1));
 		on("sf-zoom-in", () => this.adjustNotesZoom(0.1));
 		on("sf-zoom-reset", () => this.resetNotesZoom());
+		on("tf-zoom-out", () => this.adjustNotesZoom(-0.1));
+		on("tf-zoom-in", () => this.adjustNotesZoom(0.1));
+		on("tf-zoom-reset", () => this.resetNotesZoom());
 		on("clear-brackets", () => this.clearBracketsOnly());
 		on("reset-all", () => this.resetAll());
 		on("deselect", () => this.deselectAll());
@@ -1231,35 +1294,44 @@ export class DAView extends TextFileView {
 		this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => this.handleKeydown(e));
 
 		this.qsa<HTMLButtonElement>(".da-tab-btn").forEach(btn => {
-			this.registerDomEvent(btn, "click", () => this.switchTab(btn.dataset.tab === "sentenceflow" ? "sentenceflow" : "brackets"));
+			this.registerDomEvent(btn, "click", () => {
+				const tab = btn.dataset.tab ?? "";
+				this.switchTab(isFlowTab(tab) ? tab : "brackets");
+			});
 		});
 
 		this.wireSentenceFlowEvents();
 	}
 
-	// ---------- Sentence Flow tab ----------
+	// ---------- Text Flow / Sentence Flow tabs ----------
 
-	private switchTab(tab: "brackets" | "sentenceflow"): void {
+	private switchTab(tab: "brackets" | FlowKey): void {
 		this.activeTab = tab;
 		this.qsa(".da-tab-btn").forEach(btn => btn.classList.toggle("da-tab-btn-active", btn.dataset.tab === tab));
 		this.byId("brackets-toolbar")?.classList.toggle("da-tab-toolbar-hidden", tab !== "brackets");
 		this.byId("brackets-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "brackets");
-		this.byId("sentenceflow-toolbar")?.classList.toggle("da-tab-toolbar-hidden", tab !== "sentenceflow");
-		this.byId("sentenceflow-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "sentenceflow");
-		if (tab === "sentenceflow") {
+		FLOW_KEYS.forEach(key => {
+			this.byId(`${key}-toolbar`)?.classList.toggle("da-tab-toolbar-hidden", tab !== key);
+			this.byId(`${key}-panel`)?.classList.toggle("da-tab-panel-hidden", tab !== key);
+		});
+		if (isFlowTab(tab)) {
 			window.requestAnimationFrame(() => this.layoutNotesTabs());
 		} else {
 			window.requestAnimationFrame(() => this.renderCanvas());
 		}
 	}
 
+	// Both flow canvases share these handlers; they act on whichever flow tab
+	// is active (only its canvas is visible, so it's the only one that can
+	// hold focus).
 	private wireSentenceFlowEvents(): void {
-		const canvas = this.byId("notes-canvas");
-		if (canvas) {
+		FLOW_KEYS.forEach(key => {
+			const canvas = this.flowCanvas(key);
+			if (!canvas) return;
 			this.registerDomEvent(canvas, "paste", (e: ClipboardEvent) => this.handleNotesPaste(e));
 			this.registerDomEvent(canvas, "keydown", (e: KeyboardEvent) => this.handleNotesKeydown(e));
-			this.registerDomEvent(canvas, "input", () => { this.scheduleNotesLayout(); this.requestSave(); });
-		}
+			this.registerDomEvent(canvas, "input", () => { this.scheduleNotesLayout(false, key); this.requestSave(); });
+		});
 
 		this.qsa<HTMLButtonElement>("[data-fmt]").forEach(btn => {
 			// Prevent the toolbar button from stealing focus/selection away
@@ -1274,21 +1346,21 @@ export class DAView extends TextFileView {
 		});
 
 		this.registerDomEvent(document, "selectionchange", () => {
-			if (this.activeTab === "sentenceflow" && document.activeElement?.id === "notes-canvas") {
+			if (isFlowTab(this.activeTab) && document.activeElement === this.flowCanvas()) {
 				this.updateNotesFormatButtonStates();
 			}
 		});
 
-		const tabWidthInput = this.byId<HTMLInputElement>("notes-default-tab-width");
-		if (tabWidthInput) {
+		this.qsa<HTMLInputElement>(".da-sf-tabwidth-input").forEach(tabWidthInput => {
+			const key = tabWidthInput.dataset.flow as FlowKey;
 			this.registerDomEvent(tabWidthInput, "change", () => {
 				const inches = parseFloat(tabWidthInput.value);
-				if (!isNaN(inches) && inches > 0) this.notesDefaultTabWidth = Math.round(inches * 96);
-				this.syncNotesToolbarUi();
-				this.layoutNotesTabs();
+				if (!isNaN(inches) && inches > 0) this.flows[key].defaultTabWidth = Math.round(inches * 96);
+				this.syncNotesToolbarUi(key);
+				this.layoutNotesTabs(key);
 				this.requestSave();
 			});
-		}
+		});
 	}
 
 	private focusIsWithinThisView(): boolean {
@@ -1308,7 +1380,7 @@ export class DAView extends TextFileView {
 		// handleNotesKeydown) and relies on the browser's native contentEditable
 		// undo stack, so none of the Brackets-tab shortcuts below should run
 		// while focus is inside it.
-		const inNotesCanvas = !!(e.target as HTMLElement | null)?.closest?.("#notes-canvas");
+		const inNotesCanvas = !!(e.target as HTMLElement | null)?.closest?.(".da-sf-canvas");
 		if (inNotesCanvas) return;
 
 		if (e.key === "Tab" && (this.selectedIndices.length >= 1 || this.sidebarSelected >= 0)) {
@@ -1405,7 +1477,7 @@ export class DAView extends TextFileView {
 		if (label) label.textContent = Math.round(this.zoomLevel * 100) + "%";
 	}
 
-	// Sentence Flow has its own independent zoom level (notesZoomLevel), kept
+	// Each flow tab has its own independent zoom level (flows[key].zoomLevel), kept
 	// separate from the bracket workspace's zoomLevel since they're different
 	// canvases. The canvas's own width always fills its wrap (see
 	// .da-sf-canvas), so unlike the bracket workspace's variable-width
@@ -1414,25 +1486,33 @@ export class DAView extends TextFileView {
 	// mode, top-right in Hebrew (RTL) mode, matching each mode's reading
 	// direction.
 	adjustNotesZoom(delta: number): void {
-		this.notesZoomLevel = Math.min(3, Math.max(0.3, Math.round((this.notesZoomLevel + delta) * 10) / 10));
-		this.applyNotesZoom();
+		const key = this.curFlowKey();
+		const f = this.flows[key];
+		f.zoomLevel = Math.min(3, Math.max(0.3, Math.round((f.zoomLevel + delta) * 10) / 10));
+		this.applyNotesZoom(key);
 	}
 
 	resetNotesZoom(): void {
-		this.notesZoomLevel = 1;
-		this.applyNotesZoom();
+		const key = this.curFlowKey();
+		this.flows[key].zoomLevel = 1;
+		this.applyNotesZoom(key);
 	}
 
-	applyNotesZoom(): void {
-		const canvas = this.byId("notes-canvas");
-		if (canvas) {
-			canvas.setCssStyles({
-				transformOrigin: this.isRTL ? "top right" : "top left",
-				transform: `scale(${this.notesZoomLevel})`,
-			});
-		}
-		const label = this.byId("sf-zoom-label");
-		if (label) label.textContent = Math.round(this.notesZoomLevel * 100) + "%";
+	// With no key, applies every flow canvas's zoom (e.g. after load or an
+	// RTL toggle, which changes each canvas's anchor corner).
+	applyNotesZoom(key?: FlowKey): void {
+		(key ? [key] : FLOW_KEYS).forEach(k => {
+			const f = this.flows[k];
+			const canvas = this.flowCanvas(k);
+			if (canvas) {
+				canvas.setCssStyles({
+					transformOrigin: this.isRTL ? "top right" : "top left",
+					transform: `scale(${f.zoomLevel})`,
+				});
+			}
+			const label = this.byId(f.zoomLabelId);
+			if (label) label.textContent = Math.round(f.zoomLevel * 100) + "%";
+		});
 	}
 
 	private syncRtlToggleUi(): void {
@@ -1454,11 +1534,13 @@ export class DAView extends TextFileView {
 		this.renderSidebarList();
 		this.renderMainRows();
 		this.renderCanvas();
-		const notesCanvas = this.byId("notes-canvas");
-		if (notesCanvas) {
-			notesCanvas.dir = this.isRTL ? "rtl" : "ltr";
-			this.layoutNotesTabs();
-		}
+		FLOW_KEYS.forEach(key => {
+			const flowEl = this.flowCanvas(key);
+			if (flowEl) {
+				flowEl.dir = this.isRTL ? "rtl" : "ltr";
+				this.layoutNotesTabs(key);
+			}
+		});
 		this.applyNotesZoom();
 		void this.save();
 	}
@@ -3078,6 +3160,18 @@ export class DAView extends TextFileView {
 	hideLogicalRelationships(): void {
 		this.byId("lr-modal")?.classList.add("hidden");
 	}
+	showTextFlowInstructions(): void {
+		const pagesEl = this.byId("textflow-instructions-pages");
+		if (pagesEl && !pagesEl.childElementCount) {
+			TEXT_FLOW_INSTRUCTION_PAGES.forEach((src, i) => {
+				pagesEl.createEl("img", { cls: "da-tf-instructions-page", attr: { src, alt: `Text Flow Instructions, page ${i + 1}` } });
+			});
+		}
+		this.byId("textflow-instructions-modal")?.classList.remove("hidden");
+	}
+	hideTextFlowInstructions(): void {
+		this.byId("textflow-instructions-modal")?.classList.add("hidden");
+	}
 	showResources(): void {
 		this.byId("resource-modal")?.classList.remove("hidden");
 	}
@@ -3202,7 +3296,11 @@ export class DAView extends TextFileView {
 		// leaving the selection nowhere valid.
 		const caretTarget = newLine.childNodes[tabPrefixCount] as ChildNode | undefined;
 		const caret = document.createRange();
-		if (caretTarget) caret.setStart(caretTarget, 0);
+		// A caret "inside" an element such as the placeholder <br> isn't a
+		// real text position - a following Tab would insert its marker into
+		// the <br> itself, where it never renders - so sit before it instead.
+		if (caretTarget && caretTarget.nodeType === Node.TEXT_NODE) caret.setStart(caretTarget, 0);
+		else if (caretTarget) caret.setStartBefore(caretTarget);
 		else caret.setStart(newLine, newLine.childNodes.length);
 		caret.collapse(true);
 		sel.removeAllRanges();
@@ -3219,9 +3317,10 @@ export class DAView extends TextFileView {
 		const line = this.getCurrentLine();
 		if (!line) return;
 		const current = this.getLineMarginPx(line);
+		const tabWidth = this.flows[this.curFlowKey()].defaultTabWidth;
 		const target = direction > 0
-			? this.nextStop(current, this.notesDefaultTabWidth)
-			: this.prevStop(current, this.notesDefaultTabWidth);
+			? this.nextStop(current, tabWidth)
+			: this.prevStop(current, tabWidth);
 		if (target > 0) line.style.marginInlineStart = `${target}px`;
 		else line.style.removeProperty("margin-inline-start");
 		this.scheduleNotesLayout(true);
@@ -3237,7 +3336,7 @@ export class DAView extends TextFileView {
 	// Enter) and stays in the native undo stack; tab markers are inserted
 	// via insertNotesTabAtCaret (see its comment for why, not execCommand).
 	private handleNotesPaste(e: ClipboardEvent): void {
-		const canvas = this.byId("notes-canvas");
+		const canvas = this.flowCanvas();
 		if (!canvas || !canvas.contains(window.getSelection()?.anchorNode ?? null)) return;
 		const text = e.clipboardData?.getData("text/plain") ?? "";
 		if (!text) return;
@@ -3289,7 +3388,7 @@ export class DAView extends TextFileView {
 	// Electron shell (it was the cause of Ctrl+M/Ctrl+Shift+M appearing to do
 	// nothing at all: this returned null every time, silently).
 	private getCurrentLine(): HTMLElement | null {
-		const canvas = this.byId("notes-canvas");
+		const canvas = this.flowCanvas();
 		if (!canvas) return null;
 		const sel = window.getSelection();
 		if (!sel || sel.rangeCount === 0) return null;
@@ -3356,11 +3455,33 @@ export class DAView extends TextFileView {
 	// serialization (dropped from what got saved - the "first line
 	// disappears on reopen" bug) and the tab-stop layout pass (never
 	// resized/aligned - the "Tab doesn't work on the first line" bug). This
-	// folds every run of loose top-level nodes into a real wrapper <div> -
-	// moving (not cloning) the nodes, so an active caret/selection inside
-	// them stays intact - before any caller looks at the line list.
+	// folds every run of loose top-level nodes into a real wrapper <div>
+	// before any caller looks at the line list. Moving a node out of the
+	// canvas resets any caret/selection boundary inside or beside it (the DOM
+	// collapses it onto the old parent), which made the first typed character
+	// jump behind the caret ("This" -> "hisT") and broke indent carry-over on
+	// a fresh first line - so the selection is re-anchored to the same nodes
+	// and restored once they're wrapped.
 	private normalizeNotesCanvas(canvas: HTMLElement): void {
 		const children = Array.from(canvas.childNodes);
+		const isLineDiv = (n: ChildNode) => n.nodeType === Node.ELEMENT_NODE && (n as HTMLElement).tagName === "DIV";
+		if (children.every(isLineDiv)) return;
+
+		type SavedPoint = { node: Node; offset: number } | { after: ChildNode } | { before: ChildNode };
+		const sel = window.getSelection();
+		const liveRange = sel && sel.rangeCount > 0 && canvas.contains(sel.getRangeAt(0).startContainer) ? sel.getRangeAt(0) : null;
+		// A boundary sitting directly on the canvas is stored as a child
+		// index, which goes stale as nodes move - re-express it relative to a
+		// neighboring node instead.
+		const anchorPoint = (node: Node, offset: number): SavedPoint => {
+			if (node !== canvas) return { node, offset };
+			if (offset > 0) return { after: canvas.childNodes[offset - 1] };
+			if (canvas.firstChild) return { before: canvas.firstChild };
+			return { node, offset };
+		};
+		const savedStart = liveRange && anchorPoint(liveRange.startContainer, liveRange.startOffset);
+		const savedEnd = liveRange && anchorPoint(liveRange.endContainer, liveRange.endOffset);
+
 		let run: ChildNode[] = [];
 		const flush = (beforeNode: ChildNode | null) => {
 			if (run.length === 0) return;
@@ -3370,11 +3491,22 @@ export class DAView extends TextFileView {
 			run = [];
 		};
 		for (const node of children) {
-			const isDiv = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "DIV";
-			if (isDiv) flush(node);
+			if (isLineDiv(node)) flush(node);
 			else run.push(node);
 		}
 		flush(null);
+
+		if (!sel || !savedStart || !savedEnd) return;
+		const restored = document.createRange();
+		const apply = (pt: SavedPoint, isStart: boolean) => {
+			if ("after" in pt) isStart ? restored.setStartAfter(pt.after) : restored.setEndAfter(pt.after);
+			else if ("before" in pt) isStart ? restored.setStartBefore(pt.before) : restored.setEndBefore(pt.before);
+			else isStart ? restored.setStart(pt.node, pt.offset) : restored.setEnd(pt.node, pt.offset);
+		};
+		apply(savedStart, true);
+		apply(savedEnd, false);
+		sel.removeAllRanges();
+		sel.addRange(restored);
 	}
 
 	private getNotesLines(canvas: HTMLElement): HTMLElement[] {
@@ -3384,7 +3516,7 @@ export class DAView extends TextFileView {
 	}
 
 	private getLineMarginPx(line: HTMLElement): number {
-		if (line.id === "notes-canvas") return 0;
+		if (line.classList.contains("da-sf-canvas")) return 0;
 		const n = parseFloat(line.style.marginInlineStart);
 		return isNaN(n) ? 0 : n;
 	}
@@ -3397,14 +3529,14 @@ export class DAView extends TextFileView {
 	// (matching each run's actual font/weight/style), and set every da-tab
 	// span's width so the running offset lands exactly on the next multiple
 	// of the default tab width.
-	layoutNotesTabs(): void {
-		const canvas = this.byId("notes-canvas");
+	layoutNotesTabs(key: FlowKey = this.curFlowKey()): void {
+		const canvas = this.flowCanvas(key);
 		if (!canvas) return;
 		if (!this.measureCtx) this.measureCtx = document.createElement("canvas").getContext("2d");
 		const ctx = this.measureCtx;
 		if (!ctx) return;
 
-		const defaultWidth = this.notesDefaultTabWidth;
+		const defaultWidth = this.flows[key].defaultTabWidth;
 
 		this.getNotesLines(canvas).forEach(line => {
 			let x = this.getLineMarginPx(line);
@@ -3432,13 +3564,14 @@ export class DAView extends TextFileView {
 		});
 	}
 
-	private scheduleNotesLayout(immediate = false): void {
-		if (immediate) { this.layoutNotesTabs(); return; }
-		if (this.notesLayoutScheduled) return;
-		this.notesLayoutScheduled = true;
+	private scheduleNotesLayout(immediate = false, key: FlowKey = this.curFlowKey()): void {
+		if (immediate) { this.layoutNotesTabs(key); return; }
+		const f = this.flows[key];
+		if (f.layoutScheduled) return;
+		f.layoutScheduled = true;
 		window.requestAnimationFrame(() => {
-			this.notesLayoutScheduled = false;
-			this.layoutNotesTabs();
+			f.layoutScheduled = false;
+			this.layoutNotesTabs(key);
 		});
 	}
 
@@ -3457,9 +3590,11 @@ export class DAView extends TextFileView {
 		return Math.max(0, (Math.ceil((x - EPS) / w) - 1) * w);
 	}
 
-	private syncNotesToolbarUi(): void {
-		const input = this.byId<HTMLInputElement>("notes-default-tab-width");
-		if (input) input.value = (this.notesDefaultTabWidth / 96).toFixed(2);
+	private syncNotesToolbarUi(key?: FlowKey): void {
+		(key ? [key] : FLOW_KEYS).forEach(k => {
+			const input = this.byId<HTMLInputElement>(this.flows[k].tabInputId);
+			if (input) input.value = (this.flows[k].defaultTabWidth / 96).toFixed(2);
+		});
 	}
 
 	private updateNotesFormatButtonStates(): void {
@@ -3501,7 +3636,7 @@ export class DAView extends TextFileView {
 	// under the canvas for the rarer case of a trailing run of whitespace split
 	// across nodes.
 	private trimTrailingWhitespaceFromRange(range: Range): void {
-		const canvas = this.byId("notes-canvas");
+		const canvas = this.flowCanvas();
 		if (!canvas) return;
 
 		let container = range.endContainer;
@@ -3535,20 +3670,22 @@ export class DAView extends TextFileView {
 
 	// ---------- Sentence Flow: load / save ----------
 
-	// (Re)builds the canvas DOM from notesLines using the same createEl-style
-	// DOM helpers as the rest of the view (no innerHTML), then re-runs the
-	// layout pass so tab markers land on the default-tab-width grid.
-	renderNotesTab(): void {
-		const canvas = this.byId("notes-canvas");
+	// (Re)builds a flow canvas's DOM from its saved lines using the same
+	// createEl-style DOM helpers as the rest of the view (no innerHTML), then
+	// re-runs the layout pass so tab markers land on the default-tab-width
+	// grid. With no key, rebuilds every flow canvas.
+	renderNotesTab(key?: FlowKey): void {
+		if (!key) { FLOW_KEYS.forEach(k => this.renderNotesTab(k)); return; }
+		const canvas = this.flowCanvas(key);
 		if (!canvas) return;
 		canvas.empty();
 
 		// Deliberately doesn't fall back to a placeholder empty line when
-		// notesLines is empty: leaving the canvas with zero children for a
+		// the flow has no lines: leaving the canvas with zero children for a
 		// brand-new file matches what a plain, never-typed-into contenteditable
 		// looks like, and getNotesLines already treats "no line divs yet" as
 		// one implicit line (the canvas itself) for layout/serialization.
-		this.notesLines.forEach(line => {
+		this.flows[key].lines.forEach(line => {
 			const div = canvas.createDiv();
 			if (line.indent > 0) div.style.marginInlineStart = `${line.indent}px`;
 			line.segments.forEach(seg => {
@@ -3567,17 +3704,17 @@ export class DAView extends TextFileView {
 		});
 
 		canvas.dir = this.isRTL ? "rtl" : "ltr";
-		this.syncNotesToolbarUi();
-		window.requestAnimationFrame(() => this.layoutNotesTabs());
+		this.syncNotesToolbarUi(key);
+		window.requestAnimationFrame(() => this.layoutNotesTabs(key));
 	}
 
 	// Walks the live canvas DOM (as left behind by typing, execCommand
 	// formatting, Tab markers, and paste) back into the persisted NotesLine
 	// model. Adjacent text runs sharing the same bold/italic/underline state
 	// are coalesced into one segment.
-	private serializeNotesLines(): NotesLine[] {
-		const canvas = this.byId("notes-canvas");
-		if (!canvas) return this.notesLines;
+	private serializeNotesLines(key: FlowKey): NotesLine[] {
+		const canvas = this.flowCanvas(key);
+		if (!canvas) return this.flows[key].lines;
 
 		return this.getNotesLines(canvas).map(lineEl => {
 			const segments: NotesSegment[] = [];
