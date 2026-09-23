@@ -167,6 +167,163 @@
   		min-width: 0;
 			}
     </style>
+    <style id="da-theme-css">
+        /* ---------- colour schemes (ported from BibleSearch) ----------
+         * "Default" + light mode = no data-theme attribute at all, so the
+         * original look is untouched. Every other combination sets
+         * <html data-theme="..."> and the overrides below remap the app's
+         * hard-coded colours onto these variables. */
+        html[data-theme="dark"]         { color-scheme: dark; --bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;--accent:#e94560;--accent2:#53d8fb;--text:#e0e0e0;--muted:#8899aa;--border:#2a3a5a;--input-bg:#0a1628;--active-bg:#0f3460; }
+        html[data-theme="dark-blue"]    { color-scheme: dark; --bg:#0d1b2e;--surface:#122240;--surface2:#1a3a6e;--accent:#0088ab;--accent2:#53d8fb;--text:#dce8ff;--muted:#7a9abf;--border:#1e3a6a;--input-bg:#071524;--active-bg:#1a3a6e; }
+        html[data-theme="dark-yellow"]  { color-scheme: dark; --bg:#1c1a00;--surface:#2a2600;--surface2:#3d3700;--accent:#f0a500;--accent2:#ffe066;--text:#fff8d6;--muted:#a09060;--border:#4a4200;--input-bg:#111000;--active-bg:#3d3700; }
+        html[data-theme="dark-red"]     { color-scheme: dark; --bg:#1e0a0a;--surface:#2e1010;--surface2:#4a1818;--accent:#e94560;--accent2:#ff8c8c;--text:#ffe0e0;--muted:#a06060;--border:#5a2020;--input-bg:#120606;--active-bg:#4a1818; }
+        html[data-theme="dark-green"]   { color-scheme: dark; --bg:#0a1a0e;--surface:#102818;--surface2:#1a4228;--accent:#4caf82;--accent2:#80ffb8;--text:#d8ffe8;--muted:#6a9a7a;--border:#1e4830;--input-bg:#061210;--active-bg:#1a4228; }
+        html[data-theme="dark-purple"]  { color-scheme: dark; --bg:#120a1e;--surface:#1e1030;--surface2:#301848;--accent:#c06aff;--accent2:#e0a0ff;--text:#eedeff;--muted:#8860aa;--border:#3a1a60;--input-bg:#0c0614;--active-bg:#301848; }
+        html[data-theme="dark-cream"]   { color-scheme: dark; --bg:#1c1810;--surface:#2a2418;--surface2:#3c3424;--accent:#d4a050;--accent2:#f0c880;--text:#f5eddc;--muted:#9a8a70;--border:#4a3e2a;--input-bg:#141008;--active-bg:#3c3424; }
+        html[data-theme="light-blue"]   { color-scheme: light; --bg:#e8f0fa;--surface:#ffffff;--surface2:#d0e4f8;--accent:#1a6fa8;--accent2:#0a4a80;--text:#0a1a2e;--muted:#4a6880;--border:#aacae8;--input-bg:#ffffff;--active-bg:#c0d8f4; }
+        html[data-theme="light-yellow"] { color-scheme: light; --bg:#fffce8;--surface:#ffffff;--surface2:#fff8c0;--accent:#b07800;--accent2:#7a5200;--text:#1a1600;--muted:#706020;--border:#e0d060;--input-bg:#ffffff;--active-bg:#fff0a0; }
+        html[data-theme="light-red"]    { color-scheme: light; --bg:#fff0f0;--surface:#ffffff;--surface2:#fde0e0;--accent:#c0392b;--accent2:#8b0000;--text:#1a0000;--muted:#804040;--border:#f0aaaa;--input-bg:#ffffff;--active-bg:#fac8c8; }
+        html[data-theme="light-green"]  { color-scheme: light; --bg:#f0faf2;--surface:#ffffff;--surface2:#d8f4e0;--accent:#1a7a40;--accent2:#0a5228;--text:#001a08;--muted:#3a6848;--border:#90d8a8;--input-bg:#ffffff;--active-bg:#b8ecc8; }
+        html[data-theme="light-purple"] { color-scheme: light; --bg:#f6f0ff;--surface:#ffffff;--surface2:#ecdeff;--accent:#7030b0;--accent2:#4a1880;--text:#0e001a;--muted:#604880;--border:#c8a8f0;--input-bg:#ffffff;--active-bg:#dcc8ff; }
+        html[data-theme="light-cream"]  { color-scheme: light; --bg:#fdf8f0;--surface:#fffcf6;--surface2:#f5ece0;--accent:#8a5a2a;--accent2:#5a3a10;--text:#1a1008;--muted:#806848;--border:#d8c8a8;--input-bg:#fffcf6;--active-bg:#eeddc8; }
+        /* Main-point box tint (orange), kept distinct from the accent colour */
+        html[data-theme^="dark"]  { --main-bg:#3a2608; }
+        html[data-theme^="light"] { --main-bg:#fff7ed; }
+
+        /* surfaces */
+        html[data-theme] body, html[data-theme] .bg-slate-50, html[data-theme] .sf-panel { background-color: var(--bg); color: var(--text); }
+        html[data-theme] .bg-white, html[data-theme] .tab-strip, html[data-theme] .sf-canvas,
+        html[data-theme] .toolbar-btn, html[data-theme] .sf-fmt-btn, html[data-theme] .theme-select { background-color: var(--surface); }
+        html[data-theme] .bg-slate-100, html[data-theme] .hover\:bg-slate-100:hover, html[data-theme] .hover\:bg-slate-50:hover,
+        html[data-theme] .tab-btn:hover, html[data-theme] .toolbar-btn:hover, html[data-theme] .sf-fmt-btn:hover,
+        html[data-theme] .row-num-badge:hover { background-color: var(--surface2); }
+        html[data-theme] .bg-slate-300 { background-color: var(--border); }
+        html[data-theme] #rtl-thumb { background-color: #fff; }
+        html[data-theme] .proposition-box { background: var(--bg); border-color: var(--border); }
+        html[data-theme] .proposition-box.selected { background: var(--active-bg); border-color: var(--accent); box-shadow: 0 0 0 3px var(--active-bg); }
+        html[data-theme] .bg-blue-50, html[data-theme] .sf-fmt-btn.active { background-color: var(--active-bg); }
+
+        /* borders */
+        html[data-theme] .border-slate-200, html[data-theme] .border-slate-300, html[data-theme] .hover\:border-slate-200:hover,
+        html[data-theme] .divide-slate-100 > * + *, html[data-theme] .tab-strip, html[data-theme] .toolbar-btn,
+        html[data-theme] .sf-fmt-btn, html[data-theme] .sf-tabwidth-input, html[data-theme] .sf-canvas, html[data-theme] .theme-select { border-color: var(--border); }
+        html[data-theme] .hover\:border-slate-400:hover, html[data-theme] .toolbar-btn:hover { border-color: var(--muted); }
+
+        /* text */
+        html[data-theme] .text-slate-900, html[data-theme] .text-slate-700, html[data-theme] .hover\:text-slate-900:hover,
+        html[data-theme] .tab-btn:hover, html[data-theme] .toolbar-btn, html[data-theme] .sf-fmt-btn, html[data-theme] .sf-canvas,
+        html[data-theme] .instructions-text, html[data-theme] .theme-select { color: var(--text); }
+        html[data-theme] .text-slate-600, html[data-theme] .text-slate-500, html[data-theme] .text-slate-400, html[data-theme] .text-slate-300,
+        html[data-theme] .hover\:text-slate-600:hover, html[data-theme] .hover\:text-slate-500:hover,
+        html[data-theme] .tab-btn, html[data-theme] .toolbar-zoom-label, html[data-theme] .sf-tabwidth { color: var(--muted); }
+        html[data-theme] .hover\:text-red-500:hover { color: #ef4444; }
+        /* amber/red action buttons keep their light fills, so keep dark text on them */
+        html[data-theme] .toolbar-btn-warn, html[data-theme] .toolbar-btn-danger { color: #334155; }
+        html[data-theme] .toolbar-btn-warn { background: #fef3c7; }
+        html[data-theme] .toolbar-btn-warn:hover { background: #fde68a; }
+        html[data-theme] .toolbar-btn-danger { background: #fca5a5; }
+        html[data-theme] .toolbar-btn-danger:hover { background: #f87171; }
+
+        /* accent (#1e40af). The Logical Relations category colours are left alone. */
+        html[data-theme] .bg-\[\#1e40af\], html[data-theme] .toolbar-btn-primary { background-color: var(--accent); border-color: var(--accent); }
+        html[data-theme] .toolbar-btn-primary { color: #fff; }
+        html[data-theme] .hover\:bg-\[\#1a3a9e\]:hover, html[data-theme] .toolbar-btn-primary:hover { background-color: var(--accent); border-color: var(--accent); filter: brightness(0.9); }
+        html[data-theme] #lr-modal .bg-\[\#1e40af\] { background-color: #1e40af; }
+        html[data-theme] .text-\[\#1e40af\] { color: var(--accent); }
+        html[data-theme] #lr-modal .text-\[\#1e40af\] { color: #1e40af; }
+        html[data-theme^="dark"] #lr-modal .text-\[\#1e40af\] { color: #7aa2ff; }
+        html[data-theme^="dark"] #lr-modal .text-\[\#7c3aed\] { color: #b18cff; }
+        html[data-theme^="dark"] #lr-modal .text-\[\#4a7c59\] { color: #7fc294; }
+        html[data-theme^="dark"] #lr-modal .text-\[\#b45309\] { color: #f0a050; }
+        html[data-theme] .border-\[\#1e40af\], html[data-theme] .focus\:border-\[\#1e40af\]:focus { border-color: var(--accent); }
+        html[data-theme] .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        html[data-theme] .sf-fmt-btn.active { border-color: var(--accent); color: var(--accent); }
+        html[data-theme] .row-num-badge[contenteditable="true"] { background: var(--input-bg); outline-color: var(--accent); color: var(--accent); }
+        html[data-theme] .sidebar-num-badge[contenteditable="true"] { outline-color: var(--accent); }
+
+        /* inputs */
+        html[data-theme] textarea, html[data-theme] input[type="text"], html[data-theme] input[type="number"] { background-color: var(--input-bg); color: var(--text); }
+        html[data-theme] textarea::placeholder, html[data-theme] input::placeholder { color: var(--muted); }
+
+        /* label editor (built with inline styles) */
+        html[data-theme] #label-editor { background: var(--surface) !important; border-color: var(--accent) !important; color: var(--text); }
+        html[data-theme] #label-editor > div:first-child { color: var(--muted) !important; }
+        html[data-theme] #lei { background: var(--input-bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+        html[data-theme] #le-cancel { background: var(--surface) !important; color: var(--muted) !important; border-color: var(--border) !important; }
+        html[data-theme] #le-ok { background: var(--accent) !important; }
+        html[data-theme] #left-resizer:hover { background: var(--border) !important; }
+
+        /* bracket SVG (colours are presentation attributes, which CSS overrides) */
+        html[data-theme] #bracket-svg [stroke="#64748b"], html[data-theme] #bracket-svg [stroke="#94a3b8"] { stroke: var(--muted); }
+        html[data-theme] #bracket-svg [stroke="#cbd5e1"] { stroke: var(--border); }
+        html[data-theme] #bracket-svg [stroke="#1e40af"] { stroke: var(--accent); }
+        html[data-theme] #bracket-svg [fill="#ffffff"] { fill: var(--surface); }
+        html[data-theme] #bracket-svg [fill="#f1f5f9"] { fill: var(--surface2); }
+        html[data-theme] #bracket-svg [fill="#eff6ff"] { fill: var(--active-bg); }
+        html[data-theme] #bracket-svg [fill="#fff7ed"] { fill: var(--main-bg); }
+        html[data-theme] #bracket-svg text[fill="#1e40af"] { fill: var(--accent); }
+
+        /* ---------- header colour-scheme dropdown + light/dark toggle ---------- */
+        .theme-select { height: 2.25rem; padding: 0 10px; border-radius: 1rem; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 0.8rem; cursor: pointer; }
+        .theme-select:hover { border-color: #94a3b8; }
+        .theme-toggle { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; cursor: pointer; font-size: 14px; line-height: 1; }
+        .theme-track { width: 34px; height: 18px; border-radius: 9px; background: #64748b; position: relative; flex-shrink: 0; transition: background 0.2s; }
+        .theme-track.on { background: #1e40af; }
+        .theme-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: left 0.2s; }
+        .theme-track.on .theme-thumb { left: 18px; }
+        html[data-theme] .theme-track { background: var(--accent); }
+        html[data-theme] .theme-track.on { background: var(--accent2); }
+    </style>
+    <script>
+        // Colour scheme + light/dark mode. Applied here in <head> so a saved
+        // preference is in place before first paint (no flash of the default).
+        const DA_SCHEMES = ['default', 'blue', 'yellow', 'red', 'green', 'purple', 'cream'];
+        let daScheme = 'default';
+        let daLightMode = true;
+
+        function daThemeGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+        function daThemeSet(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+
+        function applyTheme() {
+            // Default + light is the original look: no data-theme attribute.
+            const root = document.documentElement;
+            let theme = null;
+            if (daLightMode) { if (daScheme !== 'default') theme = 'light-' + daScheme; }
+            else theme = daScheme === 'default' ? 'dark' : 'dark-' + daScheme;
+            if (theme) root.setAttribute('data-theme', theme);
+            else root.removeAttribute('data-theme');
+            syncThemeControls();
+        }
+
+        function syncThemeControls() {
+            const sel = document.getElementById('theme-scheme-select');
+            if (sel) sel.value = daScheme;
+            const track = document.getElementById('theme-track');
+            if (track) track.classList.toggle('on', daLightMode);
+            const btn = document.getElementById('theme-toggle');
+            if (btn) btn.setAttribute('aria-checked', daLightMode ? 'true' : 'false');
+        }
+
+        function setColorScheme(scheme) {
+            daScheme = DA_SCHEMES.includes(scheme) ? scheme : 'default';
+            daThemeSet('da-scheme', daScheme);
+            applyTheme();
+        }
+
+        function toggleThemeMode() {
+            daLightMode = !daLightMode;
+            daThemeSet('da-mode', daLightMode ? 'light' : 'dark');
+            applyTheme();
+        }
+
+        (function restoreTheme() {
+            const s = daThemeGet('da-scheme');
+            if (DA_SCHEMES.includes(s)) daScheme = s;
+            daLightMode = daThemeGet('da-mode') !== 'dark';
+            applyTheme();
+            document.addEventListener('DOMContentLoaded', syncThemeControls);
+        })();
+    </script>
 <style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style><style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style></head>
 <body class="bg-slate-50">
     <div class="app-shell">
@@ -184,6 +341,20 @@
                 <div class="flex items-center gap-x-1.5 text-sm text-slate-500">Hebrew Mode</div>
 				<button id="rtl-toggle" onclick="toggleRTL()" role="switch" aria-checked="false" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e40af]" style="outline:none;">
                     <span id="rtl-thumb" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+                </button>
+                <select id="theme-scheme-select" class="theme-select" onchange="setColorScheme(this.value)" title="Color scheme" aria-label="Color scheme">
+                    <option value="default">Default</option>
+                    <option value="blue">Blue</option>
+                    <option value="yellow">Yellow</option>
+                    <option value="red">Red</option>
+                    <option value="green">Green</option>
+                    <option value="purple">Purple</option>
+                    <option value="cream">Cream</option>
+                </select>
+                <button type="button" id="theme-toggle" class="theme-toggle" onclick="toggleThemeMode()" role="switch" aria-checked="true" aria-label="Light mode" title="Toggle light/dark mode">
+                    <span aria-hidden="true">🌙</span>
+                    <span id="theme-track" class="theme-track on"><span class="theme-thumb"></span></span>
+                    <span aria-hidden="true">☀️</span>
                 </button>
 				<button onclick="window.open('https://buymeacoffee.com/reformedretrieval', '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">
     ☕ Support
@@ -2341,8 +2512,26 @@ function exportPNG() {
             container.style.width  = fullW + "px";
             container.style.height = fullH + "px";
 
+            const themed = document.documentElement.hasAttribute('data-theme');
             html2canvas(scaler, {
-                backgroundColor: "#ffffff",
+                backgroundColor: themed ? getComputedStyle(document.getElementById('workspace')).backgroundColor : "#ffffff",
+                // html2canvas rasterises the SVG on its own, without the page's
+                // stylesheets, so bake the theme's CSS stroke/fill overrides
+                // into the cloned SVG's attributes.
+                onclone: themed ? (clonedDoc) => {
+                    const liveSvg = document.getElementById('bracket-svg');
+                    const clonedSvg = clonedDoc.getElementById('bracket-svg');
+                    if (!liveSvg || !clonedSvg) return;
+                    const live = liveSvg.querySelectorAll('*');
+                    const cloned = clonedSvg.querySelectorAll('*');
+                    live.forEach((el, n) => {
+                        const c = cloned[n];
+                        if (!c) return;
+                        const cs = getComputedStyle(el);
+                        if (el.hasAttribute('stroke')) c.setAttribute('stroke', cs.stroke);
+                        if (el.hasAttribute('fill')) c.setAttribute('fill', cs.fill);
+                    });
+                } : undefined,
                 scale: 2,
                 useCORS: true,
                 logging: false,
@@ -3236,6 +3425,8 @@ function loadEmbeddedProjectData() {
 
 			// 1. Clone the document
 			const clonedDoc = document.documentElement.cloneNode(true);
+			// The colour scheme is a per-browser preference (localStorage), not project data.
+			clonedDoc.removeAttribute('data-theme');
 
 			// 2. CLEANUP: Find the containers where your brackets and propositions live 
 			// and empty them in the CLONE. This prevents the "double-render" flicker.
