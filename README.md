@@ -18,7 +18,7 @@ Everything is stored as plain JSON inside the `.da` file itself, so diagrams are
 
 ## Example
 
-A discourse analysis diagram for 1 Thessalonians 2:13, showing nested brackets with logical relationship labels (G = ground, A = amplification, T = temporal, etc.):
+A discourse analysis diagram for 1 Thessalonians 2:13, showing nested brackets with logical relationship labels (G = ground, A = action, T = temporal, etc.):
 
 ![Discourse analysis diagram for 1 Thessalonians 2:13, showing propositions connected by nested labeled brackets](obsidian-plugin/assets/screenshot-diagram.png)
 
