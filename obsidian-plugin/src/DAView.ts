@@ -1154,6 +1154,10 @@ export class DAView extends TextFileView {
 		const instructions = instructionsModalBody.createDiv({ cls: "da-instructions" });
 		instructions.createEl("strong", { text: "Operations:" });
 		instructions.createEl("br");
+		instructions.appendText("Drag ⋮⋮ (in Propositions list) = reorder");
+		instructions.createEl("br");
+		instructions.appendText("Double-click proposition = split proposition");
+		instructions.createEl("br");
 		instructions.appendText("Right-click box = edit label");
 		instructions.createEl("br");
 		instructions.appendText("Double-click box = mark/unmark as main point");
@@ -1167,10 +1171,6 @@ export class DAView extends TextFileView {
 		instructions.appendText("Click whitespace (anywhere in work area) = deselect");
 		instructions.createEl("br");
 		instructions.appendText("Click + drag = pan workspace");
-		instructions.createEl("br");
-		instructions.appendText("Drag ⋮⋮ (in Propositions list) = reorder");
-		instructions.createEl("br");
-		instructions.appendText("Double-click in main area = split proposition");
 	}
 
 	// Builds the "Sentence Flow" tab: a Word-like scratch canvas for pasting
