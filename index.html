@@ -2010,8 +2010,10 @@ const bracketLeftX = (() => {
         // at least two lines - each continuing the chapter (verse + 1) or opening the
         // next chapter at verse 1. A single bare-number line falls through to flow
         // mode, which can tell one verse from a paragraph with more verse numbers
-        // embedded in it. Returns { marked, derivedRef } or null.
-        function detectVerseLines(body) {
+        // embedded in it. Returns { marked, derivedRef } or null. keepLeading keeps
+        // the lines before the first verse line instead of dropping them, so
+        // deduceLeadingVerse can number them.
+        function detectVerseLines(body, keepLeading = false) {
             const lines = body.split("\n").map(l => l.trim()).filter(Boolean);
             if (!lines.length) return null;
 
@@ -2052,7 +2054,7 @@ const bracketLeftX = (() => {
             // International Version") can't be verse content - drop them. Later
             // verse-less lines still join the previous verse.
             const firstVerseIdx = parsed.findIndex(p => p.verse !== undefined);
-            const marked = parsed.slice(firstVerseIdx).map((p) => {
+            const marked = parsed.slice(keepLeading ? 0 : firstVerseIdx).map((p) => {
                 if (p.verse === undefined) return p.text; // continuation line - joins the previous verse
                 const ref = multiChapter && p.chapter !== undefined ? `${p.chapter}:${p.verse}` : String(p.verse);
                 return `[${ref}] ${p.text}`;
@@ -2080,8 +2082,8 @@ const bracketLeftX = (() => {
         // and cross-references ("see 16:25"), so they only count when they
         // corroborate the chain: the reference's own chapter as the anchor, or a
         // restart at the next chapter's verse 1. Rejected numbers stay as ordinary
-        // text. Returns marked-up text or null.
-        function detectVerseFlow(body, expectedStart, expectedChapter) {
+        // text. Returns marked-up text or null. keepLeading: see detectVerseLines.
+        function detectVerseFlow(body, expectedStart, expectedChapter, keepLeading = false) {
             const tokenRegex = /(^|[\s"'“‘(])(\d{1,3})(?::(\d{1,3}))?(?=\s+["'“‘(]?\p{L})/gu;
             const OPENING_DELIMS = new Set(["\"", "'", "“", "‘", "("]);
             const accepted = [];
@@ -2166,7 +2168,7 @@ const bracketLeftX = (() => {
                     const headRef = multiChapter && expectedChapter !== null
                         ? `${expectedChapter}:${expectedStart}` : String(expectedStart);
                     out = `[${headRef}] ${out}`;
-                } else {
+                } else if (!keepLeading) {
                     // Leading text at the reference's own start verse can't be verse
                     // content (a pericope heading, "New International Version") -
                     // drop it.
@@ -2188,21 +2190,63 @@ const bracketLeftX = (() => {
             const expectedChapter = ref && ref.chapter !== null && ref.chapter !== undefined ? ref.chapter : null;
 
             if (/\[\d+(?::\d+)?\]/.test(body)) {
-                return { chunks: splitOnMarkers(body), passageRef, detection: "markers" };
+                return { chunks: splitOnMarkers(deduceLeadingVerse(body, expectedStart)), passageRef, detection: "markers" };
             }
 
-            const lineResult = detectVerseLines(body);
+            // Line and flow modes keep text ahead of the first verse number so
+            // deduceLeadingVerse can number it; whatever it can't number is dropped
+            // as before (a pericope heading, "New International Version").
+            const dropUnnumberedLead = (chunks) =>
+                chunks.length > 1 && chunks[0].ref === undefined ? chunks.slice(1) : chunks;
+
+            const lineResult = detectVerseLines(body, true);
             if (lineResult !== null) {
-                return { chunks: splitOnMarkers(lineResult.marked), passageRef: passageRef || lineResult.derivedRef, detection: "lines" };
+                const chunks = dropUnnumberedLead(splitOnMarkers(deduceLeadingVerse(lineResult.marked, expectedStart)));
+                return { chunks, passageRef: passageRef || lineResult.derivedRef, detection: "lines" };
             }
 
-            const flowMarked = detectVerseFlow(body, expectedStart, expectedChapter);
+            const flowMarked = detectVerseFlowAnchored(body, expectedStart, expectedChapter, true);
             if (flowMarked !== null) {
-                return { chunks: splitOnMarkers(flowMarked), passageRef, detection: "flow" };
+                return { chunks: dropUnnumberedLead(splitOnMarkers(deduceLeadingVerse(flowMarked, expectedStart))), passageRef, detection: "flow" };
             }
 
             const trimmed = body.trim();
             return { chunks: trimmed ? [{ ref: undefined, text: trimmed }] : [], passageRef, detection: "none" };
+        }
+
+        // When text precedes the first verse marker, it's the tail of the verse
+        // before that one: "...apart from the law, [22] the righteousness" -> the lead
+        // is verse 21. Skipped when the first marker is a verse 1 (the previous
+        // verse is unknowable), or when a detected reference's start verse
+        // disagrees (then the lead is a heading, not verse text).
+        function deduceLeadingVerse(marked, expectedStart) {
+            if (/^\s*\[\d+(?::\d+)?\]/.test(marked)) return marked;
+            const first = marked.match(/\[(\d+)(?::(\d+))?\]/);
+            if (!first) return marked;
+            const verse = parseInt(first[2] ?? first[1], 10) - 1;
+            if (verse < 1) return marked;
+            if (expectedStart !== null && verse !== expectedStart) return marked;
+            const ref = first[2] ? `${first[1]}:${verse}` : String(verse);
+            return `[${ref}] ${marked.trimStart()}`;
+        }
+
+        // detectVerseFlow only anchors on a number at the very start of the text
+        // when there's no reference to anchor on. When text comes first, retry
+        // with each later number as the anchor, accepting the first one that starts
+        // a consecutive chain of at least two verses (a lone number mid-text could
+        // be anything - "the 12 disciples").
+        function detectVerseFlowAnchored(body, expectedStart, expectedChapter, keepLeading = false) {
+            const direct = detectVerseFlow(body, expectedStart, expectedChapter, keepLeading);
+            if (direct !== null || expectedStart !== null) return direct;
+            const tried = new Set();
+            for (const m of body.matchAll(/(^|[\s"'“‘(])(\d{1,3})(?=\s+["'“‘(]?\p{L})/gu)) {
+                const verse = parseInt(m[2], 10);
+                if (verse < 1 || tried.has(verse)) continue;
+                tried.add(verse);
+                const result = detectVerseFlow(body, verse, null, keepLeading);
+                if (result !== null && (result.match(/\[\d+(?::\d+)?\]/g) ?? []).length >= 2) return result;
+            }
+            return null;
         }
 
         function splitIntoPropositions() {
