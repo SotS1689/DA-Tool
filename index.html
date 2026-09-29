@@ -1194,19 +1194,13 @@
                 const thisLeft = 275 - 12 - col * 72;
                 minLeft = Math.min(minLeft, thisLeft);
             });
-            const offsetX = Math.max(60, -minLeft + 60);
-            const baseRightX = 275 + offsetX;
-            const svgWidth = baseRightX + 30;
-            const bracketPadding = baseRightX + 5;
-
-            svg.setAttribute('width', svgWidth);
-            svg.style.width = `${svgWidth}px`;
-
-            propRows.style.paddingLeft = isRTL ? '20px' : `${bracketPadding}px`;
-            propRows.style.paddingRight = isRTL ? `${bracketPadding}px` : '20px';
+            let baseRightX = 275 + Math.max(60, -minLeft + 60);
 
             const COL_STEP = 72;
 
+// Positions are worked out in LTR coordinates and mirrored for RTL at the end
+// (RTL x = svgWidth - LTR x - the two layouts were already exact mirror images
+// of each other).
 const bracketLeftX = (() => {
     const result = new Array(brackets.length).fill(null);
     const idToIdx = {};
@@ -1219,6 +1213,16 @@ const bracketLeftX = (() => {
     order.forEach(({ i }) => {
         const b = brackets[i];
         const col = colOf[i] >= 0 ? colOf[i] : 0;
+
+        // The rightmost a bracket may sit: just left of the least-indented row
+        // it spans, since its vertical line runs past all of them.
+        let minIndent = Infinity;
+        for (let r = Math.floor(b.start); r <= Math.ceil(b.end); r++) {
+            const p = propositions[r];
+            if (p !== undefined) minIndent = Math.min(minIndent, p.level);
+        }
+        if (minIndent === Infinity) minIndent = 0;
+        const rowLimitX = baseRightX - 12 + minIndent * 48;
 
         // Collect already-computed parent spine positions
         const parentXs = [];
@@ -1245,34 +1249,41 @@ const bracketLeftX = (() => {
         }
 
         if (parentXs.length > 0) {
-            // Child bracket: exactly COL_STEP from its nearest (rightmost in LTR) parent.
-            // This guarantees uniform spacing between all connected bracket pairs,
-            // regardless of each bracket's individual indentOffset.
-            if (!isRTL) {
-                result[i] = Math.min(...parentXs) - COL_STEP;
-            } else {
-                result[i] = Math.max(...parentXs) + COL_STEP;
-            }
+            // Child bracket: exactly COL_STEP from its nearest (rightmost in LTR)
+            // parent, for uniform spacing between connected bracket pairs - but
+            // never past its own rows: with a parent two or more indent levels
+            // deeper than this bracket's shallowest row (96px+ vs a 72px
+            // column), one column left of the parent would still land inside
+            // that row.
+            result[i] = Math.min(Math.min(...parentXs) - COL_STEP, rowLimitX);
         } else {
-            // Root bracket (no parent): use absolute formula with indentOffset so
-            // the spine aligns visually with the propositions it brackets.
-            let minIndent = Infinity;
-            for (let r = Math.floor(b.start); r <= Math.ceil(b.end); r++) {
-                const p = propositions[r];
-                if (p !== undefined) minIndent = Math.min(minIndent, p.level);
-            }
-            if (minIndent === Infinity) minIndent = 0;
-            const indentOffset = minIndent * 48;
-            if (!isRTL) {
-                result[i] = baseRightX - 12 - col * COL_STEP + indentOffset;
-            } else {
-                result[i] = 30 + 12 + col * COL_STEP - indentOffset;
-            }
+            // Root bracket (no parent): aligned with the propositions it brackets.
+            result[i] = rowLimitX - col * COL_STEP;
         }
     });
 
     return result;
 })();
+
+            // The row-limit clamp can push brackets further left than the
+            // column-based estimate above made room for; widen the gutter so the
+            // leftmost bracket keeps the same 60px margin as before.
+            const placedXs = bracketLeftX.filter(x => x !== null);
+            const gutterShift = placedXs.length ? Math.max(0, 60 - Math.min(...placedXs)) : 0;
+            if (gutterShift > 0) {
+                baseRightX += gutterShift;
+                bracketLeftX.forEach((x, i) => { if (x !== null) bracketLeftX[i] = x + gutterShift; });
+            }
+
+            const svgWidth = baseRightX + 30;
+            const bracketPadding = baseRightX + 5;
+            if (isRTL) bracketLeftX.forEach((x, i) => { if (x !== null) bracketLeftX[i] = svgWidth - x; });
+
+            svg.setAttribute('width', svgWidth);
+            svg.style.width = `${svgWidth}px`;
+
+            propRows.style.paddingLeft = isRTL ? '20px' : `${bracketPadding}px`;
+            propRows.style.paddingRight = isRTL ? `${bracketPadding}px` : '20px';
 
             const nodeY = brackets.map((b, i) => {
                 let top = getInterpolatedRowY(rowYs, b.start);
