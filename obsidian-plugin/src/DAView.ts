@@ -2456,30 +2456,32 @@ export class DAView extends TextFileView {
 			const thisLeft = 275 - 12 - col * 72;
 			minLeft = Math.min(minLeft, thisLeft);
 		});
-		const offsetX = Math.max(60, -minLeft + 60);
-		const baseRightX = 275 + offsetX;
-		const svgWidth = baseRightX + 30;
-		const bracketPadding = baseRightX + 5;
-
-		svg.setAttribute("width", String(svgWidth));
-		svg.setCssStyles({ width: `${svgWidth}px` });
-
-		propRows.setCssStyles({
-			paddingLeft: isRTL ? "20px" : `${bracketPadding}px`,
-			paddingRight: isRTL ? `${bracketPadding}px` : "20px",
-		});
+		let baseRightX = 275 + Math.max(60, -minLeft + 60);
 
 		const COL_STEP = 72;
 
 		const idToIdx: Record<number, number> = {};
 		brackets.forEach((b, i) => { idToIdx[b.id] = i; });
 
+		// Positions are worked out in LTR coordinates and mirrored for RTL at
+		// the end (RTL x = svgWidth - LTR x - the two layouts were already
+		// exact mirror images of each other).
 		const bracketLeftX: (number | null)[] = new Array(brackets.length).fill(null);
 		const order = brackets.map((b, i) => ({ i, col: colOf[i] >= 0 ? colOf[i] : 0 })).sort((a, b) => a.col - b.col);
 
 		order.forEach(({ i }) => {
 			const b = brackets[i];
 			const col = colOf[i] >= 0 ? colOf[i] : 0;
+
+			// The rightmost a bracket may sit: just left of the least-indented
+			// row it spans, since its vertical line runs past all of them.
+			let minIndent = Infinity;
+			for (let r = Math.floor(b.start); r <= Math.ceil(b.end); r++) {
+				const p = propositions[r];
+				if (p !== undefined) minIndent = Math.min(minIndent, p.level);
+			}
+			if (minIndent === Infinity) minIndent = 0;
+			const rowLimitX = baseRightX - 12 + minIndent * 48;
 
 			const parentXs: number[] = [];
 			for (const pid of getParentIds(b)) {
@@ -2495,26 +2497,35 @@ export class DAView extends TextFileView {
 				});
 			}
 
-			if (parentXs.length > 0) {
-				if (!isRTL) {
-					bracketLeftX[i] = Math.min(...parentXs) - COL_STEP;
-				} else {
-					bracketLeftX[i] = Math.max(...parentXs) + COL_STEP;
-				}
-			} else {
-				let minIndent = Infinity;
-				for (let r = Math.floor(b.start); r <= Math.ceil(b.end); r++) {
-					const p = propositions[r];
-					if (p !== undefined) minIndent = Math.min(minIndent, p.level);
-				}
-				if (minIndent === Infinity) minIndent = 0;
-				const indentOffset = minIndent * 48;
-				if (!isRTL) {
-					bracketLeftX[i] = baseRightX - 12 - col * COL_STEP + indentOffset;
-				} else {
-					bracketLeftX[i] = 30 + 12 + col * COL_STEP - indentOffset;
-				}
-			}
+			// One column left of the bracket(s) it grows out of - but never
+			// past its own rows: with a parent two or more indent levels deeper
+			// than this bracket's shallowest row (96px+ vs a 72px column), one
+			// column left of the parent would still land inside that row.
+			bracketLeftX[i] = parentXs.length > 0
+				? Math.min(Math.min(...parentXs) - COL_STEP, rowLimitX)
+				: rowLimitX - col * COL_STEP;
+		});
+
+		// The row-limit clamp can push brackets further left than the
+		// column-based estimate above made room for; widen the gutter so the
+		// leftmost bracket keeps the same 60px margin as before.
+		const placed = bracketLeftX.filter((x): x is number => x !== null);
+		const shift = placed.length ? Math.max(0, 60 - Math.min(...placed)) : 0;
+		if (shift > 0) {
+			baseRightX += shift;
+			bracketLeftX.forEach((x, i) => { if (x !== null) bracketLeftX[i] = x + shift; });
+		}
+
+		const svgWidth = baseRightX + 30;
+		const bracketPadding = baseRightX + 5;
+		if (isRTL) bracketLeftX.forEach((x, i) => { if (x !== null) bracketLeftX[i] = svgWidth - x; });
+
+		svg.setAttribute("width", String(svgWidth));
+		svg.setCssStyles({ width: `${svgWidth}px` });
+
+		propRows.setCssStyles({
+			paddingLeft: isRTL ? "20px" : `${bracketPadding}px`,
+			paddingRight: isRTL ? `${bracketPadding}px` : "20px",
 		});
 
 		const nodeY = brackets.map(b => {
