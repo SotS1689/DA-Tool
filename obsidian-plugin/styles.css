@@ -887,8 +887,17 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	outline: 1px solid var(--da-accent);
 }
 
+/* Serif defaults for the three text canvases (Bracketing, Sentence Flow, Text
+ * Flow): Gentium Alt for LTR, SBL BibLit for RTL (Hebrew) mode. Each canvas
+ * element carries dir="ltr"/"rtl", set from the RTL toggle. */
+.da-tool-view {
+	--da-font-serif-ltr: "Gentium Alt", "GentiumAlt", "Gentium Plus", Georgia, "Times New Roman", serif;
+	--da-font-serif-rtl: "SBL BibLit", "SBL Hebrew", "Ezra SIL", "Times New Roman", serif;
+}
+
 .da-tool-view .da-row-text {
 	flex: 1 1 0%;
+	font-family: var(--da-font-serif-ltr);
 	font-size: 0.9rem;
 	line-height: 1.25;
 	outline: none;
@@ -1418,7 +1427,7 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 @font-face {
 	font-family: "DA Sentence Flow Greek";
 	font-weight: normal;
-	src: local("Times New Roman"), local("Cardo"), local("Gentium Plus");
+	src: local("Gentium Alt"), local("GentiumAlt"), local("Times New Roman"), local("Cardo"), local("Gentium Plus");
 	unicode-range: U+0370-03FF, U+1F00-1FFF;
 }
 
@@ -1431,7 +1440,7 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 @font-face {
 	font-family: "DA Sentence Flow Greek";
 	font-weight: bold;
-	src: local("Times New Roman Bold"), local("Cardo Bold"), local("Gentium Plus Bold"), local("Times New Roman");
+	src: local("Gentium Alt Bold"), local("GentiumAlt-Bold"), local("Times New Roman Bold"), local("Cardo Bold"), local("Gentium Plus Bold"), local("Times New Roman");
 	unicode-range: U+0370-03FF, U+1F00-1FFF;
 }
 
@@ -1441,12 +1450,20 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	border: 1px solid var(--da-border);
 	border-radius: 4px;
 	color: var(--da-text);
-	font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif;
+	font-family: "DA Sentence Flow Greek", var(--da-font-serif-ltr);
 	font-size: 1rem;
 	line-height: 1.0;
 	white-space: pre-wrap;
 	outline: none;
 	transition: transform 0.15s ease;
+}
+
+.da-tool-view .da-sf-canvas[dir="rtl"] {
+	font-family: "DA Sentence Flow Greek", var(--da-font-serif-rtl);
+}
+
+.da-tool-view .da-row-text[dir="rtl"] {
+	font-family: var(--da-font-serif-rtl);
 }
 
 .da-tool-view .da-tab {
