@@ -1324,6 +1324,32 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	flex-wrap: wrap;
 }
 
+/* Left-sidebar show/hide button, at the start of the tab row. */
+.da-tool-view .da-sidebar-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 6px 8px;
+	margin-right: 8px;
+	color: var(--da-muted);
+	background: transparent;
+	border: none;
+	border-radius: 8px;
+	box-shadow: none;
+	cursor: pointer;
+}
+.da-tool-view .da-sidebar-toggle:hover {
+	color: var(--da-text);
+	background: var(--da-row-bg);
+}
+.da-tool-view .da-sidebar-toggle-active {
+	color: var(--da-accent);
+}
+
+.da-tool-view .da-sidebar-collapsed {
+	display: none !important;
+}
+
 .da-tool-view .da-tab-toolbar-hidden {
 	display: none !important;
 }

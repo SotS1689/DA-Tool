@@ -136,6 +136,8 @@ export interface DAToolSettings {
 	// Maps ColorToken.id -> a manual hex override. Absent/empty means "use the
 	// standard or theme-adopted default for that token".
 	colorOverrides: Record<string, string>;
+	// The Brackets tab's left Propositions sidebar is collapsed away.
+	sidebarHidden?: boolean;
 }
 
 export interface DAToolPluginHost {
@@ -1364,6 +1366,11 @@ export class DAView extends TextFileView {
 
 		const tabStrip = this.contentEl.createDiv({ cls: "da-tab-strip" });
 		const tabStripTabs = tabStrip.createDiv({ cls: "da-tab-strip-tabs" });
+		const sidebarToggle = tabStripTabs.createEl("button", { cls: "da-sidebar-toggle", attr: { id: "sidebar-toggle", "data-action": "toggle-sidebar" } });
+		this.appendBracketIcon(sidebarToggle, [
+			{ tag: "rect", attr: { x: "3", y: "4", width: "16", height: "14", rx: "2" } },
+			{ tag: "line", attr: { x1: "8.5", y1: "4", x2: "8.5", y2: "18" } },
+		]);
 		tabStripTabs.createEl("button", { cls: "da-tab-btn da-tab-btn-active", text: "Brackets", attr: { "data-tab": "brackets" } });
 		tabStripTabs.createEl("button", { cls: "da-tab-btn", text: "Text Flow", attr: { "data-tab": "textflow" } });
 		tabStripTabs.createEl("button", { cls: "da-tab-btn", text: "Sentence Flow", attr: { "data-tab": "sentenceflow" } });
@@ -1600,6 +1607,7 @@ export class DAView extends TextFileView {
 		on("tf-zoom-reset", () => this.resetNotesZoom());
 		on("clear-brackets", () => this.clearBracketsOnly());
 		on("reset-all", () => this.resetAll());
+		on("toggle-sidebar", () => this.toggleSidebar());
 		on("deselect", () => this.deselectAll());
 		this.qsa<HTMLButtonElement>('[data-action="open-external"]').forEach(el => {
 			this.registerDomEvent(el, "click", () => window.open(el.dataset.url, "_blank"));
@@ -1614,6 +1622,7 @@ export class DAView extends TextFileView {
 		this.initializeCanvasClick();
 		this.initializePanning();
 		this.makeResizable("left-resizer", "left-sidebar", "left");
+		this.applySidebarHidden();
 
 		this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => this.handleKeydown(e));
 
@@ -1627,12 +1636,37 @@ export class DAView extends TextFileView {
 		this.wireSentenceFlowEvents();
 	}
 
+	// ---------- left sidebar show/hide ----------
+
+	// Remembered across files and restarts (plugin settings), and applied to
+	// every open DA view so they all agree.
+	toggleSidebar(): void {
+		this.plugin.settings.sidebarHidden = !this.plugin.settings.sidebarHidden;
+		void this.plugin.saveSettings();
+		this.plugin.refreshAllViews();
+	}
+
+	applySidebarHidden(): void {
+		const hidden = !!this.plugin.settings.sidebarHidden;
+		this.byId("left-sidebar")?.classList.toggle("da-sidebar-collapsed", hidden);
+		this.byId("left-resizer")?.classList.toggle("da-sidebar-collapsed", hidden);
+		const btn = this.byId("sidebar-toggle");
+		if (btn) {
+			const label = hidden ? "Show sidebar" : "Hide sidebar";
+			btn.setAttribute("title", label);
+			btn.setAttribute("aria-label", label);
+			btn.setAttribute("aria-pressed", String(!hidden));
+			btn.classList.toggle("da-sidebar-toggle-active", !hidden);
+		}
+	}
+
 	// ---------- Text Flow / Sentence Flow tabs ----------
 
 	private switchTab(tab: "brackets" | FlowKey): void {
 		this.activeTab = tab;
 		this.qsa(".da-tab-btn").forEach(btn => btn.classList.toggle("da-tab-btn-active", btn.dataset.tab === tab));
 		this.byId("brackets-toolbar")?.classList.toggle("da-tab-toolbar-hidden", tab !== "brackets");
+		this.byId("sidebar-toggle")?.classList.toggle("da-tab-toolbar-hidden", tab !== "brackets");
 		this.byId("brackets-panel")?.classList.toggle("da-tab-panel-hidden", tab !== "brackets");
 		FLOW_KEYS.forEach(key => {
 			this.byId(`${key}-toolbar`)?.classList.toggle("da-tab-toolbar-hidden", tab !== key);
@@ -1880,6 +1914,7 @@ export class DAView extends TextFileView {
 		this.contentEl.classList.add(...colorThemeClasses(this.plugin.settings.colorTheme));
 		this.syncThemeSelectUi();
 		this.applyColorOverrides();
+		this.applySidebarHidden();
 	}
 
 	private applyColorOverrides(): void {

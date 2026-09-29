@@ -145,6 +145,19 @@ export default class DAToolPlugin extends Plugin {
 				this.openCreateFileModal();
 			},
 		});
+
+		// No default hotkey (Obsidian's guidelines); users can bind one under
+		// Settings > Hotkeys.
+		this.addCommand({
+			id: "toggle-propositions-sidebar",
+			name: "Toggle propositions sidebar",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(DAView);
+				if (!view) return false;
+				if (!checking) view.toggleSidebar();
+				return true;
+			},
+		});
 	}
 
 	onunload() {

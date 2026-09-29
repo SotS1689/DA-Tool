@@ -75,6 +75,11 @@
 	.tab-btn { padding: 8px 16px; font-size: 0.85rem; font-weight: 600; color: #64748b; border-radius: 8px 8px 0 0; border: none; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; }
 	.tab-btn:hover { color: #0f172a; background: #f8fafc; }
 	.tab-btn.active { color: #1e40af; border-bottom-color: #1e40af; }
+	/* Left-sidebar show/hide button, at the start of the tab row. */
+	.sidebar-toggle { display: flex; align-items: center; justify-content: center; padding: 6px 8px; margin-right: 8px; color: #64748b; background: transparent; border: none; border-radius: 8px; cursor: pointer; }
+	.sidebar-toggle:hover { color: #0f172a; background: #f8fafc; }
+	.sidebar-toggle.active { color: #1e40af; }
+	.sidebar-collapsed, .sidebar-toggle.toolbar-hidden { display: none !important; }
 	.tab-toolbar { display: flex; align-items: center; gap: 6px; padding-bottom: 8px; flex-wrap: wrap; }
 	.tab-toolbar.toolbar-hidden { display: none !important; }
 	.tab-panel-hidden { display: none !important; }
@@ -237,6 +242,8 @@
         html[data-theme^="dark"] #lr-modal .text-\[\#b45309\] { color: #f0a050; }
         html[data-theme] .border-\[\#1e40af\], html[data-theme] .focus\:border-\[\#1e40af\]:focus { border-color: var(--accent); }
         html[data-theme] .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        html[data-theme] .sidebar-toggle { color: var(--muted); }
+        html[data-theme] .sidebar-toggle.active { color: var(--accent); }
         html[data-theme] .sf-fmt-btn.active { border-color: var(--accent); color: var(--accent); }
         html[data-theme] .row-num-badge[contenteditable="true"] { background: var(--input-bg); outline-color: var(--accent); color: var(--accent); }
         html[data-theme] .sidebar-num-badge[contenteditable="true"] { outline-color: var(--accent); }
@@ -365,6 +372,12 @@
 
         <div class="tab-strip">
             <div class="tab-strip-tabs">
+                <button type="button" id="sidebar-toggle" class="sidebar-toggle" onclick="toggleSidebar()">
+                    <svg class="w-5 h-5" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <rect x="3" y="4" width="16" height="14" rx="2" />
+                        <line x1="8.5" y1="4" x2="8.5" y2="18" />
+                    </svg>
+                </button>
                 <button type="button" class="tab-btn active" data-tab="brackets" onclick="switchTab('brackets')">Brackets</button>
                 <button type="button" class="tab-btn" data-tab="textflow" onclick="switchTab('textflow')">Text Flow</button>
                 <button type="button" class="tab-btn" data-tab="sentenceflow" onclick="switchTab('sentenceflow')">Sentence Flow</button>
@@ -2653,6 +2666,7 @@ function exportPNG() {
         function clearAll() { resetAll(); }
 
         function initialize() {
+            applySidebarHidden(isSidebarHidden());
 			(function buildLabelEditor() {
 				if (document.getElementById('label-editor')) return;
 				const panel = document.createElement('div');
@@ -2823,6 +2837,33 @@ function exportPNG() {
 
         // ---------- Tabs (Brackets / Text Flow / Sentence Flow) ----------
 
+        // Left sidebar show/hide - a per-browser preference, like the colour
+        // scheme, so it lives in localStorage rather than the project data.
+        function isSidebarHidden() {
+            try { return localStorage.getItem('daSidebarHidden') === '1'; } catch (e) { return false; }
+        }
+
+        function applySidebarHidden(hidden) {
+            document.getElementById('left-sidebar')?.classList.toggle('sidebar-collapsed', hidden);
+            document.getElementById('left-resizer')?.classList.toggle('sidebar-collapsed', hidden);
+            const btn = document.getElementById('sidebar-toggle');
+            if (btn) {
+                const label = hidden ? 'Show sidebar' : 'Hide sidebar';
+                btn.title = label;
+                btn.setAttribute('aria-label', label);
+                btn.setAttribute('aria-pressed', String(!hidden));
+                btn.classList.toggle('active', !hidden);
+            }
+            // Rows reflow to the new width, so bracket positions change.
+            window.requestAnimationFrame(renderCanvas);
+        }
+
+        function toggleSidebar() {
+            const hidden = !isSidebarHidden();
+            try { localStorage.setItem('daSidebarHidden', hidden ? '1' : '0'); } catch (e) {}
+            applySidebarHidden(hidden);
+        }
+
         function switchTab(tab) {
             activeTab = isFlowTab(tab) ? tab : 'brackets';
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2830,6 +2871,8 @@ function exportPNG() {
             });
             const toolbar = document.getElementById('brackets-toolbar');
             if (toolbar) toolbar.classList.toggle('toolbar-hidden', activeTab !== 'brackets');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            if (sidebarToggle) sidebarToggle.classList.toggle('toolbar-hidden', activeTab !== 'brackets');
             const bracketsPanel = document.getElementById('brackets-panel');
             if (bracketsPanel) bracketsPanel.classList.toggle('tab-panel-hidden', activeTab !== 'brackets');
             FLOW_KEYS.forEach(key => {
