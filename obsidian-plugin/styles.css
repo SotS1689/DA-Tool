@@ -27,6 +27,9 @@
 }
 
 .da-tool-view {
+	/* UI scale (plugin setting); applied to chrome marked .da-ui-scaled. */
+	--da-ui-scale: 1;
+
 	/* ---- standard coloring (default design tokens) ---- */
 	--da-bg: #f8fafc;
 	--da-surface: #ffffff;
@@ -416,6 +419,16 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 }
 .da-tool-view .da-theme-select:hover {
 	border-color: var(--da-faint);
+}
+
+/* ---------- UI scale ---------- */
+
+/* CSS zoom scales px and rem sizes alike. It also scales vh/vw lengths and
+   left/top offsets inside the zoomed element, so those are divided back by
+   the scale where they need to stay screen-sized (modal max sizes here; the
+   label editor's position and sidebar resizing in DAView.ts). */
+.da-tool-view .da-ui-scaled {
+	zoom: var(--da-ui-scale);
 }
 
 /* ---------- header ---------- */
@@ -996,7 +1009,7 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
 	width: 100%;
 	max-width: 64rem;
-	max-height: 90vh;
+	max-height: calc(90vh / var(--da-ui-scale));
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;

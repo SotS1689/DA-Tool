@@ -66,6 +66,18 @@
 	display: block;
 	}
 
+	/* UI scale: CSS zoom on the chrome (header, tab strip/toolbars, Propositions
+	   sidebar, label editor, modals) - not the canvases, which have their own
+	   zoom. zoom also scales vh/vw lengths and left/top offsets inside the
+	   zoomed element, so those are divided back by the scale where they must
+	   stay screen-sized (modal max sizes below; label editor position and
+	   sidebar resizing in script). */
+	:root { --ui-scale: 1; }
+	.ui-scaled { zoom: var(--ui-scale); }
+	/* Let the header wrap instead of pushing its controls off-screen when
+	   scaled up (or on a narrow window). */
+	.app-header, .app-header-right { flex-wrap: wrap; row-gap: 12px; }
+
 	.app-shell { display: flex; flex-direction: column; height: 100vh; max-width: 1536px; margin: 0 auto; overflow: hidden; }
 	.app-body-row { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
@@ -330,17 +342,42 @@
             applyTheme();
             document.addEventListener('DOMContentLoaded', syncThemeControls);
         })();
+
+        // UI scale: a per-browser preference like the colour scheme. Sets
+        // --ui-scale, which .ui-scaled elements use as their CSS zoom.
+        const DA_UI_SCALES = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
+        let daUiScale = 1;
+
+        function setUiScale(value) {
+            const n = Number(value);
+            daUiScale = DA_UI_SCALES.includes(n) ? n : 1;
+            daThemeSet('da-ui-scale', String(daUiScale));
+            document.documentElement.style.setProperty('--ui-scale', String(daUiScale));
+            syncUiScaleControl();
+        }
+
+        function syncUiScaleControl() {
+            const sel = document.getElementById('ui-scale-select');
+            if (sel) sel.value = String(daUiScale);
+        }
+
+        (function restoreUiScale() {
+            const n = Number(daThemeGet('da-ui-scale'));
+            if (DA_UI_SCALES.includes(n)) daUiScale = n;
+            document.documentElement.style.setProperty('--ui-scale', String(daUiScale));
+            document.addEventListener('DOMContentLoaded', syncUiScaleControl);
+        })();
     </script>
 <style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style><style>.lottie-animation-container{width:var(--lottie-animation-container-width);height:var(--lottie-animation-container-height);background-color:var(--lottie-animation-container-background-color);overflow:hidden;margin:var(--lottie-animation-margin)}.lottie-animation-container svg{transform:scale(var(--lottie-animation-scale))}</style></head>
 <body class="bg-slate-50">
     <div class="app-shell">
-        <div class="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
+        <div class="ui-scaled app-header bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
             <div class="flex items-center gap-x-3">
                 <div class="w-9 h-9 bg-[#1e40af] rounded-2xl flex items-center justify-center text-white text-4xl font-bold leading-none pb-1.5">∴</div>
                 <h1 class="title-font text-3xl tracking-[-1px]">Discourse Analysis</h1>
                 <span class="text-xs font-medium px-2.5 py-px bg-amber-100 text-amber-700 rounded-full">Free</span>
             </div>
-            <div class="flex items-center gap-x-4 text-sm">
+            <div class="app-header-right flex items-center gap-x-4 text-sm">
 				<button onclick="saveProjectAsHTML()" title="Save Project" aria-label="Save Project" class="w-9 h-9 flex items-center justify-center bg-[#1e40af] hover:bg-[#1a3a9e] border border-slate-300 hover:border-slate-400 rounded-2xl text-white text-lg leading-none">💾</button>
                 <button onclick="showLogicalRelationships()" title="Logical Relations" aria-label="Logical Relations" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">🔗</button>
                 <button onclick="showResources()" title="Resources" aria-label="Resources" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📖</button>
@@ -363,6 +400,19 @@
                     <span id="theme-track" class="theme-track on"><span class="theme-thumb"></span></span>
                     <span aria-hidden="true">☀️</span>
                 </button>
+                <select id="ui-scale-select" class="theme-select" onchange="setUiScale(this.value)" title="UI size (buttons, toolbars, sidebar, dialogs)" aria-label="UI size">
+                    <option value="0.5">50%</option>
+                    <option value="0.6">60%</option>
+                    <option value="0.7">70%</option>
+                    <option value="0.8">80%</option>
+                    <option value="0.9">90%</option>
+                    <option value="1">100%</option>
+                    <option value="1.1">110%</option>
+                    <option value="1.2">120%</option>
+                    <option value="1.3">130%</option>
+                    <option value="1.4">140%</option>
+                    <option value="1.5">150%</option>
+                </select>
 				<button onclick="window.open('https://buymeacoffee.com/reformedretrieval', '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">
     <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M2 21h18a1 1 0 0 1 0 2H2a1 1 0 0 1 0-2zM20.242 11.022a1 1 0 0 0-.242-.688 2.99 2.99 0 0 0-2-.734H16V6a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-2.022h2a3 3 0 0 0 3-3V11.02a1 1 0 0 0-.758-.998zM14 16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v10zm4-4.022V11.6h-2v-2h2a1 1 0 0 1 1 1v1.378a1 1 0 0 1-1 1z"/></svg>
     <span>Support</span>
@@ -370,7 +420,7 @@
             </div>
         </div>
 
-        <div class="tab-strip">
+        <div class="tab-strip ui-scaled">
             <div class="tab-strip-tabs">
                 <button type="button" id="sidebar-toggle" class="sidebar-toggle" onclick="toggleSidebar()">
                     <svg class="w-5 h-5" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -450,7 +500,7 @@
 
         <div class="flex app-body-row">
             <div id="brackets-panel" class="tab-panel" style="display:flex; flex:1 1 0%; min-width:0; min-height:0; overflow:hidden;">
-            <div id="left-sidebar" class="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col" style="width:288px; min-width:180px; max-width:600px;">
+            <div id="left-sidebar" class="ui-scaled flex-shrink-0 bg-white border-r border-slate-200 flex flex-col" style="width:288px; min-width:180px; max-width:600px;">
                 <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
                     <h2 class="uppercase text-xs font-semibold tracking-widest text-slate-500 mb-2">Propositions</h2>
                     <textarea id="paste-area" rows="3" class="flex-1 resize-y border border-slate-300 rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[#1e40af] w-full" placeholder="Paste full passage here…"></textarea>
@@ -491,7 +541,7 @@
 
     <!-- Instructions Modal -->
     <div id="instructions-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style="max-width: 28rem; max-height: 90vh;">
+        <div class="ui-scaled bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style="max-width: 28rem; max-height: calc(90vh / var(--ui-scale));">
             <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
                 <h2 class="title-font text-2xl tracking-[-0.5px]">Instructions</h2>
                 <button onclick="hideInstructions()" class="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xl leading-none">×</button>
@@ -1648,14 +1698,16 @@ const bracketLeftX = (() => {
 			input.value = currentText || '';
 			panel.style.display = 'block';
 
-			// Position near the right-click, nudge on-screen if needed
+			// Position near the right-click, nudge on-screen if needed. The panel
+			// is CSS-zoomed by the UI scale, which also multiplies its left/top,
+			// so screen-pixel offsets are divided back down by it.
 			let lx = clientX + 10, ly = clientY + 10;
-			panel.style.left = lx + 'px';
-			panel.style.top  = ly + 'px';
+			panel.style.left = (lx / daUiScale) + 'px';
+			panel.style.top  = (ly / daUiScale) + 'px';
 			requestAnimationFrame(() => {
 				const r = panel.getBoundingClientRect();
-				if (r.right  > window.innerWidth)  panel.style.left = (clientX - r.width  - 10) + 'px';
-				if (r.bottom > window.innerHeight) panel.style.top  = (clientY - r.height - 10) + 'px';
+				if (r.right  > window.innerWidth)  panel.style.left = ((clientX - r.width  - 10) / daUiScale) + 'px';
+				if (r.bottom > window.innerHeight) panel.style.top  = ((clientY - r.height - 10) / daUiScale) + 'px';
 			});
 			input.focus();
 			input.select();
@@ -2671,6 +2723,7 @@ function exportPNG() {
 				if (document.getElementById('label-editor')) return;
 				const panel = document.createElement('div');
 				panel.id = 'label-editor';
+				panel.className = 'ui-scaled';
 				panel.style.cssText = [
 					'display:none', 'position:fixed', 'z-index:99999',
 					'background:#fff', 'border:2px solid #1e40af', 'border-radius:8px',
@@ -3470,7 +3523,8 @@ diagramContainer.addEventListener('mousedown', function(e) {
       document.body.style.cursor = 'col-resize';
 
       const onMouseMove = (e) => {
-        const delta = side === 'left' ? e.clientX - startX : startX - e.clientX;
+        // The sidebar's width is in its own UI-scaled pixels.
+        const delta = (side === 'left' ? e.clientX - startX : startX - e.clientX) / daUiScale;
         const newWidth = Math.min(
           parseInt(sidebar.style.maxWidth),
           Math.max(parseInt(sidebar.style.minWidth), startWidth + delta)
@@ -3547,6 +3601,9 @@ function loadEmbeddedProjectData() {
 			const clonedDoc = document.documentElement.cloneNode(true);
 			// The colour scheme is a per-browser preference (localStorage), not project data.
 			clonedDoc.removeAttribute('data-theme');
+			// Same for the UI scale.
+			clonedDoc.style.removeProperty('--ui-scale');
+			if (!clonedDoc.getAttribute('style')) clonedDoc.removeAttribute('style');
 
 			// 2. CLEANUP: Find the containers where your brackets and propositions live 
 			// and empty them in the CLONE. This prevents the "double-render" flicker.
@@ -3597,7 +3654,7 @@ function loadEmbeddedProjectData() {
 
     <!-- Logical Relationships Modal -->
     <div id="lr-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="ui-scaled bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style="max-height: calc(90vh / var(--ui-scale));">
             <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
                 <div>
                     <h2 class="title-font text-2xl tracking-[-0.5px]">The 18 Logical Relationships</h2>
@@ -3743,7 +3800,7 @@ function loadEmbeddedProjectData() {
     </div>
 
 <div id="resource-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);">
-    <div class="bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="width: 860px; max-width: 92vw; max-height: 90vh;">
+    <div class="ui-scaled bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="width: 860px; max-width: calc(92vw / var(--ui-scale)); max-height: calc(90vh / var(--ui-scale));">
         <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
             <div>
                 <h2 class="title-font text-2xl tracking-[-0.5px]">Discourse Analysis Resources</h2>
@@ -3777,7 +3834,7 @@ function loadEmbeddedProjectData() {
 
 <!-- Text Flow Instructions Modal -->
 <div id="textflow-instructions-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);" onclick="if (event.target === this) hideTextFlowInstructions()">
-    <div class="bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="width: 900px; max-width: 92vw; max-height: 90vh;">
+    <div class="ui-scaled bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="width: 900px; max-width: calc(92vw / var(--ui-scale)); max-height: calc(90vh / var(--ui-scale));">
         <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
             <h2 class="title-font text-2xl tracking-[-0.5px]">Text Flow Instructions</h2>
             <button onclick="hideTextFlowInstructions()" class="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xl leading-none">×</button>

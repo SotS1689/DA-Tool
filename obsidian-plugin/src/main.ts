@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
-import { COLOR_THEMES, COLOR_TOKENS, colorThemeClasses, DA_TOOL_ICON, DAToolSettings, DAView, VIEW_TYPE_DA } from "./DAView";
+import { COLOR_THEMES, COLOR_TOKENS, colorThemeClasses, DA_TOOL_ICON, DAToolSettings, DAView, UI_SCALE_STEPS, VIEW_TYPE_DA } from "./DAView";
 import { openColorPickerPopover } from "./ColorPicker";
 
 const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
@@ -8,8 +8,11 @@ function defaultSettings(): DAToolSettings {
 	return {
 		colorTheme: "standard",
 		colorOverrides: {},
+		uiScale: 1,
 	};
 }
+
+const uiScaleLabel = (scale: number) => `${Math.round(scale * 100)}%`;
 
 // Resolves a token's current effective color (standard default, the active
 // Obsidian theme's mapped color, or a colour scheme's value) as a hex
@@ -129,6 +132,7 @@ export default class DAToolPlugin extends Plugin {
 		if (!loaded?.colorTheme && loaded?.useThemeColors) this.settings.colorTheme = "obsidian";
 		if (!COLOR_THEMES.some(t => t.id === this.settings.colorTheme)) this.settings.colorTheme = "standard";
 		delete (this.settings as DAToolSettings & { useThemeColors?: boolean }).useThemeColors;
+		if (!UI_SCALE_STEPS.includes(this.settings.uiScale ?? 1)) this.settings.uiScale = 1;
 
 		this.registerView(VIEW_TYPE_DA, (leaf) => new DAView(leaf, this));
 		this.registerExtensions(["da"], VIEW_TYPE_DA);
@@ -158,6 +162,18 @@ export default class DAToolPlugin extends Plugin {
 				return true;
 			},
 		});
+
+		// Available everywhere (not just in a DA view) since it's a vault-wide
+		// setting; no default hotkeys, same as above.
+		const stepUiScale = (dir: -1 | 0 | 1) => {
+			const cur = UI_SCALE_STEPS.indexOf(this.settings.uiScale ?? 1);
+			const next = dir === 0 ? 1 : UI_SCALE_STEPS[Math.min(UI_SCALE_STEPS.length - 1, Math.max(0, cur + dir))];
+			void this.setUiScale(next);
+			new Notice(`DA-Tool UI size: ${uiScaleLabel(next)}`);
+		};
+		this.addCommand({ id: "increase-ui-scale", name: "Increase UI size", callback: () => stepUiScale(1) });
+		this.addCommand({ id: "decrease-ui-scale", name: "Decrease UI size", callback: () => stepUiScale(-1) });
+		this.addCommand({ id: "reset-ui-scale", name: "Reset UI size", callback: () => stepUiScale(0) });
 	}
 
 	onunload() {
@@ -166,6 +182,12 @@ export default class DAToolPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+	}
+
+	async setUiScale(scale: number): Promise<void> {
+		this.settings.uiScale = scale;
+		await this.saveSettings();
+		this.refreshAllViews();
 	}
 
 	// Re-applies theme mode + color overrides to every currently open DA view.
@@ -245,6 +267,16 @@ class DAToolSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllViews();
 					this.display();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("UI size")
+			.setDesc("Scales the tool's buttons, headers, toolbars, Propositions sidebar and dialogs, in every DA file. The diagram canvases keep their own zoom. Also available as commands (Increase / Decrease / Reset UI size), which you can bind to hotkeys.")
+			.addDropdown(dropdown => {
+				for (const step of UI_SCALE_STEPS) dropdown.addOption(String(step), uiScaleLabel(step));
+				dropdown.setValue(String(this.plugin.settings.uiScale ?? 1)).onChange(async (value) => {
+					await this.plugin.setUiScale(Number(value));
 				});
 			});
 

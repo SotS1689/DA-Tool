@@ -138,7 +138,13 @@ export interface DAToolSettings {
 	colorOverrides: Record<string, string>;
 	// The Brackets tab's left Propositions sidebar is collapsed away.
 	sidebarHidden?: boolean;
+	// Size multiplier for the tool's chrome (header, tab strip/toolbars,
+	// Propositions sidebar, label editor, modals) - not the canvases, which
+	// have their own zoom. One of UI_SCALE_STEPS.
+	uiScale?: number;
 }
+
+export const UI_SCALE_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
 
 export interface DAToolPluginHost {
 	settings: DAToolSettings;
@@ -1339,7 +1345,7 @@ export class DAView extends TextFileView {
 		this.contentEl.addClass("da-tool-view");
 		this.domBuilt = true;
 
-		const header = this.contentEl.createDiv({ cls: "da-header" });
+		const header = this.contentEl.createDiv({ cls: "da-header da-ui-scaled" });
 		const headerLeft = header.createDiv({ cls: "da-header-left" });
 		headerLeft.createDiv({ cls: "da-logo", text: "∴" });
 		headerLeft.createEl("h1", { cls: "da-title", text: "Discourse Analysis" });
@@ -1364,7 +1370,7 @@ export class DAView extends TextFileView {
 			btn.createSpan({ text: "Support" });
 		});
 
-		const tabStrip = this.contentEl.createDiv({ cls: "da-tab-strip" });
+		const tabStrip = this.contentEl.createDiv({ cls: "da-tab-strip da-ui-scaled" });
 		const tabStripTabs = tabStrip.createDiv({ cls: "da-tab-strip-tabs" });
 		const sidebarToggle = tabStripTabs.createEl("button", { cls: "da-sidebar-toggle", attr: { id: "sidebar-toggle", "data-action": "toggle-sidebar" } });
 		this.appendBracketIcon(sidebarToggle, [
@@ -1413,7 +1419,7 @@ export class DAView extends TextFileView {
 
 		const bodyEl = this.contentEl.createDiv({ cls: "da-body da-tab-panel", attr: { id: "brackets-panel" } });
 
-		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left", attr: { id: "left-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
+		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left da-ui-scaled", attr: { id: "left-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
 		const sidebarHeader = leftSidebar.createDiv({ cls: "da-sidebar-header" });
 		sidebarHeader.createEl("h2", { cls: "da-section-title", text: "Propositions" });
 		sidebarHeader.createEl("textarea", { cls: "da-textarea", attr: { id: "paste-area", rows: "3", placeholder: "Paste full passage here…" } });
@@ -1434,7 +1440,7 @@ export class DAView extends TextFileView {
 		this.buildFlowPanel("textflow");
 		this.buildFlowPanel("sentenceflow");
 
-		const labelEditor = this.contentEl.createDiv({ cls: "da-label-editor", attr: { id: "label-editor", style: "display:none;" } });
+		const labelEditor = this.contentEl.createDiv({ cls: "da-label-editor da-ui-scaled", attr: { id: "label-editor", style: "display:none;" } });
 		labelEditor.createDiv({ cls: "da-label-editor-title", text: "EDIT LABEL" });
 		labelEditor.createEl("input", { cls: "da-label-editor-input", attr: { id: "lei", type: "text" } });
 		const labelEditorActions = labelEditor.createDiv({ cls: "da-label-editor-actions" });
@@ -1442,7 +1448,7 @@ export class DAView extends TextFileView {
 		labelEditorActions.createEl("button", { cls: "da-btn da-btn-primary", text: "OK", attr: { id: "le-ok" } });
 
 		const lrModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "lr-modal" } });
-		const lrModalInner = lrModal.createDiv({ cls: "da-modal" });
+		const lrModalInner = lrModal.createDiv({ cls: "da-modal da-ui-scaled" });
 		const lrModalHeader = lrModalInner.createDiv({ cls: "da-modal-header" });
 		lrModalHeader.createEl("h2", { cls: "da-modal-title", text: "The 18 Logical Relationships" });
 		lrModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-lr" } });
@@ -1468,7 +1474,7 @@ export class DAView extends TextFileView {
 		}
 
 		const resourceModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "resource-modal" } });
-		const resourceModalInner = resourceModal.createDiv({ cls: "da-modal" });
+		const resourceModalInner = resourceModal.createDiv({ cls: "da-modal da-ui-scaled" });
 		const resourceModalHeader = resourceModalInner.createDiv({ cls: "da-modal-header" });
 		resourceModalHeader.createEl("h2", { cls: "da-modal-title", text: "Discourse Analysis Resources" });
 		resourceModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-resources" } });
@@ -1497,7 +1503,7 @@ export class DAView extends TextFileView {
 		}
 
 		const instructionsModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "instructions-modal" } });
-		const instructionsModalInner = instructionsModal.createDiv({ cls: "da-modal da-modal-narrow" });
+		const instructionsModalInner = instructionsModal.createDiv({ cls: "da-modal da-modal-narrow da-ui-scaled" });
 		const instructionsModalHeader = instructionsModalInner.createDiv({ cls: "da-modal-header" });
 		instructionsModalHeader.createEl("h2", { cls: "da-modal-title", text: "Instructions" });
 		instructionsModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-instructions" } });
@@ -1524,7 +1530,7 @@ export class DAView extends TextFileView {
 		instructions.appendText("Click + drag = pan workspace");
 
 		const tfModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "textflow-instructions-modal" } });
-		const tfModalInner = tfModal.createDiv({ cls: "da-modal da-modal-wide" });
+		const tfModalInner = tfModal.createDiv({ cls: "da-modal da-modal-wide da-ui-scaled" });
 		const tfModalHeader = tfModalInner.createDiv({ cls: "da-modal-header" });
 		tfModalHeader.createEl("h2", { cls: "da-modal-title", text: "Text Flow Instructions" });
 		tfModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-textflow-instructions" } });
@@ -1915,6 +1921,11 @@ export class DAView extends TextFileView {
 		this.syncThemeSelectUi();
 		this.applyColorOverrides();
 		this.applySidebarHidden();
+		this.contentEl.style.setProperty("--da-ui-scale", String(this.uiScale()));
+	}
+
+	private uiScale(): number {
+		return this.plugin.settings.uiScale || 1;
 	}
 
 	private applyColorOverrides(): void {
@@ -2903,13 +2914,16 @@ export class DAView extends TextFileView {
 		// transform to ancestors (e.g. during tab animations), which would
 		// otherwise make `position: fixed` coordinates resolve against that
 		// transformed ancestor instead of the viewport.
+		// The panel is CSS-zoomed by the UI scale, which also multiplies its
+		// left/top, so screen-pixel offsets are divided back down by it.
+		const scale = this.uiScale();
 		const rootRect = this.contentEl.getBoundingClientRect();
-		let lx = clientX - rootRect.left, ly = clientY - rootRect.top;
-		panel.setCssStyles({ left: `${lx}px`, top: `${ly}px` });
+		const lx = clientX - rootRect.left, ly = clientY - rootRect.top;
+		panel.setCssStyles({ left: `${lx / scale}px`, top: `${ly / scale}px` });
 		window.requestAnimationFrame(() => {
 			const r = panel.getBoundingClientRect();
-			if (r.right > window.innerWidth) panel.setCssStyles({ left: `${lx - r.width}px` });
-			if (r.bottom > window.innerHeight) panel.setCssStyles({ top: `${ly - r.height}px` });
+			if (r.right > window.innerWidth) panel.setCssStyles({ left: `${(lx - r.width) / scale}px` });
+			if (r.bottom > window.innerHeight) panel.setCssStyles({ top: `${(ly - r.height) / scale}px` });
 		});
 		input.focus();
 		input.select();
@@ -3584,7 +3598,8 @@ export class DAView extends TextFileView {
 			document.body.setCssStyles({ userSelect: "none", cursor: "col-resize" });
 
 			const onMouseMove = (ev: MouseEvent) => {
-				const delta = side === "left" ? ev.clientX - startX : startX - ev.clientX;
+				// The sidebar's width is in its own UI-scaled pixels.
+				const delta = (side === "left" ? ev.clientX - startX : startX - ev.clientX) / this.uiScale();
 				const newWidth = Math.min(
 					parseInt(sidebar.style.maxWidth, 10),
 					Math.max(parseInt(sidebar.style.minWidth, 10), startWidth + delta)
