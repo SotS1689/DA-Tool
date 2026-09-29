@@ -41,6 +41,35 @@ class ConfirmModal extends Modal {
 	}
 }
 
+// Like ConfirmModal but with several named choices (plus Cancel); the
+// first choice is styled as the warning/primary action.
+class ChoiceModal extends Modal {
+	constructor(app: App, private message: string, private choices: { label: string; onChoose: () => void }[]) {
+		super(app);
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.createEl("p", { text: this.message });
+		const buttonRow = contentEl.createDiv({ attr: { style: "display:flex; justify-content:flex-end; gap:8px; margin-top:12px;" } });
+
+		const cancelBtn = buttonRow.createEl("button", { text: "Cancel" });
+		cancelBtn.addEventListener("click", () => this.close());
+
+		this.choices.forEach((choice, i) => {
+			const btn = buttonRow.createEl("button", { text: choice.label, cls: i === 0 ? "mod-warning" : "" });
+			btn.addEventListener("click", () => {
+				this.close();
+				choice.onChoose();
+			});
+		});
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
 // Every color token the view's stylesheet exposes as a CSS custom property
 // (see styles.css: the standard, .da-theme-adopt and .da-scheme-* token blocks). The
 // settings tab (main.ts) renders one color picker per entry here so every
@@ -131,6 +160,125 @@ interface Proposition {
 	// auto-assigned ever overwrites it, no matter what else in its verse
 	// group gets split or inserted later.
 	verseLabelManual?: boolean;
+	// Bold/italic/underline, as runs whose texts concatenate to exactly
+	// `text` (carried over from Text Flow, or applied with Ctrl+B/I/U while
+	// editing a row). `text` stays the plain source of truth: runs that no
+	// longer match it (e.g. the file was edited in the web tool, which
+	// doesn't know about them) are ignored - see propRuns.
+	runs?: FormatRun[];
+}
+
+interface FormatRun {
+	text: string;
+	bold?: boolean;
+	italic?: boolean;
+	underline?: boolean;
+}
+
+function sameFormat(a: FormatRun, b: FormatRun): boolean {
+	return !!a.bold === !!b.bold && !!a.italic === !!b.italic && !!a.underline === !!b.underline;
+}
+
+function propRuns(p: Proposition): FormatRun[] {
+	if (p.runs && p.runs.map(r => r.text).join("") === p.text) return p.runs;
+	return [{ text: p.text }];
+}
+
+// Coalesces adjacent same-format runs, drops empty ones, and returns
+// undefined when nothing is formatted, so plain propositions don't carry a
+// redundant runs array.
+function tidyRuns(runs: FormatRun[]): FormatRun[] | undefined {
+	const out: FormatRun[] = [];
+	runs.forEach(r => {
+		if (!r.text) return;
+		const last = out[out.length - 1];
+		if (last && sameFormat(last, r)) last.text += r.text;
+		else out.push({ text: r.text, ...(r.bold ? { bold: true } : {}), ...(r.italic ? { italic: true } : {}), ...(r.underline ? { underline: true } : {}) });
+	});
+	return out.some(r => r.bold || r.italic || r.underline) ? out : undefined;
+}
+
+// Character range [start, end) of a run list, keeping formatting.
+function sliceRuns(runs: FormatRun[], start: number, end: number): FormatRun[] {
+	const out: FormatRun[] = [];
+	let pos = 0;
+	runs.forEach(r => {
+		const s = Math.max(start, pos), e = Math.min(end, pos + r.text.length);
+		if (s < e) out.push({ ...r, text: r.text.slice(s - pos, e - pos) });
+		pos += r.text.length;
+	});
+	return out;
+}
+
+// Trims whitespace off both ends of a run list, returning the matching
+// trimmed text alongside.
+function trimRuns(runs: FormatRun[]): { text: string; runs: FormatRun[] } {
+	const full = runs.map(r => r.text).join("");
+	const start = full.length - full.trimStart().length;
+	const end = full.trimEnd().length;
+	return { text: full.slice(start, Math.max(start, end)), runs: sliceRuns(runs, start, end) };
+}
+
+// Re-applies a source line's per-character formatting to text derived from
+// it (whitespace collapsed, verse numbers stripped or superscripted, ...):
+// each output character takes the format of the next matching source
+// character, or - for characters with no source counterpart, like a
+// superscript made from "23" - the format of where the scan currently is.
+function projectFormatting(source: FormatRun[], target: string): FormatRun[] {
+	const chars: { ch: string; fmt: FormatRun }[] = [];
+	source.forEach(r => { for (const ch of r.text) chars.push({ ch, fmt: r }); });
+	const out: FormatRun[] = [];
+	let j = 0;
+	for (const ch of target) {
+		let k = j;
+		while (k < chars.length && k < j + 12 && chars[k].ch !== ch) k++;
+		let fmt: FormatRun | undefined;
+		if (k < chars.length && chars[k].ch === ch) { fmt = chars[k].fmt; j = k + 1; }
+		else fmt = chars[Math.min(j, chars.length - 1)]?.fmt;
+		out.push({ text: ch, bold: fmt?.bold, italic: fmt?.italic, underline: fmt?.underline });
+	}
+	return out;
+}
+
+// Fills a proposition text element with its runs as <b>/<i>/<u> nodes
+// (same nesting as the flow canvases' renderNotesTab).
+function renderRunsInto(el: HTMLElement, runs: FormatRun[]): void {
+	el.empty();
+	runs.forEach(r => {
+		let node: Node = document.createTextNode(r.text);
+		if (r.underline) { const u = document.createElement("u"); u.appendChild(node); node = u; }
+		if (r.italic) { const i = document.createElement("i"); i.appendChild(node); node = i; }
+		if (r.bold) { const b = document.createElement("b"); b.appendChild(node); node = b; }
+		el.appendChild(node);
+	});
+}
+
+// Reads an edited proposition element back into trimmed text + runs. Also
+// honors inline font-weight/style/decoration, which Chromium's execCommand
+// can leave behind when un-formatting part of a run.
+function readRunsFrom(el: HTMLElement): { text: string; runs: FormatRun[] } {
+	const runs: FormatRun[] = [];
+	const walk = (node: ChildNode, bold: boolean, italic: boolean, underline: boolean) => {
+		if (node.nodeType === Node.TEXT_NODE) {
+			runs.push({ text: (node.textContent || "").replace(/\n/g, " "), bold, italic, underline });
+			return;
+		}
+		if (node.nodeType !== Node.ELEMENT_NODE) return;
+		const e = node as HTMLElement;
+		if (e.tagName === "BR") { runs.push({ text: " " }); return; }
+		if (e.tagName === "DIV" && runs.length) runs.push({ text: " " }); // an Enter-created line
+		let b = bold || e.tagName === "B" || e.tagName === "STRONG";
+		let i = italic || e.tagName === "I" || e.tagName === "EM";
+		let u = underline || e.tagName === "U";
+		const fw = e.style.fontWeight;
+		if (fw) b = fw === "bold" || fw === "bolder" || parseInt(fw, 10) >= 600;
+		if (e.style.fontStyle) i = e.style.fontStyle === "italic";
+		const td = e.style.textDecorationLine || e.style.textDecoration;
+		if (td) u = td.includes("underline");
+		Array.from(e.childNodes).forEach(c => walk(c, b, i, u));
+	};
+	Array.from(el.childNodes).forEach(n => walk(n, false, false, false));
+	return trimRuns(runs);
 }
 
 function nextVerseLetter(letterIdx: number): string {
@@ -422,8 +570,10 @@ interface LineCandidate {
 // at least two lines - each continuing the chapter (verse + 1) or opening the
 // next chapter at verse 1. A single bare-number line falls through to flow
 // mode, which can tell one verse from a paragraph with more verse numbers
-// embedded in it. Returns { marked, derivedRef } or null.
-function detectVerseLines(body: string): { marked: string; derivedRef?: string } | null {
+// embedded in it. Returns { marked, derivedRef } or null. keepLeading keeps
+// the lines before the first verse line instead of dropping them (Text Flow
+// conversion, where every line is a proposition the user wrote).
+function detectVerseLines(body: string, keepLeading = false): { marked: string; derivedRef?: string } | null {
 	const lines = body.split("\n").map(l => l.trim()).filter(Boolean);
 	if (!lines.length) return null;
 
@@ -464,7 +614,7 @@ function detectVerseLines(body: string): { marked: string; derivedRef?: string }
 	// International Version") can't be verse content - drop them. Later
 	// verse-less lines still join the previous verse.
 	const firstVerseIdx = parsed.findIndex(p => p.verse !== undefined);
-	const marked = parsed.slice(firstVerseIdx).map((p) => {
+	const marked = parsed.slice(keepLeading ? 0 : firstVerseIdx).map((p) => {
 		if (p.verse === undefined) return p.text; // continuation line — joins the previous verse
 		const ref = multiChapter && p.chapter !== undefined ? `${p.chapter}:${p.verse}` : String(p.verse);
 		return `[${ref}] ${p.text}`;
@@ -507,7 +657,9 @@ interface FlowAccept {
 // predates it - by capturing the leading delimiter in its own group instead
 // of a lookbehind, so match/group offsets can be computed with plain
 // .index + length arithmetic.
-function detectVerseFlow(body: string, expectedStart: number | null, expectedChapter: number | null): string | null {
+//
+// keepLeading: see detectVerseLines.
+function detectVerseFlow(body: string, expectedStart: number | null, expectedChapter: number | null, keepLeading = false): string | null {
 	const tokenRegex = /(^|[\s"'“‘(])(\d{1,3})(?::(\d{1,3}))?(?=\s+["'“‘(]?\p{L})/gu;
 	const OPENING_DELIMS = new Set(["\"", "'", "“", "‘", "("]);
 	const accepted: FlowAccept[] = [];
@@ -592,7 +744,7 @@ function detectVerseFlow(body: string, expectedStart: number | null, expectedCha
 			const headRef = multiChapter && expectedChapter !== null
 				? `${expectedChapter}:${expectedStart}` : String(expectedStart);
 			out = `[${headRef}] ${out}`;
-		} else {
+		} else if (!keepLeading) {
 			// Leading text at the reference's own start verse can't be verse
 			// content (a pericope heading, "New International Version") -
 			// drop it.
@@ -614,21 +766,147 @@ function parsePastedText(raw: string): { chunks: MarkedVerse[]; passageRef?: str
 	const expectedChapter = ref?.chapter ?? null;
 
 	if (/\[\d+(?::\d+)?\]/.test(body)) {
-		return { chunks: splitOnMarkers(body), passageRef, detection: "markers" };
+		return { chunks: splitOnMarkers(deduceLeadingVerse(body, expectedStart)), passageRef, detection: "markers" };
 	}
 
-	const lineResult = detectVerseLines(body);
+	// Line and flow modes keep text ahead of the first verse number so
+	// deduceLeadingVerse can number it; whatever it can't number is dropped
+	// as before (a pericope heading, "New International Version").
+	const dropUnnumberedLead = (chunks: MarkedVerse[]) =>
+		chunks.length > 1 && chunks[0].ref === undefined ? chunks.slice(1) : chunks;
+
+	const lineResult = detectVerseLines(body, true);
 	if (lineResult !== null) {
-		return { chunks: splitOnMarkers(lineResult.marked), passageRef: passageRef || lineResult.derivedRef, detection: "lines" };
+		const chunks = dropUnnumberedLead(splitOnMarkers(deduceLeadingVerse(lineResult.marked, expectedStart)));
+		return { chunks, passageRef: passageRef || lineResult.derivedRef, detection: "lines" };
 	}
 
-	const flowMarked = detectVerseFlow(body, expectedStart, expectedChapter);
+	const flowMarked = detectVerseFlowAnchored(body, expectedStart, expectedChapter, true);
 	if (flowMarked !== null) {
-		return { chunks: splitOnMarkers(flowMarked), passageRef, detection: "flow" };
+		return { chunks: dropUnnumberedLead(splitOnMarkers(deduceLeadingVerse(flowMarked, expectedStart))), passageRef, detection: "flow" };
 	}
 
 	const trimmed = body.trim();
 	return { chunks: trimmed ? [{ ref: undefined, text: trimmed }] : [], passageRef, detection: "none" };
+}
+
+// When text precedes the first verse marker, it's the tail of the verse
+// before that one: "…apart from the law, [22] the righteousness" → the lead
+// is verse 21. Skipped when the first marker is a verse 1 (the previous
+// verse is unknowable), or when a detected reference's start verse
+// disagrees (then the lead is a heading, not verse text).
+function deduceLeadingVerse(marked: string, expectedStart: number | null): string {
+	if (/^\s*\[\d+(?::\d+)?\]/.test(marked)) return marked;
+	const first = marked.match(/\[(\d+)(?::(\d+))?\]/);
+	if (!first) return marked;
+	const verse = parseInt(first[2] ?? first[1], 10) - 1;
+	if (verse < 1) return marked;
+	if (expectedStart !== null && verse !== expectedStart) return marked;
+	const ref = first[2] ? `${first[1]}:${verse}` : String(verse);
+	return `[${ref}] ${marked.trimStart()}`;
+}
+
+// detectVerseFlow only anchors on a number at the very start of the text
+// when there's no reference to anchor on. When text comes first, retry
+// with each later number as the anchor, accepting the first one that starts
+// a consecutive chain of at least two verses (a lone number mid-text could
+// be anything - "the 12 disciples").
+function detectVerseFlowAnchored(body: string, expectedStart: number | null, expectedChapter: number | null, keepLeading = false): string | null {
+	const direct = detectVerseFlow(body, expectedStart, expectedChapter, keepLeading);
+	if (direct !== null || expectedStart !== null) return direct;
+	const tried = new Set<number>();
+	for (const m of body.matchAll(/(^|[\s"'“‘(])(\d{1,3})(?=\s+["'“‘(]?\p{L})/gu)) {
+		const verse = parseInt(m[2], 10);
+		if (verse < 1 || tried.has(verse)) continue;
+		tried.add(verse);
+		const result = detectVerseFlow(body, verse, null, keepLeading);
+		if (result !== null && (result.match(/\[\d+(?::\d+)?\]/g) ?? []).length >= 2) return result;
+	}
+	return null;
+}
+
+// ---------- Text Flow -> Brackets conversion ----------
+
+const SUPERSCRIPT_OUT = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+function toSuperscript(digits: string): string {
+	return digits.replace(/\d/g, d => SUPERSCRIPT_OUT[parseInt(d, 10)]);
+}
+
+// Turns Text Flow lines (plain text plus the tab stop each line starts at)
+// into propositions: one per line, never split into sentences. Levels are
+// the line's tab stop compacted to its rank among the distinct stops in use,
+// so a modifier tabbed far over to sit under the word it modifies is still
+// just one level deeper than its head line. Verses run through the same
+// detection stages as a passage paste (keepLeading, so no line is ever
+// dropped), then are walked line by line: a line opening with a verse number
+// starts that verse, a line without one continues the current verse, and a
+// verse number mid-line stays in the text as a superscript (the line keeps
+// the label of the verse it starts in; the next line continues the new one).
+// Labels come back with a placeholder letter - the caller settles them with
+// renumberVerseGroup. Each line's bold/italic/underline is carried onto its
+// final text with projectFormatting.
+function flowLinesToPropositions(lines: { runs: FormatRun[]; stop: number }[]): { text: string; level: number; verseLabel?: string; runs?: FormatRun[] }[] {
+	let rows = lines
+		.map(l => ({ text: normalizePaste(l.runs.map(r => r.text).join("")).replace(/\n/g, " ").trim(), stop: l.stop, runs: l.runs }))
+		.filter(r => r.text);
+
+	// A reference on its own first/last line, or a "(Rom 3:21-26)" trailer,
+	// sets the starting verse and isn't imported as a proposition.
+	let ref: ParsedRef | null = null;
+	if (rows.length > 1) {
+		const r = parseReferenceText(rows[0].text);
+		if (r) { ref = r; rows = rows.slice(1); }
+	}
+	if (rows.length > 1) {
+		const r = parseReferenceText(rows[rows.length - 1].text);
+		if (r) { ref = ref || r; rows = rows.slice(0, -1); }
+	}
+	if (rows.length) {
+		const last = rows[rows.length - 1];
+		const m = last.text.match(/\(([^()\n]{2,60})\)\s*$/);
+		const r = m ? parseReferenceText(m[1]) : null;
+		if (m && r && last.text.slice(0, m.index).trim()) {
+			ref = ref || r;
+			last.text = last.text.slice(0, m.index).trim();
+		}
+	}
+	if (!rows.length) return [];
+
+	const body = rows.map(r => r.text).join("\n");
+	let marked = body;
+	if (!/\[\d+(?::\d+)?\]/.test(body)) {
+		const lineResult = detectVerseLines(body, true);
+		marked = lineResult ? lineResult.marked : (detectVerseFlowAnchored(body, ref?.startVerse ?? null, ref?.chapter ?? null, true) ?? body);
+	}
+	// Lines ahead of the first verse number are the verse before it; with
+	// no numbers at all under a header (a one-verse passage), they're the
+	// header's start verse.
+	if (/\[\d+(?::\d+)?\]/.test(marked)) marked = deduceLeadingVerse(marked, ref?.startVerse ?? null);
+	else if (ref?.startVerse) marked = `[${ref.startVerse}] ${marked}`;
+	let markedLines = marked.split("\n");
+	if (markedLines.length !== rows.length) markedLines = rows.map(r => r.text); // shouldn't happen; fall back to no verse info
+
+	const LEAD_MARKER = /^\s*\[(\d+)(?::(\d+))?\]\s*/;
+
+	let current: string | undefined;
+	const out = markedLines.map((line, i) => {
+		let text = line;
+		const lead = text.match(LEAD_MARKER);
+		if (lead) {
+			current = lead[2] ? `${lead[1]}:${lead[2]}` : lead[1];
+			text = text.slice(lead[0].length);
+		}
+		const label = current;
+		text = text.replace(/(\s*)\[(\d+)(?::(\d+))?\]\s*/g, (_m, sp: string, a: string, b: string | undefined) => {
+			current = b ? `${a}:${b}` : a;
+			return (sp ? " " : "") + toSuperscript(b ?? a);
+		});
+		text = text.trim();
+		return { text, stop: rows[i].stop, verseLabel: label !== undefined ? `${label}a` : undefined, runs: tidyRuns(projectFormatting(rows[i].runs, text)) };
+	}).filter(p => p.text);
+
+	const stops = Array.from(new Set(out.map(p => p.stop))).sort((a, b) => a - b);
+	return out.map(p => ({ text: p.text, level: stops.indexOf(p.stop), verseLabel: p.verseLabel, runs: p.runs }));
 }
 
 interface Bracket {
@@ -826,6 +1104,15 @@ export class DAView extends TextFileView {
 		this.scope = new Scope(this.app.scope);
 		const bindFormatKey = (key: string, command: string) => {
 			this.scope!.register(["Mod"], key, (evt) => {
+				// Also formats a proposition's text while it's being edited in
+				// the Brackets tab (sidebar or canvas row); saved on blur via
+				// readRunsFrom.
+				const active = document.activeElement as HTMLElement | null;
+				if (active?.matches(".da-row-text, .da-prop-text")) {
+					evt.preventDefault();
+					this.applySentenceFlowFormat(command);
+					return false;
+				}
 				if (!isFlowTab(this.activeTab)) return;
 				evt.preventDefault();
 				this.applySentenceFlowFormat(command);
@@ -1256,6 +1543,7 @@ export class DAView extends TextFileView {
 		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↺", attr: { "data-action": `${zoomPrefix}-zoom-reset`, title: "Reset Zoom", "aria-label": "Reset Zoom" } });
 
 		if (key === "textflow") {
+			toolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "→", attr: { "data-action": "textflow-to-brackets", title: "Copy each line to the Brackets canvas as a proposition", "aria-label": "Copy lines to Brackets" } });
 			toolbar.createEl("button", { cls: "da-btn", text: "Instructions", attr: { "data-action": "show-textflow-instructions", title: "Text Flow Instructions", "aria-label": "Text Flow Instructions" } });
 		}
 	}
@@ -1288,6 +1576,7 @@ export class DAView extends TextFileView {
 		on("show-instructions", () => this.showInstructions());
 		on("show-textflow-instructions", () => this.showTextFlowInstructions());
 		on("hide-textflow-instructions", () => this.hideTextFlowInstructions());
+		on("textflow-to-brackets", () => this.convertTextFlowToBrackets());
 		on("hide-instructions", () => this.hideInstructions());
 		on("export-png", () => { void this.exportPNG(); });
 		on("insert-props", () => this.splitIntoPropositions());
@@ -1775,7 +2064,8 @@ export class DAView extends TextFileView {
 
 			const numBadge = createDiv({ cls: "da-num-badge", text: rowLabels[i] });
 
-			const textEl = createDiv({ cls: "da-prop-text", text: prop.text });
+			const textEl = createDiv({ cls: "da-prop-text" });
+			renderRunsInto(textEl, propRuns(prop));
 			textEl.contentEditable = "true";
 			textEl.spellcheck = false;
 			textEl.dir = this.isRTL ? "rtl" : "ltr";
@@ -1785,7 +2075,7 @@ export class DAView extends TextFileView {
 				this.selectedIndices = [i];
 				this.refreshSelectionHighlighting();
 			});
-			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl.innerText));
+			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl));
 
 			const delBtn = createEl("button", { cls: "da-del-btn", text: "✕" });
 			delBtn.addEventListener("click", e => { e.stopImmediatePropagation(); this.deleteProposition(i); });
@@ -1903,11 +2193,12 @@ export class DAView extends TextFileView {
 				this.updatePropositionVerseLabel(i, numEl.innerText);
 			});
 
-			const textEl = createDiv({ cls: "da-row-text", text: prop.text });
+			const textEl = createDiv({ cls: "da-row-text" });
+			renderRunsInto(textEl, propRuns(prop));
 			textEl.contentEditable = "true";
 			textEl.spellcheck = false;
 			textEl.dir = this.isRTL ? "rtl" : "ltr";
-			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl.innerText));
+			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl));
 
 			// Focusing a contenteditable element makes the browser auto-scroll
 			// its nearest scrollable ancestor (the panned workspace) to bring
@@ -2763,6 +3054,58 @@ export class DAView extends TextFileView {
 		ta.value = "";
 	}
 
+	// Text Flow toolbar's → button: each Text Flow line becomes one
+	// proposition at its indent level, verse-labeled where verse numbers are
+	// detected (see flowLinesToPropositions).
+	convertTextFlowToBrackets(): void {
+		const f = this.flows.textflow;
+		f.lines = this.serializeNotesLines("textflow");
+		const tabWidth = f.defaultTabWidth > 0 ? f.defaultTabWidth : 48;
+		const lines = f.lines.map(line => {
+			// Start position = paragraph indent plus any leading tabs, each
+			// snapping to the next stop exactly as layoutNotesTabs draws them.
+			let x = line.indent;
+			for (const seg of line.segments) {
+				if (seg.kind === "tab") x = this.nextStop(x, tabWidth);
+				else if (seg.text.replace(/[​-‍﻿]/g, "").trim() !== "") break;
+			}
+			const runs: FormatRun[] = line.segments.map(s => (s.kind === "tab" ? { text: " " } : { text: s.text, bold: s.bold, italic: s.italic, underline: s.underline }));
+			return { runs, stop: Math.round(x / tabWidth) };
+		});
+		const converted = flowLinesToPropositions(lines);
+		if (!converted.length) { new Notice("Text Flow is empty."); return; }
+
+		const apply = (replace: boolean) => {
+			this.saveToHistory();
+			const baseId = Date.now();
+			const newProps: Proposition[] = converted.map((c, i) => ({ id: baseId + i, text: c.text, level: c.level, verseLabel: c.verseLabel, ...(c.runs ? { runs: c.runs } : {}) }));
+			if (replace) {
+				this.propositions = newProps;
+				this.brackets = [];
+				this.selectedBracketId = null;
+				this.selectedCorners = [];
+			} else {
+				this.propositions = this.propositions.concat(newProps);
+			}
+			const touchedBases = new Set(
+				newProps.map(p => p.verseLabel).filter((l): l is string => l !== undefined).map(l => splitVerseLabel(l).base)
+			);
+			touchedBases.forEach(base => renumberVerseGroup(this.propositions, base));
+			this.selectedIndices = [];
+			this.sidebarSelected = -1;
+			this.renderSidebarList();
+			this.renderMainRows();
+			this.switchTab("brackets");
+			this.requestSave();
+		};
+
+		if (this.propositions.length === 0 && this.brackets.length === 0) { apply(true); return; }
+		new ChoiceModal(this.app, "The Brackets canvas already has propositions. Replace them (this also clears all brackets), or append the Text Flow lines after them?", [
+			{ label: "Replace", onChoose: () => apply(true) },
+			{ label: "Append", onChoose: () => apply(false) },
+		]).open();
+	}
+
 	addNewProposition(): void {
 		this.saveToHistory();
 		// New rows join the verse group of whatever they're inserted after,
@@ -2789,10 +3132,13 @@ export class DAView extends TextFileView {
 		this.renderCanvas();
 	}
 
-	updatePropositionText(index: number, newText: string): void {
-		if (this.propositions[index]) {
+	updatePropositionText(index: number, textEl: HTMLElement): void {
+		const prop = this.propositions[index];
+		if (prop) {
 			this.saveToHistory();
-			this.propositions[index].text = newText.trim();
+			const { text, runs } = readRunsFrom(textEl);
+			prop.text = text;
+			this.setPropRuns(prop, runs);
 			// This runs from a 'blur' handler, which can itself fire
 			// synchronously in the middle of the browser's native
 			// mousedown -> focus-change -> mouseup -> click sequence for
@@ -2809,6 +3155,12 @@ export class DAView extends TextFileView {
 				this.renderCanvas();
 			}, 0);
 		}
+	}
+
+	private setPropRuns(prop: Proposition, runs: FormatRun[]): void {
+		const tidy = tidyRuns(runs);
+		if (tidy) prop.runs = tidy;
+		else delete prop.runs;
 	}
 
 	// Commits a manual edit to a row's label (typed into the row-number badge
@@ -2923,12 +3275,22 @@ export class DAView extends TextFileView {
 		if (event && docWithCaretRange.caretRangeFromPoint) {
 			const range = docWithCaretRange.caretRangeFromPoint(event.clientX, event.clientY);
 			if (range) {
-				const rowDiv = this.qsa("#proposition-rows > div")[index];
-				if (rowDiv && rowDiv.contains(range.commonAncestorContainer)) splitPos = range.startOffset;
+				// Offset from the start of the row's text element, not of
+				// whichever text node was hit - a formatted row is several
+				// text nodes (one per <b>/<i>/<u> run).
+				const textEl = this.qsa("#proposition-rows > div")[index]?.querySelector(".da-row-text");
+				if (textEl && textEl.contains(range.startContainer)) {
+					const before = document.createRange();
+					before.selectNodeContents(textEl);
+					before.setEnd(range.startContainer, range.startOffset);
+					splitPos = before.toString().length;
+				}
 			}
 		}
-		const first = text.substring(0, splitPos).trim();
-		const second = text.substring(splitPos).trim();
+		const runs = propRuns(this.propositions[index]);
+		const splitAt = (pos: number) => [trimRuns(sliceRuns(runs, 0, pos)), trimRuns(sliceRuns(runs, pos, text.length))];
+		let [head, tail] = splitAt(splitPos);
+		if (!head.text || !tail.text) [head, tail] = splitAt(Math.floor(text.length / 2));
 		// The original row keeps its own label (and its manual lock, if any)
 		// untouched. The new sibling starts out sharing that same verse group
 		// but with no letter decided yet - renumberVerseGroup below settles
@@ -2939,14 +3301,12 @@ export class DAView extends TextFileView {
 		// comment).
 		const origLabel = this.propositions[index].verseLabel;
 		const verseLabel = origLabel;
-		if (first && second) {
-			this.propositions[index].text = first;
-			this.propositions.splice(index + 1, 0, { id: Date.now(), text: second, level: this.propositions[index].level, verseLabel });
-		} else {
-			const mid = Math.floor(text.length / 2);
-			this.propositions[index].text = text.substring(0, mid).trim();
-			this.propositions.splice(index + 1, 0, { id: Date.now(), text: text.substring(mid).trim(), level: this.propositions[index].level, verseLabel });
-		}
+		const orig = this.propositions[index];
+		orig.text = head.text;
+		this.setPropRuns(orig, head.runs);
+		const sibling: Proposition = { id: Date.now(), text: tail.text, level: orig.level, verseLabel };
+		this.setPropRuns(sibling, tail.runs);
+		this.propositions.splice(index + 1, 0, sibling);
 		if (origLabel !== undefined) renumberVerseGroup(this.propositions, splitVerseLabel(origLabel).base);
 
 		this.shiftReferencesForInsertion(index + 1);
@@ -3659,7 +4019,11 @@ export class DAView extends TextFileView {
 	// under the canvas for the rarer case of a trailing run of whitespace split
 	// across nodes.
 	private trimTrailingWhitespaceFromRange(range: Range): void {
-		const canvas = this.flowCanvas();
+		// The editor holding the selection: a flow canvas, or a proposition's
+		// text while it's edited in the Brackets tab.
+		const endNode = range.endContainer;
+		const endEl = endNode.nodeType === Node.ELEMENT_NODE ? endNode as Element : endNode.parentElement;
+		const canvas = endEl?.closest(".da-sf-canvas, .da-row-text, .da-prop-text") ?? null;
 		if (!canvas) return;
 
 		let container = range.endContainer;

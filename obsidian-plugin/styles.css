@@ -891,7 +891,7 @@ body.theme-dark .da-tool-view.da-scheme-cream {
  * Flow): Gentium Alt for LTR, SBL BibLit for RTL (Hebrew) mode. Each canvas
  * element carries dir="ltr"/"rtl", set from the RTL toggle. */
 .da-tool-view {
-	--da-font-serif-ltr: "Gentium Alt", "GentiumAlt", "Gentium Plus", Georgia, "Times New Roman", serif;
+	--da-font-serif-ltr: "DA Serif", "Gentium Alt", "GentiumAlt", "Gentium Plus", Georgia, "Times New Roman", serif;
 	--da-font-serif-rtl: "SBL BibLit", "SBL Hebrew", "Ezra SIL", "Times New Roman", serif;
 }
 
@@ -1431,17 +1431,47 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	unicode-range: U+0370-03FF, U+1F00-1FFF;
 }
 
-/* Without this, bolded Greek (Ctrl+B) has no bold face registered for this
- * family/weight, so the browser can't fall through to another family in the
- * stack (that only happens on a missing glyph, not a missing weight) - it
- * synthesizes ("faux") bold on the regular face instead, which reads as
- * fuzzy/out-of-focus on a fine-stroked serif like Times New Roman. This gives
- * bold Greek a real bold face to use instead of a synthesized one. */
+/* The LTR serif for the canvases (Bracketing, Sentence Flow, Text Flow).
+ * Gentium Alt has the rounded ("Porson") Greek circumflex wanted here, but
+ * was only ever released in Regular and Italic, so bold (Ctrl+B) came out
+ * synthesized ("faux") and fuzzy. Gentium 7 has all four styles, and its
+ * cv78=1 character variant (turned on for the whole view below) swaps in
+ * the same rounded circumflex - so it's used for every style, keeping
+ * regular and bold identical in design. Faces are named by PostScript name
+ * ("Gentium-Regular" etc.): Gentium 1.x also calls itself plain "Gentium",
+ * and has no cv78. Where Gentium 7 isn't installed, each face falls back
+ * to Gentium Alt / Gentium Plus; if nothing in a face's src is installed it
+ * fails to load and the browser moves on to the rest of
+ * --da-font-serif-ltr. */
 @font-face {
-	font-family: "DA Sentence Flow Greek";
+	font-family: "DA Serif";
+	font-weight: normal;
+	font-style: normal;
+	src: local("Gentium-Regular"), local("GentiumAlt"), local("Gentium Alt");
+}
+@font-face {
+	font-family: "DA Serif";
+	font-weight: normal;
+	font-style: italic;
+	src: local("Gentium-Italic"), local("GentiumAlt-Italic"), local("GentiumAlt Italic");
+}
+@font-face {
+	font-family: "DA Serif";
 	font-weight: bold;
-	src: local("Gentium Alt Bold"), local("GentiumAlt-Bold"), local("Times New Roman Bold"), local("Cardo Bold"), local("Gentium Plus Bold"), local("Times New Roman");
-	unicode-range: U+0370-03FF, U+1F00-1FFF;
+	font-style: normal;
+	src: local("Gentium-Bold"), local("GentiumPlus-Bold"), local("GentiumBookPlus-Bold");
+}
+@font-face {
+	font-family: "DA Serif";
+	font-weight: bold;
+	font-style: italic;
+	src: local("Gentium-BoldItalic"), local("GentiumPlus-BoldItalic"), local("GentiumBookPlus-BoldItalic");
+}
+
+/* Gentium 7 / Gentium Plus: rounded Greek circumflex (matches Gentium Alt).
+ * Fonts without a cv78 feature ignore it. */
+.da-tool-view {
+	font-feature-settings: "cv78" 1;
 }
 
 .da-tool-view .da-sf-canvas {
@@ -1450,7 +1480,11 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	border: 1px solid var(--da-border);
 	border-radius: 4px;
 	color: var(--da-text);
-	font-family: "DA Sentence Flow Greek", var(--da-font-serif-ltr);
+	/* "DA Serif" first so bold Greek reaches its real bold face - the
+	 * Greek-range family has only a regular face, and a family that
+	 * matches a character but lacks the weight synthesizes bold instead of
+	 * falling through. */
+	font-family: "DA Serif", "DA Sentence Flow Greek", var(--da-font-serif-ltr);
 	font-size: 1rem;
 	line-height: 1.0;
 	white-space: pre-wrap;
