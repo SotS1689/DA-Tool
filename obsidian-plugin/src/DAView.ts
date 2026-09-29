@@ -977,6 +977,12 @@ function isFlowTab(tab: string): tab is FlowKey {
 // A bracket's parent ids, regardless of whether they were recorded in the
 // older singular parentBracketId/parentBracketId2 fields (two-node brackets)
 // or the parentBracketIds array (single-node brackets, which can have >2 parents).
+// Even-width (2px) bracket strokes are only crisp when centered on a whole
+// pixel; a half-pixel center leaves both edges half-covered and blurred.
+function crisp(v: number): number {
+	return Math.round(v);
+}
+
 function getParentIds(b: Bracket): number[] {
 	if (b.parentBracketIds && b.parentBracketIds.length) return b.parentBracketIds;
 	return [b.parentBracketId, b.parentBracketId2].filter(x => x !== undefined);
@@ -2538,6 +2544,31 @@ export class DAView extends TextFileView {
 			return { top, bot, center };
 		});
 
+		// A single-node bracket's arms: one per node row, with the end arms
+		// pinned to the spine's (possibly parent-snapped) ends so the corners
+		// always meet.
+		const singleNodeArmYs = (i: number): number[] => {
+			const b = brackets[i];
+			const nodeRows = (b.nodes && b.nodes.length >= 2) ? b.nodes : [b.start, b.end];
+			return nodeRows.map((row, k) =>
+				k === 0 ? nodeY[i].top
+				: k === nodeRows.length - 1 ? nodeY[i].bot
+				: this.getInterpolatedRowY(rowYs, row));
+		};
+		// The label sits mid-spine; when an arm lands just off that point the
+		// connector meets the spine a few pixels from the arm and reads as a
+		// jog - move the label onto the arm instead.
+		const snapLabelToArm = (i: number) => {
+			if (!brackets[i].singleNode) return;
+			const c = nodeY[i].center;
+			let best: number | null = null;
+			for (const y of singleNodeArmYs(i)) {
+				if (Math.abs(y - c) <= 10 && (best === null || Math.abs(y - c) < Math.abs(best - c))) best = y;
+			}
+			if (best !== null) nodeY[i].center = best;
+		};
+		brackets.forEach((_, i) => snapLabelToArm(i));
+
 		brackets.forEach((b, i) => {
 			const allParentIds = getParentIds(b);
 			if (allParentIds.length === 0) return;
@@ -2554,6 +2585,7 @@ export class DAView extends TextFileView {
 				if (topIsFromParent) nodeY[i].top = pCenter;
 				if (botIsFromParent) nodeY[i].bot = pCenter;
 				nodeY[i].center = (nodeY[i].top + nodeY[i].bot) / 2;
+				snapLabelToArm(i);
 			};
 
 			allParentIds.forEach(snapEndpointToParentCenter);
@@ -2641,100 +2673,86 @@ export class DAView extends TextFileView {
 			const b = brackets[i];
 			if (b.start >= rowYs.length || b.end >= rowYs.length) return;
 
-			const leftX = bracketLeftX[i];
-			const y1 = nodeY[i].top;
-			const y2 = nodeY[i].bot;
+			const leftX = crisp(bracketLeftX[i]!);
+			const y1 = crisp(nodeY[i].top);
+			const y2 = crisp(nodeY[i].bot);
 
 			const group = createSvg("g");
 
 			if (b.singleNode) {
-				const yCenter = nodeY[i].center;
+				const yCenter = crisp(nodeY[i].center);
 
-				const spineHit = createSvg("rect");
-				spineHit.setAttribute("x", String(leftX - 12));
-				spineHit.setAttribute("y", String(Math.min(y1, y2) - 2));
-				spineHit.setAttribute("width", "24");
-				spineHit.setAttribute("height", String(Math.max(Math.abs(y2 - y1), 4) + 4));
-				spineHit.setAttribute("fill", "transparent");
-				spineHit.setAttribute("pointer-events", "all");
-				spineHit.addEventListener("click", e => { e.stopImmediatePropagation(); this.selectedBracketId = b.id; this.selectedCorners = []; this.renderCanvas(); });
-				group.appendChild(spineHit);
 
-				const vertical = createSvg("line");
-				vertical.setAttribute("x1", String(leftX)); vertical.setAttribute("y1", String(y1));
-				vertical.setAttribute("x2", String(leftX)); vertical.setAttribute("y2", String(y2));
-				vertical.setAttribute("stroke", "var(--da-muted)"); vertical.setAttribute("stroke-width", "2.5");
-				group.appendChild(vertical);
-
+				// The outer arms and spine are one continuous stroke so the
+				// corners are real joins; each inner arm is a subpath of the same
+				// path, so the whole bracket is painted (and anti-aliased) as a
+				// single shape with no seams where arms meet the spine.
 				const nodeRows = (b.nodes && b.nodes.length >= 2) ? b.nodes : [b.start, b.end];
-				nodeRows.forEach(row => {
-					const armY = this.getInterpolatedRowY(rowYs, row);
-					const aRightX = armEndXForRow(i, row);
-					const arm = createSvg("line");
-					arm.setAttribute("x1", String(leftX)); arm.setAttribute("y1", String(armY));
-					arm.setAttribute("x2", String(aRightX)); arm.setAttribute("y2", String(armY));
-					arm.setAttribute("stroke", "var(--da-muted)"); arm.setAttribute("stroke-width", "2.5");
-					group.appendChild(arm);
-				});
+				const armYs = singleNodeArmYs(i);
+				const arms = nodeRows.map((row, k) => ({ y: crisp(armYs[k]), x: crisp(armEndXForRow(i, row)) }));
+				const first = arms[0];
+				const last = arms[arms.length - 1];
+				let d = `M ${first.x} ${first.y} H ${leftX} V ${last.y} H ${last.x}`;
+				arms.slice(1, -1).forEach(a => { d += ` M ${leftX} ${a.y} H ${a.x}`; });
+				this.appendBracketPath(group, d, b.id);
 
 				this.createCornerBox(group, b.centerLabel || "", leftX, yCenter, true, b.id, !!b.mainPointTop);
 
-				if (this.selectedBracketId === b.id || this.selectedCorners.some(c => c.bracketId === b.id)) {
-					const highlight = createSvg("line");
-					highlight.setAttribute("x1", String(leftX)); highlight.setAttribute("y1", String(y1));
-					highlight.setAttribute("x2", String(leftX)); highlight.setAttribute("y2", String(y2));
-					highlight.setAttribute("stroke", "var(--da-accent)"); highlight.setAttribute("stroke-width", "4");
-					group.appendChild(highlight);
-				}
+				if (this.selectedBracketId === b.id) group.appendChild(this.createBracketHighlight(d));
 			} else {
-				const aRight1 = armEndX(i, true);
-				const aRight2 = armEndX(i, false);
+				const aRight1 = crisp(armEndX(i, true));
+				const aRight2 = crisp(armEndX(i, false));
 
-				const spineHit = createSvg("rect");
-				spineHit.setAttribute("x", String(leftX - 12));
-				spineHit.setAttribute("y", String(Math.min(y1, y2)));
-				spineHit.setAttribute("width", "24");
-				spineHit.setAttribute("height", String(Math.abs(y2 - y1)));
-				spineHit.setAttribute("fill", "transparent");
-				spineHit.setAttribute("pointer-events", "all");
-				spineHit.addEventListener("click", e => { e.stopImmediatePropagation(); this.selectedBracketId = b.id; this.selectedCorners = []; this.renderCanvas(); });
-				group.appendChild(spineHit);
 
-				const vertical = createSvg("line");
-				vertical.setAttribute("x1", String(leftX)); vertical.setAttribute("y1", String(y1));
-				vertical.setAttribute("x2", String(leftX)); vertical.setAttribute("y2", String(y2));
-				vertical.setAttribute("stroke", "var(--da-muted)"); vertical.setAttribute("stroke-width", "2.5");
-				group.appendChild(vertical);
-
-				const topArm = createSvg("line");
-				topArm.setAttribute("x1", String(leftX)); topArm.setAttribute("y1", String(y1));
-				topArm.setAttribute("x2", String(aRight1)); topArm.setAttribute("y2", String(y1));
-				topArm.setAttribute("stroke", "var(--da-muted)"); topArm.setAttribute("stroke-width", "2.5");
-				group.appendChild(topArm);
-
-				const bottomArm = createSvg("line");
-				bottomArm.setAttribute("x1", String(leftX)); bottomArm.setAttribute("y1", String(y2));
-				bottomArm.setAttribute("x2", String(aRight2)); bottomArm.setAttribute("y2", String(y2));
-				bottomArm.setAttribute("stroke", "var(--da-muted)"); bottomArm.setAttribute("stroke-width", "2.5");
-				group.appendChild(bottomArm);
+				// Top arm, spine and bottom arm as one continuous stroke, so the
+				// corners are real joins rather than two line ends meeting.
+				const d = `M ${aRight1} ${y1} H ${leftX} V ${y2} H ${aRight2}`;
+				this.appendBracketPath(group, d, b.id);
 
 				this.createCornerBox(group, b.topLabel || "", leftX, y1, true, b.id, !!b.mainPointTop);
 				this.createCornerBox(group, b.bottomLabel || "", leftX, y2, false, b.id, !!b.mainPointBottom);
 
-				if (this.selectedBracketId === b.id || this.selectedCorners.some(c => c.bracketId === b.id)) {
-					const highlight = createSvg("line");
-					highlight.setAttribute("x1", String(leftX)); highlight.setAttribute("y1", String(y1));
-					highlight.setAttribute("x2", String(leftX)); highlight.setAttribute("y2", String(y2));
-					highlight.setAttribute("stroke", "var(--da-accent)"); highlight.setAttribute("stroke-width", "4");
-					group.appendChild(highlight);
-				}
+				if (this.selectedBracketId === b.id) group.appendChild(this.createBracketHighlight(d));
 			}
 
 			svg.appendChild(group);
 		});
 	}
 
-	createCornerBox(group: SVGElement, text: string, spineX: number, y: number, isTop: boolean, bracketId: number, isMainPoint: boolean): void {
+	// The visible bracket plus a wide invisible copy of the same outline, so
+	// clicking anywhere on the spine or an arm selects the bracket.
+	appendBracketPath(group: SVGElement, d: string, bracketId: number): void {
+		const hit = createSvg("path");
+		hit.setAttribute("d", d);
+		hit.setAttribute("fill", "none");
+		hit.setAttribute("stroke", "transparent");
+		hit.setAttribute("stroke-width", "16");
+		hit.setAttribute("pointer-events", "stroke");
+		hit.addEventListener("click", e => { e.stopImmediatePropagation(); this.selectedBracketId = bracketId; this.selectedCorners = []; this.renderCanvas(); });
+		group.appendChild(hit);
+		group.appendChild(this.createBracketPath(d));
+	}
+
+	// A selected bracket is highlighted along its whole outline, arms included.
+	createBracketHighlight(d: string): SVGElement {
+		const path = this.createBracketPath(d);
+		path.setAttribute("stroke", "var(--da-accent)");
+		path.setAttribute("stroke-width", "4");
+		return path;
+	}
+
+	createBracketPath(d: string): SVGElement {
+		const path = createSvg("path");
+		path.setAttribute("d", d);
+		path.setAttribute("fill", "none");
+		path.setAttribute("stroke", "var(--da-muted)");
+		path.setAttribute("stroke-width", "2");
+		path.setAttribute("stroke-linejoin", "miter");
+		path.setAttribute("pointer-events", "none");
+		return path;
+	}
+
+	createCornerBox(group: SVGElement,text: string, spineX: number, y: number, isTop: boolean, bracketId: number, isMainPoint: boolean): void {
 		const size = 32;
 		let boxX: number, connX1: number, connX2: number;
 
@@ -2816,7 +2834,9 @@ export class DAView extends TextFileView {
 			txt.setAttribute("x", String(boxX + size / 2));
 			txt.setAttribute("y", String(y));
 			txt.setAttribute("text-anchor", "middle");
-			txt.setAttribute("dominant-baseline", "middle");
+			// Center the capitals, not the x-height ("middle" would): sit on the
+			// baseline and drop by half a cap height (~0.35em in most UI fonts).
+			txt.setAttribute("dy", "0.35em");
 			txt.setAttribute("fill", "var(--da-accent)");
 			txt.setAttribute("font-size", "12");
 			txt.setAttribute("font-weight", "700");
@@ -2830,8 +2850,8 @@ export class DAView extends TextFileView {
 		connector.setAttribute("y1", String(y));
 		connector.setAttribute("x2", String(connX2));
 		connector.setAttribute("y2", String(y));
-		connector.setAttribute("stroke", "var(--da-faint)");
-		connector.setAttribute("stroke-width", "1.5");
+		connector.setAttribute("stroke", "var(--da-muted)");
+		connector.setAttribute("stroke-width", "2");
 		group.appendChild(connector);
 	}
 
