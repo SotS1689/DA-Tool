@@ -2,7 +2,7 @@
 
 Create and edit visual discourse-analysis bracket diagrams for biblical texts, natively in your vault. This plugin adds a new file type — `.da` — that Obsidian opens in a dedicated diagramming view, so a passage's discourse structure lives alongside your other sermon-prep notes and syncs with the rest of your vault.
 
-Prefer the browser? The same tool runs as a free web app at **[sots1689.github.io/DA-Tool](https://sots1689.github.io/DA-Tool/)** (no install; your work is kept in the browser between visits, and you can save a project as a standalone HTML file). The web app has the same features, with a light/dark switch, UI size menu, and custom colors (🎨) in its header.
+Prefer the browser? The same tool runs as a free web app at **[sots1689.github.io/DA-Tool](https://sots1689.github.io/DA-Tool/)** (no install; your work is kept in the browser between visits, and you can save a project as a standalone HTML file). The web app has the same features, with a light/dark switch, UI size menu, and custom colors (at the bottom of its color scheme menu).
 
 ## What it does
 

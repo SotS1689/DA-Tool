@@ -381,6 +381,17 @@
             if (btn) btn.setAttribute('aria-checked', daLightMode ? 'true' : 'false');
         }
 
+        // The scheme menu's last entry opens the Custom colors dialog instead
+        // of being a scheme itself, so the menu snaps back to the current one.
+        function onSchemeSelectChange(sel) {
+            if (sel.value === '__custom') {
+                sel.value = daScheme;
+                showCustomColors();
+                return;
+            }
+            setColorScheme(sel.value);
+        }
+
         function setColorScheme(scheme) {
             daScheme = DA_SCHEMES.includes(scheme) ? scheme : 'default';
             daThemeSet('da-scheme', daScheme);
@@ -446,12 +457,11 @@
                 <button onclick="showLogicalRelationships()" title="Logical Relations" aria-label="Logical Relations" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">🔗</button>
                 <button onclick="showResources()" title="Resources" aria-label="Resources" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📖</button>
 				<button onclick="exportPNG()" title="Export PNG" aria-label="Export PNG" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📷</button>
-				<button onclick="showCustomColors()" title="Custom colors" aria-label="Custom colors" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">🎨</button>
                 <div class="flex items-center gap-x-1.5 text-sm text-slate-500">Hebrew Mode</div>
 				<button id="rtl-toggle" onclick="toggleRTL()" role="switch" aria-checked="false" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e40af]" style="outline:none;">
                     <span id="rtl-thumb" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
                 </button>
-                <select id="theme-scheme-select" class="theme-select" onchange="setColorScheme(this.value)" title="Color scheme" aria-label="Color scheme">
+                <select id="theme-scheme-select" class="theme-select" onchange="onSchemeSelectChange(this)" title="Color scheme (or pick your own colors)" aria-label="Color scheme">
                     <option value="default">Default</option>
                     <option value="blue">Blue</option>
                     <option value="yellow">Yellow</option>
@@ -459,6 +469,8 @@
                     <option value="green">Green</option>
                     <option value="purple">Purple</option>
                     <option value="cream">Cream</option>
+                    <option disabled>──────────</option>
+                    <option value="__custom">Custom colors…</option>
                 </select>
                 <button type="button" id="theme-toggle" class="theme-toggle" onclick="toggleThemeMode()" role="switch" aria-checked="true" aria-label="Light mode" title="Toggle light/dark mode">
                     <span aria-hidden="true">🌙</span>
@@ -679,7 +691,7 @@
                     <ul>
                         <li><b>💾</b> saves the whole project as an HTML file (discourse-analysis-DATE.html). Open that file later to carry on where you left off. Your latest work in this browser is also kept automatically between visits.</li>
                         <li><b>📷 Export PNG</b> downloads bracketing.png of the diagram.</li>
-                        <li><b>🎨</b> sets your own colors for any part of the tool.</li>
+                        <li><b>Custom colors…</b> at the bottom of the color scheme menu sets your own colors for any part of the tool.</li>
                         <li><b>🔗</b> opens the logical relationships reference. <b>📖</b> opens videos and reading on discourse analysis.</li>
                         <li><b>Hebrew Mode</b> mirrors the diagram right-to-left for Hebrew.</li>
                         <li>The <b>color scheme</b> menu, the <b>sun/moon</b> switch (light/dark), and the <b>UI size</b> menu (50–150%) change how the tool looks.</li>
