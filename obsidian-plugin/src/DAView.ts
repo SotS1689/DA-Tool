@@ -138,6 +138,9 @@ export interface DAToolSettings {
 	colorOverrides: Record<string, string>;
 	// The Brackets tab's left Propositions sidebar is collapsed away.
 	sidebarHidden?: boolean;
+	// Width (px, in the sidebar's own UI-scaled pixels) the Propositions
+	// sidebar was last dragged to. Absent means the 288px default.
+	sidebarWidth?: number;
 	// Size multiplier for the tool's chrome (header, tab strip/toolbars,
 	// Propositions sidebar, label editor, modals) - not the canvases, which
 	// have their own zoom. One of UI_SCALE_STEPS.
@@ -1050,7 +1053,7 @@ const RELATIONSHIP_GROUPS: RelationshipGroup[] = [
 	{
 		title: "Support by Restatement", color: "#7c3aed", items: [
 			{ term: "General-Specific", abbr: "G/S", def: "A proposition stating the whole and one or more which set forth the parts of the whole.", conj: "which, that is, namely.", example: "you received the word of God which you heard from us (1 Thess 2:13)" },
-			{ term: "Action-Manner", abbr: "A/Mn", def: "An action and a statement indicating the way or manner that action is carried out.", conj: "in that, by, with, participles.", example: "Walk in a manner worthy of the calling to which you have been called, with all humility and gentleness, with patience (Eph 1:1-2)" },
+			{ term: "Action-Manner", abbr: "A/Mn", def: "An action and a statement indicating the way or manner that action is carried out.", conj: "in that, by, with, participles.", example: "Walk in a manner worthy of the calling to which you have been called, with all humility and gentleness, with patience (Eph 4:1-2)" },
 			{ term: "Comparison", abbr: "//", def: "An action and a statement that clarifies that action by showing what it is like.", conj: "even as, as…so, like, just as, ὡς, καθώς.", example: "Be imitators of me, as I am of Christ (1 Cor 11:1)" },
 			{ term: "Negative-Positive", abbr: "-/+", def: "Two statements, one of which is denied so that the other is enforced. Also for contrasting statements.", conj: "not…but, ἀλλά.", example: "do not be foolish, but understand what the will of the Lord is (Eph 5:17)" },
 			{ term: "Idea-Explanation", abbr: "Id/Exp", def: "The relationship between an original statement and one clarifying its meaning.", conj: "that is, in other words, ὅτι, γάρ, ἵνα.", example: "Blessed are those whose lawless deeds are forgiven… blessed is the man against whom the Lord will not count his sin (Rom 4:7-8)" },
@@ -1066,15 +1069,110 @@ const RESOURCE_LINKS: { label: string; url: string }[] = [
 	{ label: "Biblical Exegesis by John Piper", url: "https://cdn.desiringgod.org/pdf/booklets/BTBX.pdf" },
 ];
 
-const EXAMPLE_PROPOSITIONS: Proposition[] = [
-	{ id: 1, text: "And we also thank God constantly for this,", level: 0 },
-	{ id: 2, text: "that when you received the word of God,", level: 0 },
-	{ id: 3, text: "which you heard from us,", level: 0 },
-	{ id: 4, text: "you accepted it", level: 0 },
-	{ id: 5, text: "not as the word of men", level: 0 },
-	{ id: 6, text: "but as what it really is, the word of God,", level: 0 },
-	{ id: 7, text: "which is at work in you believers.", level: 0 },
+// ---------- in-app instructions ----------
+//
+// Text uses a tiny markup: **bold**, `code` and [[key]] (a keyboard key).
+// An item with `sub` gets a nested list.
+type InstructionItem = string | { text: string; sub: string[] };
+interface InstructionSection { heading?: string; items: InstructionItem[] }
+
+const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
+	{ heading: "Getting started", items: [
+		{ text: "**Paste a passage** into the Propositions box, then click **Insert**. It is split into sentences, and each gets a verse label (5a, 5b, 5c…).", sub: [
+			"Verse numbers are found automatically, whether at the start of lines, in superscript, as [5] or [3:5], or run into the text.",
+			"A reference like \"Romans 3:21–26\" on the first or last line, or in parentheses at the end, is recognized and removed from the text.",
+			"Insert always **adds to** the propositions you already have. It never replaces them.",
+		] },
+		"**+** (next to Insert) adds a blank proposition after the selected sidebar row, or at the end.",
+		"**Double-click a proposition** to split it where you click. The new half keeps the same indent and verse, and the letters are updated.",
+		"**Click a proposition's text** to edit it. [[Ctrl]]+[[B]] / [[I]] / [[U]] make the selected words bold, italic, or underlined.",
+		"**Click a row's label** (e.g. \"5a\") to rename it. [[Enter]] saves and [[Esc]] cancels. A label you type yourself is kept as is; clearing it goes back to automatic numbering.",
+		"**Drag ⋮⋮** in the Propositions list to reorder. Labels travel with their propositions.",
+		"**×** on a row deletes that proposition (after you confirm). Any bracket that depended on it is removed too.",
+		"[[Tab]] / [[Shift]]+[[Tab]] indents or outdents the selected propositions.",
+	] },
+	{ heading: "Selecting", items: [
+		"**Click a proposition** in the work area to select it; click again to deselect. Select as many as you need.",
+		"**Click a corner box** (the small square beside a bracket) to select it. You can select several.",
+		"**Click a bracket's line** (its spine or arms) to select the whole bracket. It gets an accent-colored outline.",
+		"**Click empty space** in the work area to deselect everything.",
+	] },
+	{ heading: "Building brackets", items: [
+		{ text: "**Add Two-Node Bracket** (first toolbar button). First select one of:", sub: [
+			"two propositions",
+			"a corner box and a proposition (the new bracket attaches to that box)",
+			"a selected bracket and a proposition (the new bracket wraps around both)",
+			"two corner boxes from **different** brackets (the new bracket joins them)",
+		] },
+		"**Add Single-Node Bracket** (second toolbar button). First select **two or more** propositions and/or corner boxes. Two corners of the same bracket can't be used together.",
+		"Then click the button. The layout is worked out for you, so brackets never cross.",
+	] },
+	{ heading: "Labels and main point", items: [
+		"**Right-click a corner box** to type its label (e.g. G, Inf, ∴). [[Enter]]/OK saves; [[Esc]]/Cancel closes.",
+		"**Double-click a corner box** to mark it as the passage's **main point** (shown in the main-point color). Double-click again to unmark it.",
+		"Type `\tf` or `\therefore` in any label or text to get ∴. The command **Insert ∴ (therefore)** does the same.",
+		"🔗 in the header lists the logical relationships with their abbreviations.",
+	] },
+	{ heading: "Deleting, undo and redo", items: [
+		"**Select a bracket, then press [[Delete]]** (or [[Backspace]]) to remove it after you confirm. Brackets attached to it stay, but become free-standing.",
+		"**Clear Brackets** removes every bracket and keeps your propositions.",
+		"**Reset All** clears everything: propositions, brackets, Text Flow, and Sentence Flow.",
+		"[[Ctrl]]+[[Z]] (or ↶) undoes your last change, up to 20 steps. [[Ctrl]]+[[Y]] or [[Ctrl]]+[[Shift]]+[[Z]] (or ↷) redoes it. While you're typing in a text box, these undo and redo your typing instead.",
+	] },
+	{ heading: "Moving around", items: [
+		"**Click and drag** on empty space to pan the diagram.",
+		"**− / + / ↺** zoom out, zoom in, and reset (30%–300%).",
+		"The panel button at the far left of the tab bar (or the command **Toggle propositions sidebar**) hides or shows the Propositions list. Drag the list's edge to resize it; the width is remembered.",
+	] },
+	{ heading: "Header buttons", items: [
+		"**💾** saves the .da file. Obsidian also saves automatically.",
+		"**📷 Export PNG** saves <file name>.png next to the .da file. If one is already there, you're asked whether to replace it or keep both.",
+		"**🔗** opens the logical relationships reference. **📖** opens videos and reading on discourse analysis.",
+		"**RTL** mirrors the diagram right-to-left for Hebrew.",
+		"The **color theme** menu includes \"Theme\", which follows your Obsidian theme. UI size and custom colors are under **Settings → Discourse Analysis Tool**; UI size is also available through the commands Increase / Decrease / Reset UI size.",
+	] },
 ];
+
+const FLOW_INSTRUCTIONS: InstructionSection[] = [
+	{ items: [
+		"[[Tab]] moves the text to the next tab stop, so clauses line up in columns. [[Shift]]+[[Tab]] removes the tab just before the cursor.",
+		"[[Ctrl]]+[[M]] / [[Ctrl]]+[[Shift]]+[[M]] indents or outdents the whole line.",
+		"[[Enter]] starts a new line with the same indent as the one above, so you can flow a passage with just Enter and Tab.",
+		"[[Ctrl]]+[[B]] / [[Ctrl]]+[[I]] / [[Ctrl]]+[[U]] make text bold, italic, or underlined.",
+		"**Default tab** sets the tab-stop spacing in inches (0.25 by default).",
+		"Each tab has its own zoom.",
+		"Pasting gives plain text; tabs in the pasted text become tab stops.",
+		"[[Ctrl]]+[[Z]] undoes typing here separately from the Brackets tab.",
+		"**→** (Text Flow) copies each line into the Brackets tab as a proposition. How far a line is indented sets the proposition's indent, and verse numbers become labels. If Brackets already has content, you'll be asked whether to **Replace** it (this also clears the brackets) or **Append** to it.",
+		"**Instructions** (Text Flow) opens Blake Franze's Text Flow Instructions.",
+	] },
+];
+
+function appendInstructionText(parent: HTMLElement, text: string): void {
+	for (const part of text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[\[[^\]]+\]\])/)) {
+		if (!part) continue;
+		if (part.startsWith("**")) appendInstructionText(parent.createEl("strong"), part.slice(2, -2));
+		else if (part.startsWith("`")) parent.createEl("code", { text: part.slice(1, -1) });
+		else if (part.startsWith("[[")) parent.createEl("kbd", { text: part.slice(2, -2) });
+		else parent.appendText(part);
+	}
+}
+
+function renderInstructionSections(container: HTMLElement, sections: InstructionSection[]): void {
+	for (const section of sections) {
+		if (section.heading) container.createEl("h3", { text: section.heading });
+		const list = container.createEl("ul");
+		for (const item of section.items) {
+			const li = list.createEl("li");
+			if (typeof item === "string") { appendInstructionText(li, item); continue; }
+			appendInstructionText(li, item.text);
+			const sub = li.createEl("ul");
+			for (const line of item.sub) appendInstructionText(sub.createEl("li"), line);
+		}
+	}
+}
+
+const HISTORY_LIMIT = 20;
 
 function emptyProjectData(): ProjectData {
 	return { propositions: [], brackets: [], zoomLevel: 1, isRTL: false, notes: emptyNotesData(), timestamp: new Date().toISOString() };
@@ -1088,6 +1186,7 @@ export class DAView extends TextFileView {
 	selectedCorners: Corner[] = [];
 	sidebarSelected = -1;
 	historyStack: string[] = [];
+	redoStack: string[] = [];
 	zoomLevel = 1;
 	isRTL = false;
 	dragSrcIndex: number | null = null;
@@ -1099,6 +1198,10 @@ export class DAView extends TextFileView {
 	};
 
 	private loaded = false;
+	// Set when the file's contents couldn't be parsed: the view opens empty,
+	// and getViewData hands back the original text untouched so nothing
+	// overwrites the damaged file until it's fixed.
+	private unreadableData: string | null = null;
 	private domBuilt = false;
 	private resizeObserver: ResizeObserver | null = null;
 	private measureCtx: CanvasRenderingContext2D | null = null;
@@ -1206,6 +1309,7 @@ export class DAView extends TextFileView {
 	// ---------- TextFileView contract ----------
 
 	getViewData(): string {
+		if (this.unreadableData !== null) return this.unreadableData;
 		// The flow canvases' DOM is the live source of truth while editing
 		// (browser-managed via execCommand), so pull it back into each flow's
 		// lines before serializing - otherwise saves would miss whatever was
@@ -1227,12 +1331,18 @@ export class DAView extends TextFileView {
 
 	setViewData(data: string, clear: boolean): void {
 		let parsed: Partial<ProjectData> = {};
+		this.unreadableData = null;
 		if (data && data.trim().length > 0) {
 			try {
 				parsed = JSON.parse(data);
+				if (!parsed || typeof parsed !== "object") throw new Error("not a DA project object");
 			} catch (e) {
-				console.error("DA-Tool: failed to parse file contents, starting empty.", e);
+				console.error("DA-Tool: failed to parse file contents.", e);
+				// Keep the damaged text as-is (see getViewData) instead of
+				// letting the next save overwrite it with an empty diagram.
+				this.unreadableData = data;
 				parsed = {};
+				new Notice(`DA-Tool couldn't read "${this.file?.name ?? "this file"}" (it isn't valid DA data). The file has been left unchanged; edits made here won't be saved until it's fixed.`, 12000);
 			}
 		}
 		this.propositions = parsed.propositions || [];
@@ -1247,6 +1357,7 @@ export class DAView extends TextFileView {
 		this.selectedCorners = [];
 		this.sidebarSelected = -1;
 		this.historyStack = [];
+		this.redoStack = [];
 		this.loaded = true;
 
 		if (this.domBuilt) {
@@ -1272,6 +1383,8 @@ export class DAView extends TextFileView {
 		this.selectedCorners = [];
 		this.sidebarSelected = -1;
 		this.historyStack = [];
+		this.redoStack = [];
+		this.unreadableData = null;
 	}
 
 	async onOpen(): Promise<void> {
@@ -1403,6 +1516,9 @@ export class DAView extends TextFileView {
 			{ tag: "line", attr: { x1: "16", y1: "19", x2: "19", y2: "19" } },
 		]);
 
+		tabToolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↶", attr: { "data-action": "undo", title: "Undo (Ctrl+Z)", "aria-label": "Undo" } });
+		tabToolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↷", attr: { "data-action": "redo", title: "Redo (Ctrl+Y or Ctrl+Shift+Z)", "aria-label": "Redo" } });
+
 		const zoomRow = tabToolbar.createDiv({ cls: "da-zoom-row" });
 		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "−", attr: { "data-action": "zoom-out", title: "Zoom Out", "aria-label": "Zoom Out" } });
 		zoomRow.createSpan({ cls: "da-zoom-label", text: "100%", attr: { id: "zoom-label" } });
@@ -1419,7 +1535,8 @@ export class DAView extends TextFileView {
 
 		const bodyEl = this.contentEl.createDiv({ cls: "da-body da-tab-panel", attr: { id: "brackets-panel" } });
 
-		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left da-ui-scaled", attr: { id: "left-sidebar", style: "width:288px;min-width:180px;max-width:600px;" } });
+		const sidebarWidth = Math.min(600, Math.max(180, this.plugin.settings.sidebarWidth || 288));
+		const leftSidebar = bodyEl.createDiv({ cls: "da-sidebar da-sidebar-left da-ui-scaled", attr: { id: "left-sidebar", style: `width:${sidebarWidth}px;min-width:180px;max-width:600px;` } });
 		const sidebarHeader = leftSidebar.createDiv({ cls: "da-sidebar-header" });
 		sidebarHeader.createEl("h2", { cls: "da-section-title", text: "Propositions" });
 		sidebarHeader.createEl("textarea", { cls: "da-textarea", attr: { id: "paste-area", rows: "3", placeholder: "Paste full passage here…" } });
@@ -1450,7 +1567,7 @@ export class DAView extends TextFileView {
 		const lrModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "lr-modal" } });
 		const lrModalInner = lrModal.createDiv({ cls: "da-modal da-ui-scaled" });
 		const lrModalHeader = lrModalInner.createDiv({ cls: "da-modal-header" });
-		lrModalHeader.createEl("h2", { cls: "da-modal-title", text: "The 18 Logical Relationships" });
+		lrModalHeader.createEl("h2", { cls: "da-modal-title", text: "The Logical Relationships" });
 		lrModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-lr" } });
 		const lrModalBody = lrModalInner.createDiv({ cls: "da-modal-body" });
 		const relationshipGrid = lrModalBody.createDiv({ cls: "da-relationship-grid" });
@@ -1503,31 +1620,20 @@ export class DAView extends TextFileView {
 		}
 
 		const instructionsModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "instructions-modal" } });
-		const instructionsModalInner = instructionsModal.createDiv({ cls: "da-modal da-modal-narrow da-ui-scaled" });
+		const instructionsModalInner = instructionsModal.createDiv({ cls: "da-modal da-modal-medium da-ui-scaled" });
 		const instructionsModalHeader = instructionsModalInner.createDiv({ cls: "da-modal-header" });
 		instructionsModalHeader.createEl("h2", { cls: "da-modal-title", text: "Instructions" });
 		instructionsModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-instructions" } });
 		const instructionsModalBody = instructionsModalInner.createDiv({ cls: "da-modal-body" });
 		const instructions = instructionsModalBody.createDiv({ cls: "da-instructions" });
-		instructions.createEl("strong", { text: "Operations:" });
-		instructions.createEl("br");
-		instructions.appendText("Drag ⋮⋮ (in Propositions list) = reorder");
-		instructions.createEl("br");
-		instructions.appendText("Double-click proposition = split proposition");
-		instructions.createEl("br");
-		instructions.appendText("Right-click box = edit label");
-		instructions.createEl("br");
-		instructions.appendText("Double-click box = mark/unmark as main point");
-		instructions.createEl("br");
-		instructions.appendText("Select spine + Delete = remove bracket");
-		instructions.createEl("br");
-		instructions.appendText("Tab = indent selected proposition");
-		instructions.createEl("br");
-		instructions.appendText("Shift+Tab = decrease indent on selected proposition");
-		instructions.createEl("br");
-		instructions.appendText("Click whitespace (anywhere in work area) = deselect");
-		instructions.createEl("br");
-		instructions.appendText("Click + drag = pan workspace");
+		renderInstructionSections(instructions, BRACKETS_INSTRUCTIONS);
+
+		const flowHelpModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "flow-help-modal" } });
+		const flowHelpInner = flowHelpModal.createDiv({ cls: "da-modal da-modal-medium da-ui-scaled" });
+		const flowHelpHeader = flowHelpInner.createDiv({ cls: "da-modal-header" });
+		flowHelpHeader.createEl("h2", { cls: "da-modal-title", text: "Using this editor" });
+		flowHelpHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-flow-help" } });
+		renderInstructionSections(flowHelpInner.createDiv({ cls: "da-modal-body" }).createDiv({ cls: "da-instructions" }), FLOW_INSTRUCTIONS);
 
 		const tfModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "textflow-instructions-modal" } });
 		const tfModalInner = tfModal.createDiv({ cls: "da-modal da-modal-wide da-ui-scaled" });
@@ -1565,6 +1671,7 @@ export class DAView extends TextFileView {
 			toolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "→", attr: { "data-action": "textflow-to-brackets", title: "Copy each line to the Brackets canvas as a proposition", "aria-label": "Copy lines to Brackets" } });
 			toolbar.createEl("button", { cls: "da-btn", text: "Instructions", attr: { "data-action": "show-textflow-instructions", title: "Text Flow Instructions", "aria-label": "Text Flow Instructions" } });
 		}
+		toolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "?", attr: { "data-action": "show-flow-help", title: "Using this editor", "aria-label": "Using this editor" } });
 	}
 
 	// Builds a flow tab's panel: a Word-like scratch canvas for pasting and
@@ -1597,6 +1704,21 @@ export class DAView extends TextFileView {
 		on("hide-textflow-instructions", () => this.hideTextFlowInstructions());
 		on("textflow-to-brackets", () => this.convertTextFlowToBrackets());
 		on("hide-instructions", () => this.hideInstructions());
+		on("show-flow-help", () => this.byId("flow-help-modal")?.classList.remove("hidden"));
+		on("hide-flow-help", () => this.byId("flow-help-modal")?.classList.add("hidden"));
+		on("undo", () => this.undoLastAction());
+		on("redo", () => this.redoLastAction());
+		// Clicking a dialog's dimmed backdrop (outside the dialog) closes it.
+		this.qsa(".da-modal-backdrop").forEach(backdrop => {
+			this.registerDomEvent(backdrop, "click", (e: MouseEvent) => {
+				if (e.target === backdrop) backdrop.classList.add("hidden");
+			});
+		});
+		// Clicking outside the label editor closes it without saving.
+		this.registerDomEvent(document, "mousedown", (e: MouseEvent) => {
+			const le = this.byId("label-editor");
+			if (le && le.style.display !== "none" && !le.contains(e.target as Node)) this.hideLabelEditor();
+		}, { capture: true });
 		on("export-png", () => { void this.exportPNG(); });
 		on("insert-props", () => this.splitIntoPropositions());
 		on("add-prop", () => this.addNewProposition());
@@ -1791,17 +1913,62 @@ export class DAView extends TextFileView {
 		return true;
 	}
 
+	// Is focus in a text field the browser should keep its own keys for
+	// (native Tab / undo / redo)? A proposition's text counts only once it has
+	// actually been edited - right after clicking a row to select it, Ctrl+Z
+	// still means "undo the last diagram change".
+	private focusedTextFieldOwnsKeys(): boolean {
+		const active = document.activeElement as HTMLElement | null;
+		if (!active) return false;
+		if (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT") return true;
+		if (!active.isContentEditable) return false;
+		if (active.matches(".da-row-text, .da-prop-text")) {
+			const prop = this.propositions[Number(active.dataset.index)];
+			return !prop || readRunsFrom(active).text !== prop.text;
+		}
+		return true;
+	}
+
+	private closeTopModal(): boolean {
+		const open = this.qsa(".da-modal-backdrop:not(.hidden)");
+		if (!open.length) return false;
+		open[open.length - 1].classList.add("hidden");
+		return true;
+	}
+
 	private handleKeydown(e: KeyboardEvent): void {
 		if (!this.focusIsWithinThisView()) return;
 
-		// The Sentence Flow canvas handles its own Tab/Ctrl+Z/Ctrl+B etc. (see
-		// handleNotesKeydown) and relies on the browser's native contentEditable
+		if (e.key === "Escape") {
+			const le = this.byId("label-editor");
+			if (le && le.style.display !== "none") { this.hideLabelEditor(); e.preventDefault(); return; }
+			if (this.closeTopModal()) { e.preventDefault(); return; }
+		}
+
+		// The flow canvases handle their own Tab/Ctrl+Z/Ctrl+B etc. (see
+		// handleNotesKeydown) and rely on the browser's native contentEditable
 		// undo stack, so none of the Brackets-tab shortcuts below should run
-		// while focus is inside it.
+		// while focus is inside one.
 		const inNotesCanvas = !!(e.target as HTMLElement | null)?.closest?.(".da-sf-canvas");
 		if (inNotesCanvas) return;
+		if (this.qsa(".da-modal-backdrop:not(.hidden)").length) return;
+
+		const mod = e.ctrlKey || e.metaKey;
+		const key = (e.key || "").toLowerCase();
+		if (mod && !e.altKey && (key === "z" || key === "y")) {
+			if (this.focusedTextFieldOwnsKeys()) return; // native text undo/redo
+			e.preventDefault();
+			if (key === "y" || e.shiftKey) this.redoLastAction();
+			else this.undoLastAction();
+			return;
+		}
+
+		if (this.activeTab !== "brackets") return;
 
 		if (e.key === "Tab" && (this.selectedIndices.length >= 1 || this.sidebarSelected >= 0)) {
+			const active = document.activeElement as HTMLElement | null;
+			// Leave Tab alone in the paste box, label editors, etc.
+			if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT" || active.classList.contains("da-row-num"))) return;
 			e.preventDefault();
 			if (this.selectedIndices.length >= 1) {
 				this.saveToHistory();
@@ -1816,6 +1983,7 @@ export class DAView extends TextFileView {
 				this.propositions[this.sidebarSelected].level = Math.max(0, this.propositions[this.sidebarSelected].level + (e.shiftKey ? -1 : 1));
 				this.renderSidebarList(); this.renderMainRows(); this.renderCanvas();
 			}
+			return;
 		}
 
 		if ((e.key === "Delete" || e.key === "Backspace") && this.selectedBracketId !== null) {
@@ -1834,11 +2002,6 @@ export class DAView extends TextFileView {
 					this.renderCanvas();
 				});
 			}
-		}
-
-		if (e.ctrlKey && e.key === "z") {
-			e.preventDefault();
-			this.undoLastAction();
 		}
 	}
 
@@ -1859,9 +2022,11 @@ export class DAView extends TextFileView {
 				this.applyZoom();
 				container.scrollLeft = 0;
 			}
+			this.requestSave();
 			return;
 		}
 		this.applyZoom();
+		this.requestSave();
 	}
 
 	resetZoom(): void {
@@ -1870,9 +2035,11 @@ export class DAView extends TextFileView {
 		if (!this.isRTL && container) {
 			this.applyZoom();
 			container.scrollLeft = 0;
+			this.requestSave();
 			return;
 		}
 		this.applyZoom();
+		this.requestSave();
 	}
 
 	applyZoom(): void {
@@ -1908,12 +2075,14 @@ export class DAView extends TextFileView {
 		const f = this.flows[key];
 		f.zoomLevel = Math.min(3, Math.max(0.3, Math.round((f.zoomLevel + delta) * 10) / 10));
 		this.applyNotesZoom(key);
+		this.requestSave();
 	}
 
 	resetNotesZoom(): void {
 		const key = this.curFlowKey();
 		this.flows[key].zoomLevel = 1;
 		this.applyNotesZoom(key);
+		this.requestSave();
 	}
 
 	// With no key, applies every flow canvas's zoom (e.g. after load or an
@@ -1960,6 +2129,7 @@ export class DAView extends TextFileView {
 			}
 		});
 		this.applyNotesZoom();
+		this.applyZoom();
 		void this.save();
 	}
 
@@ -2007,30 +2177,75 @@ export class DAView extends TextFileView {
 
 	// ---------- history / persistence ----------
 
-	saveToHistory(): void {
-		this.historyStack.push(JSON.stringify({
+	// A snapshot of the undoable Brackets-tab state. The flow tabs keep their
+	// own native (contenteditable) undo, so their content is only captured
+	// for actions that change it (Reset All) - restoring it on every undo
+	// would throw away typing done since.
+	private historySnapshot(includeFlows: boolean): string {
+		const snap: Record<string, unknown> = {
 			propositions: JSON.parse(JSON.stringify(this.propositions)),
 			brackets: JSON.parse(JSON.stringify(this.brackets)),
-			selectedIndices: this.selectedIndices,
+			selectedIndices: [...this.selectedIndices],
 			selectedBracketId: this.selectedBracketId,
-			selectedCorners: this.selectedCorners,
-		}));
-		if (this.historyStack.length > 20) this.historyStack.shift();
-		void this.save();
+			selectedCorners: [...this.selectedCorners],
+		};
+		if (includeFlows) {
+			if (this.domBuilt) FLOW_KEYS.forEach(key => { this.flows[key].lines = this.serializeNotesLines(key); });
+			snap.flows = {
+				sentenceflow: JSON.parse(JSON.stringify(this.flowToJson("sentenceflow"))),
+				textflow: JSON.parse(JSON.stringify(this.flowToJson("textflow"))),
+			};
+		}
+		return JSON.stringify(snap);
 	}
 
-	undoLastAction(): void {
-		if (this.historyStack.length === 0) return;
-		const prev = JSON.parse(this.historyStack.pop());
+	// Call right before an undoable change. The save is deferred until the
+	// change itself has been applied - saving here would write the state
+	// from before it.
+	saveToHistory(includeFlows = false): void {
+		this.historyStack.push(this.historySnapshot(includeFlows));
+		if (this.historyStack.length > HISTORY_LIMIT) this.historyStack.shift();
+		this.redoStack = [];
+		this.saveSoon();
+	}
+
+	private saveSoon(): void {
+		window.setTimeout(() => { void this.save(); }, 0);
+	}
+
+	private restoreSnapshot(json: string): void {
+		const prev = JSON.parse(json);
 		this.propositions = prev.propositions || [];
 		this.brackets = prev.brackets || [];
 		this.selectedIndices = prev.selectedIndices || [];
-		this.selectedBracketId = prev.selectedBracketId;
+		this.selectedBracketId = prev.selectedBracketId ?? null;
 		this.selectedCorners = prev.selectedCorners || (prev.selectedCorner ? [prev.selectedCorner] : []);
+		if (this.sidebarSelected >= this.propositions.length) this.sidebarSelected = -1;
+		if (prev.flows) {
+			FLOW_KEYS.forEach(key => this.loadFlowFromJson(key, prev.flows[key]));
+			this.renderNotesTab();
+			this.applyNotesZoom();
+		}
 		this.renderSidebarList();
 		this.renderMainRows();
 		this.renderCanvas();
-		void this.save();
+		this.saveSoon();
+	}
+
+	undoLastAction(): void {
+		const prev = this.historyStack.pop();
+		if (prev === undefined) return;
+		this.redoStack.push(this.historySnapshot(!!JSON.parse(prev).flows));
+		if (this.redoStack.length > HISTORY_LIMIT) this.redoStack.shift();
+		this.restoreSnapshot(prev);
+	}
+
+	redoLastAction(): void {
+		const next = this.redoStack.pop();
+		if (next === undefined) return;
+		this.historyStack.push(this.historySnapshot(!!JSON.parse(next).flows));
+		if (this.historyStack.length > HISTORY_LIMIT) this.historyStack.shift();
+		this.restoreSnapshot(next);
 	}
 
 	migrateSingleNodeBrackets(): void {
@@ -2145,17 +2360,23 @@ export class DAView extends TextFileView {
 				const moved = this.propositions.splice(this.dragSrcIndex, 1)[0];
 				this.propositions.splice(insertIndex, 0, moved);
 
+				const from = this.dragSrcIndex as number;
 				this.brackets.forEach(b => {
-					b.start = this.remapIndex(b.start, this.dragSrcIndex, insertIndex);
-					b.end = this.remapIndex(b.end, this.dragSrcIndex, insertIndex);
-					if (b.attachToRow !== undefined) {
-						b.attachToRow = this.remapIndex(b.attachToRow, this.dragSrcIndex, insertIndex);
-					}
 					// Single-node brackets render from `nodes`, not start/end
 					// (see renderCanvas's nodeRows), so it has to be remapped
 					// in lockstep or the drawn anchors go stale after a drag.
-					if (b.nodes) {
-						b.nodes = b.nodes.map(r => this.remapIndex(r, this.dragSrcIndex, insertIndex));
+					if (b.singleNode && b.nodes) {
+						b.nodes = b.nodes.map(r => this.remapRow(r, from, insertIndex)).sort((x, y) => x - y);
+						b.start = b.nodes[0];
+						b.end = b.nodes[b.nodes.length - 1];
+					} else {
+						b.start = this.remapRow(b.start, from, insertIndex);
+						b.end = this.remapRow(b.end, from, insertIndex);
+						// Moving a row past its bracket's other end flips the span.
+						if (b.start > b.end) [b.start, b.end] = [b.end, b.start];
+					}
+					if (b.attachToRow !== undefined) {
+						b.attachToRow = this.remapRow(b.attachToRow, from, insertIndex);
 					}
 				});
 
@@ -2171,6 +2392,7 @@ export class DAView extends TextFileView {
 			const numBadge = createDiv({ cls: "da-num-badge", text: rowLabels[i] });
 
 			const textEl = createDiv({ cls: "da-prop-text" });
+			textEl.dataset.index = String(i);
 			renderRunsInto(textEl, propRuns(prop));
 			textEl.contentEditable = "true";
 			textEl.spellcheck = false;
@@ -2192,6 +2414,15 @@ export class DAView extends TextFileView {
 			row.appendChild(delBtn);
 			container.appendChild(row);
 		});
+	}
+
+	// remapIndex for a possibly fractional row (a single-node bracket's
+	// corner row is its midpoint, which other brackets can attach to).
+	remapRow(r: number, from: number, to: number): number {
+		if (Number.isInteger(r)) return this.remapIndex(r, from, to);
+		const lo = Math.floor(r), hi = Math.ceil(r);
+		const a = this.remapIndex(lo, from, to), b = this.remapIndex(hi, from, to);
+		return a + (b - a) * (r - lo);
 	}
 
 	remapIndex(idx: number, from: number, to: number): number {
@@ -2300,6 +2531,7 @@ export class DAView extends TextFileView {
 			});
 
 			const textEl = createDiv({ cls: "da-row-text" });
+			textEl.dataset.index = String(i);
 			renderRunsInto(textEl, propRuns(prop));
 			textEl.contentEditable = "true";
 			textEl.spellcheck = false;
@@ -2955,6 +3187,10 @@ export class DAView extends TextFileView {
 		group.appendChild(connector);
 	}
 
+	// Closes the open label editor without saving (Esc anywhere / clicking
+	// outside it); showLabelEditor points it at the current editor.
+	private hideLabelEditor: () => void = () => {};
+
 	showLabelEditor(clientX: number, clientY: number, currentText: string, bracketId: number, isTop: boolean): void {
 		const panel = this.byId("label-editor");
 		const input = this.byId<HTMLInputElement>("lei");
@@ -2991,6 +3227,7 @@ export class DAView extends TextFileView {
 
 		const applyLabel = () => {
 			const newLabel = input.value.trim();
+			if (newLabel === (currentText || "")) { cancelLabel(); return; }
 			this.saveToHistory();
 			const bracket = this.brackets.find(b => b.id === bracketId);
 			if (bracket) {
@@ -3008,6 +3245,7 @@ export class DAView extends TextFileView {
 			panel.setCssStyles({ display: "none" });
 			input.removeEventListener("keydown", onKey);
 		};
+		this.hideLabelEditor = cancelLabel;
 
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Enter") { e.preventDefault(); applyLabel(); }
@@ -3027,8 +3265,13 @@ export class DAView extends TextFileView {
 		const hasBracketAndProp = this.selectedBracketId !== null && this.selectedIndices.length === 1;
 
 		if (!(hasTwoProps || hasCornerAndProp || hasBracketAndProp || this.selectedCorners.length === 2)) {
-			new Notice("Select two propositions, OR select a corner box and one proposition, OR select two corner boxes, then click ADD BLANK BRACKET.");
+			new Notice("To add a two-node bracket, first select one of these:\n• two propositions\n• a corner box and a proposition\n• a bracket (click its line) and a proposition\n• two corner boxes from different brackets\nThen click Add Two-Node Bracket.", 8000);
 			return;
+		}
+		if (!hasTwoProps && !hasCornerAndProp && !hasBracketAndProp) {
+			const [c1, c2] = this.selectedCorners;
+			if (c1.bracketId === c2.bracketId) { new Notice("Pick two corner boxes from different brackets."); return; }
+			if (!this.brackets.some(b => b.id === c1.bracketId) || !this.brackets.some(b => b.id === c2.bracketId)) return;
 		}
 		this.saveToHistory();
 
@@ -3092,8 +3335,6 @@ export class DAView extends TextFileView {
 			return;
 		}
 
-		this.saveToHistory();
-
 		const propRows = [...this.selectedIndices];
 		const parentBracketIds: number[] = [];
 		const cornerRows = this.selectedCorners.map(c => {
@@ -3103,8 +3344,14 @@ export class DAView extends TextFileView {
 			return this.getCornerRow(parentBracket, c.isTop);
 		}).filter((r): r is number => r !== null);
 
-		const allRows = [...propRows, ...cornerRows].sort((x, y) => x - y);
-		if (allRows.length < 2) return;
+		// A proposition and a corner box on the same row are one node.
+		const allRows = Array.from(new Set([...propRows, ...cornerRows])).sort((x, y) => x - y);
+		if (allRows.length < 2) {
+			new Notice("For a single-node bracket: select two or more propositions and/or corner boxes on different rows.");
+			return;
+		}
+
+		this.saveToHistory();
 
 		const start = allRows[0];
 		const end = allRows[allRows.length - 1];
@@ -3269,8 +3516,11 @@ export class DAView extends TextFileView {
 	updatePropositionText(index: number, textEl: HTMLElement): void {
 		const prop = this.propositions[index];
 		if (prop) {
-			this.saveToHistory();
 			const { text, runs } = readRunsFrom(textEl);
+			// Only an actual change is recorded, so clicking in and out of
+			// rows doesn't fill the undo history with no-op steps.
+			if (text === prop.text && JSON.stringify(tidyRuns(propRuns(prop)) ?? null) === JSON.stringify(tidyRuns(runs) ?? null)) return;
+			this.saveToHistory();
 			prop.text = text;
 			this.setPropRuns(prop, runs);
 			// This runs from a 'blur' handler, which can itself fire
@@ -3323,14 +3573,6 @@ export class DAView extends TextFileView {
 			this.renderMainRows();
 			this.renderCanvas();
 		}, 0);
-	}
-
-	indentSidebar(i: number, delta: number): void {
-		this.saveToHistory();
-		this.propositions[i].level = Math.max(0, this.propositions[i].level + delta);
-		this.renderSidebarList();
-		this.renderMainRows();
-		this.renderCanvas();
 	}
 
 	deparentReferencesTo(removedIds: number[]): void {
@@ -3450,33 +3692,6 @@ export class DAView extends TextFileView {
 		this.renderCanvas();
 	}
 
-	moveProposition(i: number, delta: number): void {
-		const j = i + delta;
-		if (j < 0 || j >= this.propositions.length) return;
-		this.saveToHistory();
-		[this.propositions[i], this.propositions[j]] = [this.propositions[j], this.propositions[i]];
-		this.brackets.forEach(b => {
-			if (b.singleNode && b.nodes) {
-				b.nodes = b.nodes.map(r => (r === i ? j : r === j ? i : r));
-				b.start = Math.min(...b.nodes);
-				b.end = Math.max(...b.nodes);
-				if (b.attachToRow === i) b.attachToRow = j;
-				else if (b.attachToRow === j) b.attachToRow = i;
-				return;
-			}
-			if (b.start === i) b.start = j; else if (b.start === j) b.start = i;
-			if (b.end === i) b.end = j; else if (b.end === j) b.end = i;
-			if (b.attachToRow === i) b.attachToRow = j;
-			else if (b.attachToRow === j) b.attachToRow = i;
-		});
-		if (this.sidebarSelected === i) this.sidebarSelected = j;
-		else if (this.sidebarSelected === j) this.sidebarSelected = i;
-		this.selectedIndices = this.selectedIndices.map(idx => (idx === i ? j : idx === j ? i : idx));
-		this.renderSidebarList();
-		this.renderMainRows();
-		this.renderCanvas();
-	}
-
 	clearBracketsOnly(): void {
 		this.confirmAction("Clear ALL brackets (propositions stay)?", () => {
 			this.saveToHistory();
@@ -3488,8 +3703,9 @@ export class DAView extends TextFileView {
 	}
 
 	resetAll(): void {
-		this.confirmAction("Reset EVERYTHING (propositions + brackets)?", () => {
-			this.saveToHistory();
+		this.confirmAction("Reset EVERYTHING (propositions + brackets + Text Flow + Sentence Flow)? You can undo this with Ctrl+Z.", () => {
+			// Flows included, so undo brings Text Flow / Sentence Flow back too.
+			this.saveToHistory(true);
 			this.propositions = [];
 			this.brackets = [];
 			this.selectedIndices = [];
@@ -3498,24 +3714,25 @@ export class DAView extends TextFileView {
 			this.sidebarSelected = -1;
 			const ta = this.byId<HTMLTextAreaElement>("paste-area");
 			if (ta) ta.value = "";
+			FLOW_KEYS.forEach(key => this.loadFlowFromJson(key, undefined));
 			this.renderSidebarList();
 			this.renderMainRows();
 			this.renderCanvas();
+			this.renderNotesTab();
+			this.applyNotesZoom();
 		});
-	}
-
-	loadThessaloniansExample(): void {
-		this.saveToHistory();
-		this.propositions = EXAMPLE_PROPOSITIONS.map(p => ({ ...p }));
-		this.brackets = [];
-		this.renderSidebarList();
-		this.renderMainRows();
-		this.renderCanvas();
 	}
 
 	// ---------- export ----------
 
 	async exportPNG(): Promise<void> {
+		// The diagram lives on the Brackets tab; exporting from a flow tab
+		// would capture a hidden (zero-size) panel.
+		if (this.activeTab !== "brackets") {
+			this.switchTab("brackets");
+			await new Promise(r => window.requestAnimationFrame(r));
+			await new Promise(r => window.requestAnimationFrame(r));
+		}
 		const container = this.byId("diagram-container");
 		const scaler = this.byId("workspace-scaler");
 		if (!container || !scaler) return;
@@ -3526,6 +3743,15 @@ export class DAView extends TextFileView {
 		const savedWidth = container.style.width;
 		const savedHeight = container.style.height;
 		const savedSvgW = svg ? svg.getAttribute("width") : null;
+
+		// Leave selection highlights and row × buttons out of the image.
+		const savedSelection = { indices: this.selectedIndices, bracketId: this.selectedBracketId, corners: this.selectedCorners };
+		this.selectedIndices = [];
+		this.selectedBracketId = null;
+		this.selectedCorners = [];
+		this.renderMainRows();
+		this.renderCanvas();
+		scaler.addClass("da-exporting");
 
 		scaler.setCssStyles({ transform: "scale(1)", transition: "none" });
 
@@ -3547,9 +3773,18 @@ export class DAView extends TextFileView {
 
 		container.setCssStyles({ width: `${fullW}px`, height: `${fullH}px` });
 
+		// The image background is the diagram's own (themed) background, so
+		// light text in a dark theme doesn't end up on white.
+		const bgOf = (el: Element | null) => {
+			const c = el ? getComputedStyle(el).backgroundColor : "";
+			return c && c !== "transparent" && !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(c) ? c : "";
+		};
+		const backgroundColor = bgOf(this.byId("workspace")) || bgOf(container) || bgOf(this.contentEl) || "#ffffff";
+
+		let bytes: Uint8Array | null = null;
 		try {
 			const canvas = await html2canvas(scaler, {
-				backgroundColor: "#ffffff",
+				backgroundColor,
 				scale: 2,
 				useCORS: true,
 				logging: false,
@@ -3561,25 +3796,29 @@ export class DAView extends TextFileView {
 				windowHeight: document.documentElement.scrollHeight,
 				scrollX: 0,
 				scrollY: 0,
+				// html2canvas rasterises the SVG on its own, where the theme's
+				// CSS variables (var(--da-...) in stroke/fill) don't resolve, so
+				// bake each element's computed colors into the cloned SVG.
+				onclone: (clonedDoc: Document) => {
+					const liveSvg = scaler.querySelector("svg");
+					const clonedSvg = clonedDoc.getElementById("bracket-svg");
+					if (!liveSvg || !clonedSvg) return;
+					const live = liveSvg.querySelectorAll("*");
+					const cloned = clonedSvg.querySelectorAll("*");
+					live.forEach((el, n) => {
+						const c = cloned[n];
+						if (!c) return;
+						const cs = getComputedStyle(el);
+						if (el.hasAttribute("stroke")) c.setAttribute("stroke", cs.stroke);
+						if (el.hasAttribute("fill")) c.setAttribute("fill", cs.fill);
+					});
+				},
 			});
 
 			const dataUrl = canvas.toDataURL("image/png");
-			const base64 = dataUrl.split(",")[1];
-			const binary = atob(base64);
-			const bytes = new Uint8Array(binary.length);
+			const binary = atob(dataUrl.split(",")[1]);
+			bytes = new Uint8Array(binary.length);
 			for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
-			const basename = this.file ? this.file.basename : "discourse-analysis";
-			const dir = this.file && this.file.parent ? this.file.parent.path : "";
-			const path = (dir ? dir + "/" : "") + basename + ".png";
-
-			const existing = this.app.vault.getAbstractFileByPath(path);
-			if (existing instanceof TFile) {
-				await this.app.vault.modifyBinary(existing, bytes.buffer);
-			} else {
-				await this.app.vault.createBinary(path, bytes.buffer);
-			}
-			new Notice(`Exported ${path}`);
 		} catch (err) {
 			console.error("DA-Tool: PNG export failed:", err);
 			new Notice("PNG export failed — see console for details.");
@@ -3590,7 +3829,48 @@ export class DAView extends TextFileView {
 				svg.setCssStyles({ width: "" });
 			}
 			scaler.setCssStyles({ transition: "", transform: `scale(${savedZoom})` });
+			scaler.removeClass("da-exporting");
+			this.selectedIndices = savedSelection.indices;
+			this.selectedBracketId = savedSelection.bracketId;
+			this.selectedCorners = savedSelection.corners;
+			this.renderMainRows();
+			this.renderCanvas();
 		}
+		if (!bytes) return;
+		const data = bytes.buffer as ArrayBuffer;
+
+		const basename = this.file ? this.file.basename : "discourse-analysis";
+		const dir = this.file && this.file.parent ? this.file.parent.path : "";
+		const prefix = dir && dir !== "/" ? dir + "/" : "";
+		const path = `${prefix}${basename}.png`;
+
+		const writeNew = async (target: string) => {
+			try {
+				await this.app.vault.createBinary(target, data);
+				new Notice(`Exported ${target}`);
+			} catch (err) {
+				console.error("DA-Tool: PNG export failed:", err);
+				new Notice("PNG export failed — see console for details.");
+			}
+		};
+
+		const existing = this.app.vault.getAbstractFileByPath(path);
+		if (!(existing instanceof TFile)) { await writeNew(path); return; }
+
+		// An earlier export is already there: replace it, or keep both.
+		new ChoiceModal(this.app, `"${path}" already exists. Replace it with this export, or keep both?`, [
+			{ label: "Replace", onChoose: () => {
+				void this.app.vault.modifyBinary(existing, data)
+					.then(() => new Notice(`Exported ${path}`))
+					.catch(err => { console.error("DA-Tool: PNG export failed:", err); new Notice("PNG export failed — see console for details."); });
+			} },
+			{ label: "Keep both", onChoose: () => {
+				let n = 1;
+				let target = `${prefix}${basename} ${n}.png`;
+				while (this.app.vault.getAbstractFileByPath(target)) target = `${prefix}${basename} ${++n}.png`;
+				void writeNew(target);
+			} },
+		]).open();
 	}
 
 	// ---------- misc UI wiring ----------
@@ -3614,29 +3894,32 @@ export class DAView extends TextFileView {
 		const diagramContainer = this.byId("diagram-container");
 		if (!diagramContainer) return;
 
+		// Move/up are tracked on the document, not the container, so letting
+		// go outside the diagram still ends the pan instead of leaving it
+		// stuck until the next click inside.
 		this.registerDomEvent(diagramContainer, "mousedown", (e: MouseEvent) => {
-			let isPanning = true;
+			if (e.button !== 0) return;
 			const startX = e.clientX;
 			const startY = e.clientY;
 			const scrollLeft = diagramContainer.scrollLeft;
 			const scrollTop = diagramContainer.scrollTop;
+			const doc = diagramContainer.ownerDocument;
+			const win = doc.defaultView ?? window;
 
 			const mouseMoveHandler = (ev: MouseEvent) => {
-				if (!isPanning) return;
-				const dx = ev.clientX - startX;
-				const dy = ev.clientY - startY;
-				diagramContainer.scrollLeft = scrollLeft - dx;
-				diagramContainer.scrollTop = scrollTop - dy;
+				diagramContainer.scrollLeft = scrollLeft - (ev.clientX - startX);
+				diagramContainer.scrollTop = scrollTop - (ev.clientY - startY);
 			};
 
 			const mouseUpHandler = () => {
-				isPanning = false;
-				diagramContainer.removeEventListener("mousemove", mouseMoveHandler);
-				diagramContainer.removeEventListener("mouseup", mouseUpHandler);
+				doc.removeEventListener("mousemove", mouseMoveHandler);
+				doc.removeEventListener("mouseup", mouseUpHandler);
+				win.removeEventListener("blur", mouseUpHandler);
 			};
 
-			diagramContainer.addEventListener("mousemove", mouseMoveHandler);
-			diagramContainer.addEventListener("mouseup", mouseUpHandler);
+			doc.addEventListener("mousemove", mouseMoveHandler);
+			doc.addEventListener("mouseup", mouseUpHandler);
+			win.addEventListener("blur", mouseUpHandler);
 		});
 	}
 
@@ -3665,6 +3948,12 @@ export class DAView extends TextFileView {
 				document.body.setCssStyles({ userSelect: "", cursor: "" });
 				document.removeEventListener("mousemove", onMouseMove);
 				document.removeEventListener("mouseup", onMouseUp);
+				// Remembered across files and restarts (plugin settings).
+				const width = parseInt(sidebar.style.width, 10);
+				if (!isNaN(width) && width !== this.plugin.settings.sidebarWidth) {
+					this.plugin.settings.sidebarWidth = width;
+					void this.plugin.saveSettings();
+				}
 			};
 
 			document.addEventListener("mousemove", onMouseMove);
@@ -3711,9 +4000,11 @@ export class DAView extends TextFileView {
 		if (e.key === "Tab") {
 			// Default contenteditable behavior for Tab moves focus to the next
 			// focusable element rather than inserting anything, so it has to be
-			// taken over entirely.
+			// taken over entirely. Shift+Tab takes back the tab just before
+			// the caret.
 			e.preventDefault();
-			this.insertNotesTabAtCaret();
+			if (e.shiftKey) this.removeNotesTabBeforeCaret();
+			else this.insertNotesTabAtCaret();
 			this.scheduleNotesLayout(true);
 			this.requestSave();
 			return;
@@ -3893,6 +4184,40 @@ export class DAView extends TextFileView {
 		after.collapse(true);
 		sel.removeAllRanges();
 		sel.addRange(after);
+	}
+
+	// Shift+Tab: removes the tab marker immediately before the caret
+	// (stepping out of any b/i/u wrapper the caret sits at the start of).
+	// Does nothing when the caret isn't right after a tab.
+	private removeNotesTabBeforeCaret(): void {
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return;
+		const canvas = this.flowCanvas();
+		const node = sel.anchorNode;
+		const offset = sel.anchorOffset;
+		if (!canvas || !node || !canvas.contains(node)) return;
+		let prev: ChildNode | null = null;
+		if (node.nodeType === Node.TEXT_NODE) {
+			if (((node as Text).data || "").slice(0, offset).replace(/\u200B/g, "") !== "") return;
+			let up: Node = node;
+			prev = node.previousSibling;
+			while (!prev && up.parentNode && up.parentNode !== canvas && !(up.parentNode.parentNode === canvas && (up.parentNode as HTMLElement).tagName === "DIV")) {
+				up = up.parentNode;
+				prev = up.previousSibling;
+			}
+		} else {
+			prev = node.childNodes[offset - 1] ?? null;
+		}
+		while (prev && prev.nodeType === Node.ELEMENT_NODE && !(prev as HTMLElement).classList.contains("da-tab") && prev.lastChild) prev = prev.lastChild;
+		if (!prev || prev.nodeType !== Node.ELEMENT_NODE || !(prev as HTMLElement).classList.contains("da-tab")) return;
+		const parent = prev.parentNode as Node;
+		const idx = Array.prototype.indexOf.call(parent.childNodes, prev) as number;
+		prev.remove();
+		const caret = document.createRange();
+		caret.setStart(parent, Math.min(idx, parent.childNodes.length));
+		caret.collapse(true);
+		sel.removeAllRanges();
+		sel.addRange(caret);
 	}
 
 	// Finds the <div> line (direct child of the canvas) containing the

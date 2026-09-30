@@ -2,7 +2,7 @@
 
 Create and edit visual discourse-analysis bracket diagrams for biblical texts, natively in your vault. This plugin adds a new file type — `.da` — that Obsidian opens in a dedicated diagramming view, so a passage's discourse structure lives alongside your other sermon-prep notes and syncs with the rest of your vault.
 
-Prefer the browser? The same tool runs as a free web app at **[sots1689.github.io/DA-Tool](https://sots1689.github.io/DA-Tool/)** (no install; save a project as a standalone HTML file).
+Prefer the browser? The same tool runs as a free web app at **[sots1689.github.io/DA-Tool](https://sots1689.github.io/DA-Tool/)** (no install; your work is kept in the browser between visits, and you can save a project as a standalone HTML file). The web app has the same features, with a light/dark switch, UI size menu, and custom colors (🎨) in its header.
 
 ## What it does
 
@@ -13,16 +13,17 @@ Discourse analysis (also called phrasing or bracketing) is a method of visually 
 - Paste in a passage and split it into individual propositions. Verse numbers are detected automatically — line-prefixed, superscript, or embedded mid-sentence — along with passage references in headers, trailers, and citations
 - Propositions are numbered by verse (5a, 5b, 5c…). Splitting or inserting re-letters the verse group in order, drag-reordering keeps labels intact, and any label can be clicked to edit by hand
 - Double-click a proposition to split it at the exact click point
+- Bold, italic, and underline within propositions (Ctrl+B / Ctrl+I / Ctrl+U)
 - Connect propositions with two-node or single-node brackets; nesting depth is computed automatically so brackets never cross
-- Label brackets with logical relationships, with a built-in reference for the 18 common relationship types
+- Label brackets with logical relationships, with a built-in reference for 20 relationship types; type `	f` or `	herefore` to get ∴
 - Double-click a bracket's label box to mark it as the passage's **main point** (shown in a distinct color)
-- Indent/outdent, drag-and-drop reorder, and undo/redo your edits
+- Indent/outdent, drag-and-drop reorder, and undo/redo your edits (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, or the ↶ / ↷ buttons)
 - Zoom controls and a right-to-left mode for Hebrew text
 - Export the diagram as a PNG saved directly into your vault
 
 ### Text Flow
 
-A Word-like canvas for laying out a whole Greek passage clause by clause — independent clauses left-justified, dependent clauses indented — as preparation for discourse analysis. An **Instructions** button opens Blake Franze's *Text Flow Instructions* (v1.6) right inside the tool, with guidelines and worked examples (Matt 8:23–29, 1 John 1:5–10).
+A Word-like canvas for laying out a whole Greek passage clause by clause — independent clauses left-justified, dependent clauses indented — as preparation for discourse analysis. An **Instructions** button opens Blake Franze's *Text Flow Instructions* (v1.6) right inside the tool, with guidelines and worked examples (Matt 8:23–29, 1 John 1:5–10). The **→** button copies each line into the Brackets tab as a proposition, keeping its indent level and verse number.
 
 ### Sentence Flow
 
@@ -30,11 +31,12 @@ The same canvas, kept separately, for grammatically breaking down individual com
 
 Both flow tabs support:
 
-- Tab-aligned columns via a configurable default tab stop; Ctrl+M / Ctrl+Shift+M indent the whole line
+- Tab-aligned columns via a configurable default tab stop (Shift+Tab removes a tab); Ctrl+M / Ctrl+Shift+M indent the whole line
 - New lines keep the previous line's indent, so you can flow a passage with just Enter and Tab
 - Bold, italic, and underline
 - Plain-text paste (tabs are preserved as tab stops)
 - Their own independent zoom level
+- A **?** button with the editor's keyboard shortcuts
 - Correct rendering of polytonic Greek accents
 
 ### Customization (Obsidian)
