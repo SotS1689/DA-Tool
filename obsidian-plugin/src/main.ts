@@ -163,6 +163,19 @@ export default class DAToolPlugin extends Plugin {
 			},
 		});
 
+		// Types "∴" at the caret of the focused DA text field. Bind it under
+		// Settings > Hotkeys (e.g. Alt+.); typing "\tf" works without a hotkey.
+		this.addCommand({
+			id: "insert-therefore",
+			name: "Insert ∴ (therefore)",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(DAView);
+				if (!view) return false;
+				if (!checking) view.insertTherefore();
+				return true;
+			},
+		});
+
 		// Available everywhere (not just in a DA view) since it's a vault-wide
 		// setting; no default hotkeys, same as above.
 		const stepUiScale = (dir: -1 | 0 | 1) => {

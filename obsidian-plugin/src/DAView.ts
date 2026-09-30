@@ -1631,6 +1631,7 @@ export class DAView extends TextFileView {
 		this.applySidebarHidden();
 
 		this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => this.handleKeydown(e));
+		this.registerDomEvent(document, "input", (e: Event) => this.expandTherefore(e.target));
 
 		this.qsa<HTMLButtonElement>(".da-tab-btn").forEach(btn => {
 			this.registerDomEvent(btn, "click", () => {
@@ -1735,6 +1736,59 @@ export class DAView extends TextFileView {
 		// view the mouse most recently interacted with; we approximate by checking
 		// the leaf is the active leaf in the workspace.
 		return this.leaf === this.app.workspace.activeLeaf;
+	}
+
+	// Typing "\tf" or "\therefore" in any text field of this view turns into
+	// "∴" as soon as the last character is typed (LaTeX-style, so it can't
+	// collide with normal text). Undo (Ctrl+Z) in a contenteditable restores
+	// the typed text.
+	private expandTherefore(target: EventTarget | null): void {
+		const el = target as HTMLElement | null;
+		if (!el || !this.containerEl.contains(el)) return;
+		const triggers = ["\\therefore", "\\tf"];
+
+		if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+			const pos = el.selectionStart;
+			if (pos === null || pos !== el.selectionEnd) return;
+			const before = el.value.slice(0, pos);
+			const trig = triggers.find(t => before.endsWith(t));
+			if (!trig) return;
+			el.setRangeText("∴", pos - trig.length, pos, "end");
+			el.dispatchEvent(new Event("input", { bubbles: true }));
+			return;
+		}
+
+		if (!el.isContentEditable) return;
+		const sel = window.getSelection();
+		if (!sel || !sel.isCollapsed || !sel.anchorNode || sel.anchorNode.nodeType !== Node.TEXT_NODE) return;
+		const node = sel.anchorNode as Text;
+		const before = (node.data ?? "").slice(0, sel.anchorOffset);
+		const trig = triggers.find(t => before.endsWith(t));
+		if (!trig) return;
+		const range = document.createRange();
+		range.setStart(node, sel.anchorOffset - trig.length);
+		range.setEnd(node, sel.anchorOffset);
+		sel.removeAllRanges();
+		sel.addRange(range);
+		document.execCommand("insertText", false, "∴");
+	}
+
+	// For the "Insert ∴" command (bindable to a hotkey): types "∴" at the
+	// caret of whatever text field in this view has focus. Returns false if
+	// nothing editable is focused.
+	insertTherefore(): boolean {
+		const active = document.activeElement as HTMLElement | null;
+		if (!active || !this.containerEl.contains(active)) return false;
+		if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+			const start = active.selectionStart ?? active.value.length;
+			const end = active.selectionEnd ?? start;
+			active.setRangeText("∴", start, end, "end");
+			active.dispatchEvent(new Event("input", { bubbles: true }));
+			return true;
+		}
+		if (!active.isContentEditable) return false;
+		document.execCommand("insertText", false, "∴");
+		return true;
 	}
 
 	private handleKeydown(e: KeyboardEvent): void {
