@@ -1,6 +1,6 @@
 import { addIcon, App, Modal, Scope, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import html2canvas from "html2canvas";
-import { TEXT_FLOW_INSTRUCTION_PAGES } from "./textFlowInstructions";
+import { TEXT_FLOW_INSTRUCTIONS, TextFlowBlock } from "./textFlowInstructions";
 
 export const VIEW_TYPE_DA = "da-tool-view";
 
@@ -1172,6 +1172,59 @@ function renderInstructionSections(container: HTMLElement, sections: Instruction
 	}
 }
 
+// Inline markup for the Text Flow Instructions: **bold**, *italic*,
+// ***bold italic***, __underline__, ^superscript^ (nestable).
+function appendTextFlowInline(parent: HTMLElement, text: string): void {
+	const markers: [string, keyof HTMLElementTagNameMap][] = [["***", "strong"], ["**", "strong"], ["__", "u"], ["*", "em"], ["^", "sup"]];
+	let plain = "";
+	let i = 0;
+	while (i < text.length) {
+		const m = markers.find(([mk]) => text.startsWith(mk, i));
+		// A lone "*" closes only on a lone "*", so italics can contain **bold**.
+		let close = -1;
+		if (m) {
+			for (let j = i + m[0].length; j < text.length; j++) {
+				if (m[0] === "*" && text.startsWith("**", j)) { j++; continue; }
+				if (text.startsWith(m[0], j)) { close = j; break; }
+			}
+		}
+		if (!m || close < 0) { plain += text[i++]; continue; }
+		if (plain) { parent.appendText(plain); plain = ""; }
+		let el = parent.createEl(m[1]);
+		if (m[0] === "***") el = el.createEl("em");
+		appendTextFlowInline(el, text.slice(i + m[0].length, close));
+		i = close + m[0].length;
+	}
+	if (plain) parent.appendText(plain);
+}
+
+function renderTextFlowInstructions(container: HTMLElement, blocks: TextFlowBlock[]): void {
+	for (const b of blocks) {
+		if ("h" in b) { container.createEl("h3", { text: b.h }); continue; }
+		if ("li" in b) {
+			const row = container.createDiv({ cls: "da-tfi-li" });
+			row.style.setProperty("--da-tfi-level", String(b.level));
+			row.createSpan({ cls: "da-tfi-marker", text: b.marker });
+			appendTextFlowInline(row.createSpan(), b.li);
+			continue;
+		}
+		if ("p" in b) {
+			const p = container.createEl("p", { cls: b.indent ? "da-tfi-p da-tfi-indent" : "da-tfi-p" });
+			p.style.setProperty("--da-tfi-level", String(b.level ?? 0));
+			appendTextFlowInline(p, b.p);
+			continue;
+		}
+		const flow = container.createDiv({ cls: "da-tfi-flow" });
+		flow.style.setProperty("--da-tfi-level", String(b.level ?? 0));
+		for (const line of b.flow) {
+			const tabs = /^\t*/.exec(line)![0].length;
+			const div = flow.createDiv({ cls: line ? "da-tfi-line" : "da-tfi-gap" });
+			div.style.setProperty("--da-tfi-tabs", String(tabs));
+			if (line) appendTextFlowInline(div, line.slice(tabs));
+		}
+	}
+}
+
 const HISTORY_LIMIT = 20;
 
 function emptyProjectData(): ProjectData {
@@ -1636,11 +1689,11 @@ export class DAView extends TextFileView {
 		renderInstructionSections(flowHelpInner.createDiv({ cls: "da-modal-body" }).createDiv({ cls: "da-instructions" }), FLOW_INSTRUCTIONS);
 
 		const tfModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "textflow-instructions-modal" } });
-		const tfModalInner = tfModal.createDiv({ cls: "da-modal da-modal-wide da-ui-scaled" });
+		const tfModalInner = tfModal.createDiv({ cls: "da-modal da-modal-tfi da-ui-scaled" });
 		const tfModalHeader = tfModalInner.createDiv({ cls: "da-modal-header" });
 		tfModalHeader.createEl("h2", { cls: "da-modal-title", text: "Text Flow Instructions" });
 		tfModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-textflow-instructions" } });
-		tfModalInner.createDiv({ cls: "da-modal-body da-tf-instructions-pages", attr: { id: "textflow-instructions-pages" } });
+		renderTextFlowInstructions(tfModalInner.createDiv({ cls: "da-modal-body" }).createDiv({ cls: "da-instructions da-tf-instructions" }), TEXT_FLOW_INSTRUCTIONS);
 	}
 
 	// Toolbar for a flow tab (Text Flow or Sentence Flow - identical apart
@@ -3968,12 +4021,6 @@ export class DAView extends TextFileView {
 		this.byId("lr-modal")?.classList.add("hidden");
 	}
 	showTextFlowInstructions(): void {
-		const pagesEl = this.byId("textflow-instructions-pages");
-		if (pagesEl && !pagesEl.childElementCount) {
-			TEXT_FLOW_INSTRUCTION_PAGES.forEach((src, i) => {
-				pagesEl.createEl("img", { cls: "da-tf-instructions-page", attr: { src, alt: `Text Flow Instructions, page ${i + 1}` } });
-			});
-		}
 		this.byId("textflow-instructions-modal")?.classList.remove("hidden");
 	}
 	hideTextFlowInstructions(): void {
