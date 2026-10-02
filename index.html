@@ -150,7 +150,36 @@
 	.tf-instructions h3 + .tfi-flow { margin-left: 0; }
 	.tfi-line { padding-left: calc(var(--tfi-tabs) * 2em); }
 	.tfi-gap { height: 0.8em; }
-	.tfi-flow sup { font-size: 0.65em; vertical-align: super; line-height: 0; }
+	.tfi-flow sup, .tfi-sf sup { font-size: 0.65em; vertical-align: super; line-height: 0; }
+	.tfi-source { font-size: 0.8rem; color: var(--muted, #64748b); margin-top: 2px; }
+	.tfi-gov { text-decoration: underline dashed; text-underline-offset: 3px; }
+	/* Sentence-flow diagrams: rows are 2.1em tall and every segment is placed
+	 * at an em offset, so modifiers sit under the word they modify. Elbows run
+	 * from a stem down to the row's middle; a chained elbow starts at the row
+	 * above's middle so siblings join into one line. */
+	.tfi-sf { margin: 6px 0 12px calc(var(--tfi-level) * 1.75em + 1.75em); font-family: "DA Sentence Flow Greek", Georgia, "Times New Roman", serif; font-size: 1rem; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+	.tf-instructions h3 + .tfi-sf { margin-left: 0; }
+	.tfi-sf-row { position: relative; height: 2.1em; line-height: 2.1em; }
+	.tfi-sf .tfi-gap { height: 1em; }
+	.tfi-sf-compact .tfi-sf-row { height: 1.5em; line-height: 1.5em; }
+	.tfi-sf-seg { position: absolute; top: 0; white-space: nowrap; padding-right: 0.5em; }
+	.tfi-sf-elbow, .tfi-sf-brace { position: absolute; box-sizing: border-box; border: 0 dashed currentColor; opacity: 0.6; pointer-events: none; }
+	.tfi-sf-elbow { top: -0.6em; height: 1.65em; border-left-width: 1px; border-bottom-width: 1px; }
+	.tfi-sf-elbow.tfi-sf-chain { top: -1.05em; height: 2.1em; }
+	.tfi-sf-brace-top { top: 50%; height: 50%; border-top-width: 1px; border-right-width: 1px; }
+	.tfi-sf-brace-bot { top: 0; height: 50%; border-bottom-width: 1px; border-right-width: 1px; }
+	.tfi-sf-brace-mid { top: 0; height: 100%; border-left-width: 1px; }
+	.tfi-sf-brace-mid::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed currentColor; }
+	/* Bracket symbols: term, a bracket with its corner labels, notation. */
+	.tfi-sym { display: flex; align-items: center; margin: 2px 0 2px calc(var(--tfi-level) * 1.75em); }
+	.tfi-sym-term { flex: 0 0 11em; }
+	.tfi-sym-glyph { position: relative; flex: 0 0 5em; height: 2.6em; }
+	.tfi-sym-bracket { position: absolute; left: 2.3em; top: 0.35em; bottom: 0.35em; width: 1.6em; border: 2px solid currentColor; border-right: 0; }
+	.tfi-sym-label { position: absolute; right: 2.9em; line-height: 1; font-weight: 600; white-space: nowrap; }
+	.tfi-sym-top { top: 0; }
+	.tfi-sym-mid { top: 50%; transform: translateY(-50%); }
+	.tfi-sym-bot { bottom: 0; }
+	.tfi-sym-note { margin-left: 1em; color: var(--muted, #64748b); white-space: nowrap; }
 
 	/* ---------- space-efficient proposition list (left sidebar) ---------- */
 	.prop-list-tight { padding: 4px; display: flex; flex-direction: column; gap: 2px; }
@@ -551,7 +580,8 @@
                 </div>
                 <button type="button" onclick="clearBracketsOnly()" class="toolbar-btn toolbar-btn-warn" title="Clear All Brackets">Clear Brackets</button>
                 <button type="button" onclick="resetAll()" class="toolbar-btn toolbar-btn-danger" title="Reset Everything">Reset All</button>
-                <button type="button" onclick="showInstructions()" class="toolbar-btn" title="Instructions" aria-label="Instructions">?</button>
+                <button type="button" onclick="showMethodInstructions('bracketing')" class="toolbar-btn" title="Bracketing Instructions" aria-label="Bracketing Instructions">Instructions</button>
+                <button type="button" onclick="showInstructions()" class="toolbar-btn" title="Using this tool" aria-label="Using this tool">?</button>
             </div>
             <div class="tab-toolbar toolbar-hidden" id="textflow-toolbar">
                 <button type="button" class="sf-fmt-btn" data-fmt="bold" title="Bold (Ctrl+B)" aria-label="Bold" onmousedown="event.preventDefault();" onclick="applyNotesFormat('bold')">B</button>
@@ -569,7 +599,7 @@
                     <button type="button" onclick="resetNotesZoom()" class="toolbar-btn" title="Reset Zoom" aria-label="Reset Zoom">↺</button>
                 </div>
                 <button type="button" onclick="convertTextFlowToBrackets()" class="toolbar-btn toolbar-btn-icon-only" title="Copy each line to the Brackets canvas as a proposition" aria-label="Copy lines to Brackets">→</button>
-                <button type="button" onclick="showTextFlowInstructions()" class="toolbar-btn" title="Text Flow Instructions" aria-label="Text Flow Instructions">Instructions</button>
+                <button type="button" onclick="showMethodInstructions('textflow')" class="toolbar-btn" title="Text Flow Instructions" aria-label="Text Flow Instructions">Instructions</button>
                 <button type="button" onclick="showFlowHelp()" class="toolbar-btn toolbar-btn-icon-only" title="Using this editor" aria-label="Using this editor">?</button>
             </div>
             <div class="tab-toolbar toolbar-hidden" id="sentenceflow-toolbar">
@@ -587,6 +617,7 @@
                     <button type="button" onclick="adjustNotesZoom(0.1)" class="toolbar-btn" title="Zoom In" aria-label="Zoom In">+</button>
                     <button type="button" onclick="resetNotesZoom()" class="toolbar-btn" title="Reset Zoom" aria-label="Reset Zoom">↺</button>
                 </div>
+                <button type="button" onclick="showMethodInstructions('sentenceflow')" class="toolbar-btn" title="Sentence Flow Instructions" aria-label="Sentence Flow Instructions">Instructions</button>
                 <button type="button" onclick="showFlowHelp()" class="toolbar-btn toolbar-btn-icon-only" title="Using this editor" aria-label="Using this editor">?</button>
             </div>
         </div>
@@ -677,6 +708,7 @@
                         </li>
                         <li><b>Add Single-Node Bracket</b> (second toolbar button). First select <b>two or more</b> propositions and/or corner boxes. Two corners of the same bracket can't be used together.</li>
                         <li>Then click the button. The layout is worked out for you, so brackets never cross.</li>
+                        <li><b>Instructions</b> (toolbar) opens the <i>Bracketing Instructions</i>: Fuller's bracket symbols, the steps of discourse analysis, and hints for bracketing, adapted from Beale's <i>Exegetical Manual</i>.</li>
                     </ul>
                     <h3>Labels and main point</h3>
                     <ul>
@@ -731,7 +763,7 @@
                         <li>Pasting gives plain text; tabs in the pasted text become tab stops.</li>
                         <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes typing here separately from the Brackets tab.</li>
                         <li><b>→</b> (Text Flow) copies each line into the Brackets tab as a proposition. How far a line is indented sets the proposition's indent, and verse numbers become labels. If Brackets already has content, you'll be asked whether to <b>Replace</b> it (this also clears the brackets) or <b>Append</b> to it.</li>
-                        <li><b>Instructions</b> (Text Flow) opens Blake Franze's <i>Text Flow Instructions</i>.</li>
+                        <li><b>Instructions</b> opens Blake Franze's <i>Text Flow Instructions</i> (Text Flow) or the <i>Sentence Flow Instructions</i> adapted from Beale's <i>Exegetical Manual</i> (Sentence Flow).</li>
                     </ul>
                 </div>
             </div>
@@ -3404,9 +3436,10 @@ function exportPNG() {
         }
 
         // Inline markup for the Text Flow Instructions: **bold**, *italic*,
-        // ***bold italic***, __underline__, ^superscript^ (nestable).
+        // ***bold italic***, __underline__, ~~dashed underline~~, ^superscript^
+        // (nestable).
         function appendTextFlowInline(parent, text) {
-            const markers = [['***', 'strong'], ['**', 'strong'], ['__', 'u'], ['*', 'em'], ['^', 'sup']];
+            const markers = [['***', 'strong'], ['**', 'strong'], ['__', 'u'], ['~~', 'span'], ['*', 'em'], ['^', 'sup']];
             let plain = '';
             let i = 0;
             while (i < text.length) {
@@ -3423,6 +3456,7 @@ function exportPNG() {
                 if (plain) { parent.appendChild(document.createTextNode(plain)); plain = ''; }
                 let el = parent.appendChild(document.createElement(m[1]));
                 if (m[0] === '***') el = el.appendChild(document.createElement('em'));
+                if (m[0] === '~~') el.className = 'tfi-gov';
                 appendTextFlowInline(el, text.slice(i + m[0].length, close));
                 i = close + m[0].length;
             }
@@ -3450,6 +3484,49 @@ function exportPNG() {
                     appendTextFlowInline(p, b.p);
                     continue;
                 }
+                if ('sf' in b) {
+                    const sf = add(container, 'div', b.compact ? 'tfi-sf tfi-sf-compact' : 'tfi-sf');
+                    sf.style.setProperty('--tfi-level', b.level || 0);
+                    let prevStems = [];
+                    for (const row of b.sf) {
+                        const rowEl = add(sf, 'div', row.length ? 'tfi-sf-row' : 'tfi-gap');
+                        for (const seg of row) {
+                            if (seg.brace) {
+                                const w = seg.w ?? 1;
+                                const brace = add(rowEl, 'span', 'tfi-sf-brace tfi-sf-brace-' + seg.brace);
+                                brace.style.left = (seg.brace === 'mid' ? seg.x : seg.x - w) + 'em';
+                                brace.style.width = w + 'em';
+                                continue;
+                            }
+                            if (seg.from !== undefined) {
+                                // Rows hanging from the same stem chain into one line.
+                                const elbow = add(rowEl, 'span', prevStems.includes(seg.from) ? 'tfi-sf-elbow tfi-sf-chain' : 'tfi-sf-elbow');
+                                elbow.style.left = seg.from + 'em';
+                                elbow.style.width = Math.max(0.2, seg.x - seg.from - 0.25) + 'em';
+                            }
+                            const text = add(rowEl, 'span', 'tfi-sf-seg');
+                            text.style.left = seg.x + 'em';
+                            appendTextFlowInline(text, seg.t || '');
+                        }
+                        prevStems = row.flatMap(seg => seg.from === undefined ? [] : [seg.from]);
+                    }
+                    continue;
+                }
+                if ('sym' in b) {
+                    for (const s of b.sym) {
+                        const row = add(container, 'div', 'tfi-sym');
+                        row.style.setProperty('--tfi-level', b.level || 0);
+                        add(row, 'span', 'tfi-marker').textContent = s.marker;
+                        add(row, 'span', 'tfi-sym-term').textContent = s.term;
+                        const glyph = add(row, 'span', 'tfi-sym-glyph');
+                        add(glyph, 'span', 'tfi-sym-bracket');
+                        for (const pos of ['top', 'mid', 'bot']) {
+                            if (s[pos]) add(glyph, 'span', 'tfi-sym-label tfi-sym-' + pos).textContent = s[pos];
+                        }
+                        add(row, 'span', 'tfi-sym-note').textContent = s.note;
+                    }
+                    continue;
+                }
                 const flow = add(container, 'div', 'tfi-flow');
                 flow.style.setProperty('--tfi-level', b.level || 0);
                 for (const line of b.flow) {
@@ -3461,13 +3538,15 @@ function exportPNG() {
             }
         }
 
-        function showTextFlowInstructions() {
-            const el = document.getElementById('textflow-instructions-body');
-            if (el && !el.childElementCount) renderTextFlowInstructions(el, TEXT_FLOW_INSTRUCTIONS);
-            document.getElementById('textflow-instructions-modal').classList.remove('hidden');
+        // key: 'textflow' | 'sentenceflow' | 'bracketing'. Rendered on first open.
+        function showMethodInstructions(key) {
+            const blocks = { textflow: TEXT_FLOW_INSTRUCTIONS, sentenceflow: SENTENCE_FLOW_INSTRUCTIONS, bracketing: BRACKETING_INSTRUCTIONS }[key];
+            const el = document.getElementById(key + '-instructions-body');
+            if (el && !el.childElementCount) renderTextFlowInstructions(el, blocks);
+            document.getElementById(key + '-instructions-modal').classList.remove('hidden');
         }
-        function hideTextFlowInstructions() {
-            document.getElementById('textflow-instructions-modal').classList.add('hidden');
+        function hideMethodInstructions(key) {
+            document.getElementById(key + '-instructions-modal').classList.add('hidden');
         }
 
         function showFlowHelp() {
@@ -4458,7 +4537,9 @@ function loadEmbeddedProjectData() {
 			clearIn('#sidebar-prop-list');
 			clearIn('#notes-canvas');
 			clearIn('#textflow-canvas');
-			clearIn('#textflow-instructions-pages');
+			clearIn('#textflow-instructions-body');
+			clearIn('#sentenceflow-instructions-body');
+			clearIn('#bracketing-instructions-body');
 			const le = clonedDoc.querySelector('#label-editor');
 			if (le) le.remove();
 			clonedDoc.querySelectorAll('.da-modal').forEach(m => m.classList.add('hidden'));
@@ -4683,14 +4764,38 @@ function loadEmbeddedProjectData() {
 </div>
 
 <!-- Text Flow Instructions Modal -->
-<div id="textflow-instructions-modal" class="da-modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);" onclick="if (event.target === this) hideTextFlowInstructions()">
+<div id="textflow-instructions-modal" class="da-modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);" onclick="if (event.target === this) hideMethodInstructions('textflow')">
     <div class="ui-scaled bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="max-width: 48rem; max-height: calc(90vh / var(--ui-scale));">
         <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
-            <h2 class="title-font text-2xl tracking-[-0.5px]">Text Flow Instructions</h2>
-            <button onclick="hideTextFlowInstructions()" class="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xl leading-none">×</button>
+            <div><h2 class="title-font text-2xl tracking-[-0.5px]">Text Flow Instructions</h2><div class="tfi-source">Source: Blake Franze</div></div>
+            <button onclick="hideMethodInstructions('textflow')" class="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xl leading-none">×</button>
         </div>
         <div class="overflow-auto p-8 flex-1 min-h-0">
             <div id="textflow-instructions-body" class="instructions-text tf-instructions"></div>
+        </div>
+    </div>
+</div>
+<!-- Sentence Flow Instructions Modal -->
+<div id="sentenceflow-instructions-modal" class="da-modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);" onclick="if (event.target === this) hideMethodInstructions('sentenceflow')">
+    <div class="ui-scaled bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="max-width: 48rem; max-height: calc(90vh / var(--ui-scale));">
+        <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
+            <div><h2 class="title-font text-2xl tracking-[-0.5px]">Sentence Flow Instructions</h2><div class="tfi-source">Source: Daniel Fuller and Gregory Beale</div></div>
+            <button onclick="hideMethodInstructions('sentenceflow')" class="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xl leading-none">×</button>
+        </div>
+        <div class="overflow-auto p-8 flex-1 min-h-0">
+            <div id="sentenceflow-instructions-body" class="instructions-text tf-instructions"></div>
+        </div>
+    </div>
+</div>
+<!-- Bracketing Instructions Modal -->
+<div id="bracketing-instructions-modal" class="da-modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);" onclick="if (event.target === this) hideMethodInstructions('bracketing')">
+    <div class="ui-scaled bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="max-width: 48rem; max-height: calc(90vh / var(--ui-scale));">
+        <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
+            <div><h2 class="title-font text-2xl tracking-[-0.5px]">Bracketing Instructions</h2><div class="tfi-source">Source: Daniel Fuller and Gregory Beale</div></div>
+            <button onclick="hideMethodInstructions('bracketing')" class="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xl leading-none">×</button>
+        </div>
+        <div class="overflow-auto p-8 flex-1 min-h-0">
+            <div id="bracketing-instructions-body" class="instructions-text tf-instructions"></div>
         </div>
     </div>
 </div>
@@ -4901,6 +5006,317 @@ function loadEmbeddedProjectData() {
         { marker: "ii.", level: 2, li: "**However,** in complicated cases like this, you may feel free to simplify the propositions into one: “The man who believes in the Lord speaks.”" },
         { marker: "b.", level: 1, li: "Distinctions in semantics are just as “real” as those in grammar, but they are sometimes more vague or ambiguous. Therefore, DA involves not only observation, but *interpretation.* It is not always clear-cut. The processes of identifying propositions and naming their logical relationships have rules grounded in how semantics work, but DA (like exegesis in general) is just as much of an “art” as it is a “science.”" },
         { marker: "3)", level: 0, li: "Place brackets and identify logical relationships, using Beale’s *Interpretive Lexicon.*" },
+];
+
+        // Identical copies of the arrays in obsidian-plugin/src/sentenceFlowInstructions.ts
+        // and bracketingInstructions.ts (from G. K. Beale's Exegetical Manual).
+        const SENTENCE_FLOW_INSTRUCTIONS = [
+        { h: "Sentence Flows: Introduction" },
+        { indent: true, p: "The sentence flow is a visual way to understand the flow of thought or the grammar of a biblical text. In __exegetical__ courses one uses the flow more often to understand the flow of narrative (Gospels, Acts, Revelation) or rhetorical (Epistles) thought. In __language__ courses such as GL 201, however, we will use the flow to analyze grammar. The sentence flow as a visualization of grammar is superior to the sentence __diagram__, a slightly more wooden and fragmented approach which Brooks and Winbery use in their discussion of sentences and clauses in their *Syntax*. If you learn to use the flow with reflexive ease in your exegesis, you will find it more valuable than the diagram, since the flow better appreciates the design and purpose of language." },
+        { indent: true, p: "The flow operates in terms of two principles, __subordination__ and __coordination__. The first is more important than the second, so we will concentrate on subordination. There are at least three types of subordination which occur in texts:" },
+        { marker: "(1)", level: 1, li: "at the broadest level, whole blocks of material made up of several sentences can be subordinated to other blocks of material;" },
+        { marker: "(2)", level: 1, li: "more narrowly, we encounter the subordination of some (dependent, subordinate, or hypotactic) __clauses__ to the main (or independent) clause of a given sentence;" },
+        { marker: "(3)", level: 1, li: "more narrowly still, we encounter the subordination of some units __within a clause__ to other units in that same clause." },
+        { p: "The sentence flow is designed to visualize these types of subordination." },
+        { indent: true, p: "Since grammar largely functions in terms of the second and third types of subordination, we are more concerned in GL 201 with these two types, although in exegetical courses you will be concerned with all three. And of the second and third, the third will concern us more than the second, since we don’t get to clauses officially until the last part of the term." },
+
+        { h: "(1)" },
+        { indent: true, p: "Let us look at the most narrow type of subordination, that of the subordination of some units to others within a clause. Here we have two basic relationships expressed: that of __adjectives to nouns__, and that of __adverbs to verbs__. In other words, in a given clause you will have adjectival ideas subordinated to __noun-governors__, and adverbial ideas subordinated to __verb-governors__. In any clause there are no more than five chief governors: the subject, the verb, the direct object, the indirect object, and the predicate. Four of these (subject, direct object, predicate, and indirect object) are noun-governors; the remaining one (the verb) is a verb-governor. Thus in the following clause from John 5:14" },
+        { flow: ["μετὰ ταῦτα εὑρίσκει αὐτὸν ὁ Ἰησοῦς ἐν τῷ ἱερῷ"] },
+        { p: "we find __three__ chief governors: a subject (ὁ Ἰησοῦς), a verb (εὑρίσκει), and a direct object (αὐτόν). Thus the __top line__ of a sentence flow, which consists of the chief governors to which all else in a sentence will be subordinated, will be" },
+        { sf: [
+            [{ x: 0, t: "ὁ Ἰησοῦς" }, { x: 7.3, t: "εὑρίσκει" }, { x: 13.5, t: "αὐτόν" }],
+        ] },
+        { indent: true, p: "For this sentence we don’t have to worry about an indirect object or a predicate (the two other chief governors in a sentence), since neither appears in the sentence. Note that the word order has been rearranged to follow English word order: subject, verb, predicate, direct object, and indirect object. The rearrangement helps us to identify the grammatical role of each of the three chief governors in this sentence." },
+        { indent: true, p: "What do we do with the remaining material in John 5:14? Since the remainder is not subject, verb, direct object, indirect object, or predicate, we must __subordinate__ it. Since we said that the two basic relationships in a clause are between adjective and noun and between adverb and verb, then the remaining material will either be adjectival material subordinated to a governing noun, or adverbial material subordinated to a governing verb. In John 5:14, the remainder, consisting of two prepositional phrases, should be subordinated to the verb, since as a rule most prepositional phrases are adverbial. Thus we will flow the sentence as" },
+        { sf: [
+            [{ x: 0, t: "ὁ Ἰησοῦς" }, { x: 7.3, t: "~~εὑρίσκει~~" }, { x: 13.5, t: "αὐτόν" }],
+            [{ x: 9, t: "μετὰ ταῦτα", from: 8 }],
+            [{ x: 9, t: "ἐν τῷ ἱερῷ", from: 8 }],
+        ] },
+        { indent: true, p: "The first prepositional phrase is adverbial because it is a temporal modifier, meaning that it tells us __when__ Jesus found him. The second phrase is adverbial because it is a locative modifier, meaning that it tells us __where__ Jesus found him. Prepositional phrases most often serve these types of adverbial roles." },
+        { indent: true, p: "If our sentence were" },
+        { flow: ["εὑρίσκει ὁ υἱὸς ὁ ζῶν τοῦ ἀνθρώπου αὐτόν"] },
+        { p: "we would write the first line of a flow of this sentence as" },
+        { sf: [
+            [{ x: 0, t: "ὁ υἱός" }, { x: 9.7, t: "εὑρίσκει" }, { x: 19.7, t: "αὐτόν." }],
+        ] },
+        { indent: true, p: "Why did we leave out ὁ ζῶν and τοῦ ἀνθρώπου? Because neither serves the function of subject, verb, direct object, predicate, or indirect object. The first is an attributive participle which __modifies__ ὁ υἱός, and the second is a genitive noun which, like many genitives, functions much like an adjective to __modify__ its leading noun, which in this case is ὁ υἱός. Both are __adjectival__ (not adverbial) modifiers, and therefore require subordination to the noun which governs them. We would demonstrate the subordination as" },
+        { sf: [
+            [{ x: 0, t: "~~ὁ υἱός~~" }, { x: 4.8, t: "εὑρίσκει" }, { x: 11.9, t: "αὐτόν" }],
+            [{ x: 2, t: "ὁ ζῶν", from: 1 }],
+            [{ x: 2, t: "τοῦ ἀνθρώπου", from: 1 }],
+        ] },
+        { indent: true, p: "If we add the prepositional material of our earlier sentence from John 5:14, our flow becomes" },
+        { sf: [
+            [{ x: 0, t: "~~ὁ υἱός~~" }, { x: 15.8, t: "~~εὑρίσκει~~ αὐτόν" }],
+            [{ x: 2, t: "ὁ ζῶν", from: 1 }, { x: 17.6, t: "μετὰ ταῦτα", from: 16.6 }],
+            [{ x: 2, t: "τοῦ ἀνθρώπου", from: 1 }, { x: 17.6, t: "ἐν τῷ ἱερῷ", from: 16.6 }],
+        ] },
+
+        { h: "(2)" },
+        { indent: true, p: "Our explanation of the sentence flow has so far been rather simplistic. For example, there are many other adjectival and adverbial modifiers beside those we have noted above. Two provisional lists (one for adjectives, the other for adverbs) are provided below. Please consult the case synopsis for explanations where they are required." },
+        { marker: "(1)", level: 0, li: "Chief __noun-governors__ are modified by a number of __adjectival__ ideas, each of which can vary at length. The following should be subordinated to nouns in a flow:" },
+        { marker: "a)", level: 1, li: "All attributive adjectives and attributive participles." },
+        { marker: "b)", level: 1, li: "All substantive adjectives and substantive participles: in these instances, the article in the substantive construction represents the governing noun, the adjective or participle the modifier." },
+        { marker: "c)", level: 1, li: "All relative clauses. These clauses most often modify the noun represented by the relative pronoun." },
+        { marker: "d)", level: 1, li: "Many genitives: namely, those which are primarily __descriptive__. According to my synopsis, they include the descriptive genitive, the genitive of possession, the genitive of relationship, the subjective genitive, the objective genitive, and the epexegetical (or appositive) genitive." },
+        { marker: "e)", level: 1, li: "The dative of possession." },
+        { marker: "f)", level: 1, li: "Only those prepositional phrases which take the place of an adjective in an attributive or substantival construction (e.g., τὸ πλήρωμα τὸ ἐν τῷ Χριστῷ)." },
+        { marker: "g)", level: 1, li: "All ablatives (listed in my synopsis) except the ablative of means." },
+        { marker: "(2)", level: 0, li: "Chief __verbal-governors__ are modified by a number of __adverbial__ ideas, which can vary at length. The following should be subordinated to such governors in a flow:" },
+        { marker: "a)", level: 1, li: "Adverbial clauses introduced by temporal and locative adverbs, and especially those introduced by adverbial participles." },
+        { marker: "b)", level: 1, li: "All adverbs and negations (e.g., νῦν, ἤδη, οὐκέτι)." },
+        { marker: "c)", level: 1, li: "The ablative of agency." },
+        { marker: "d)", level: 1, li: "All instrumentals and locatives." },
+        { marker: "e)", level: 1, li: "The datives of advantage, disadvantage, and respect." },
+        { marker: "f)", level: 1, li: "All adverbial genitives: namely, the genitives of time and place, the genitive of respect, the genitive of measure, the genitive absolute, the genitive of advantage, and the genitive of the thing." },
+        { marker: "g)", level: 1, li: "The accusatives of measure and manner (sometimes called the adverbial accusative)." },
+        { marker: "h)", level: 1, li: "Nearly all prepositional phrases, except those which take the place of an adjective in an attributive construction." },
+        { indent: true, p: "Another reason why our discussion has been simplistic is that we have limited it so far to independent clauses. Now we need to consider dependent clauses. They are like independent clauses, since they can take any of the chief noun-governors we listed early on: subject, direct object, indirect object, and predicate. As well, dependent clauses have a chief verbal-governor like that of independent clauses, but with significant differences. For the verbal governor in independent clauses will most often be a finite verb in the indicative mood (although sometimes you will find them in the subjunctive and imperative moods as well). But the verbal governor in dependent clauses will most often be an adverbial participle, an infinitive, or a subjunctive. (Four important exceptions to this are the relative clause, which takes the indicative; ὅτι clauses, which also take the indicative; some temporal clauses, which take the indicative; and some conditional clauses, which also take the indicative.) But you will include the adverbial participle (the verbal governor for some adverbial clauses), the infinitive (the verbal governor for ὥστε clauses, some indirect discourse clauses, and some purpose, causal, and temporal clauses), or the subjunctive (the verbal governor for ἐάν clauses, ἵνα clauses, and various types of independent clauses) among your chief governors when you flow the dependent clause. For instance, in the sentence taken from Luke 20:1" },
+        { flow: ["διδάσκοντος αὐτοῦ τὸν λαὸν ἐν τῷ ἱερῷ ἐπέστησαν οἱ ἀρχιερεῖς"] },
+        { p: "the independent clause (ἐπέστησαν οἱ ἀρχιερεῖς) has a temporal-adverbial modifier for its verb (διδάσκοντος αὐτοῦ), which itself introduces a dependent clause. It should be flowed as follows:" },
+        { sf: [
+            [{ x: 0, t: "οἱ ἀρχιερεῖς" }, { x: 9.1, t: "~~ἐπέστησαν~~" }],
+            [{ x: 13, t: "~~διδάσκοντος~~ αὐτοῦ τὸν λαόν", from: 10.3 }],
+            [{ x: 17.9, t: "ἐν τῷ ἱερῷ", from: 16.6 }],
+        ] },
+        { indent: true, p: "Note well how the flow starts in the upper left corner and flows downward to the lower right-hand corner. Since the adverbial clause here is dependent, it is subordinated to the main clause, and this subordination is visualized in the direction of its downward flow." },
+
+        { h: "Fine Points" },
+        { indent: true, p: "Below I have attached a more lengthy flow which may help to visualize what I have attempted in words. And please take long notice of the following fine points:" },
+        { marker: "a)", level: 1, li: "Conjunctions or particles (words which often introduce clauses) should be above and to the left of the clause which they introduce." },
+        { marker: "b)", level: 1, li: "All coordinate, adversative, disjunctive, and inferential clauses (which often begin with καί, δέ, ἀλλά, γάρ, οὖν, etc.) begin far to the left in your flow, since these are types of independent clauses." },
+        { marker: "c)", level: 1, li: "Complementary infinitives and complementary participles should be on the same line with the chief governors of your clause, since they serve to complete the meaning of the action in the verbal governor (e.g., ὁ Ἰησοῦς ἤρξατο λέγειν, Matt 11:7; or ὁ Ἰησοῦς ἐτέλεσεν διατάσσων τοῖς μαθηταῖς, Matt 11:1)." },
+        { marker: "d)", level: 1, li: "Predicate and periphrastic participles should be on the same line with the chief governors of your clause, since the predicate participle functions like any predicate nominative, and since the periphrastic works together with a form of εἰμί to effect a certain tense." },
+        { marker: "e)", level: 1, li: "You will sometimes find __compound__ subjects, __compound__ predicates, __compound__ direct objects, or __compound__ indirect objects in your sentence. Here you must find some neat and consistent way to arrange them according to the rule. Thus the clause from Luke 20:1, ἐπέστησαν οἱ ἀρχιερεῖς καὶ οἱ γραμματεῖς, would be written" },
+        { level: 2, sf: [
+            [{ x: 0.6, t: "οἱ ἀρχιερεῖς" }, { x: 8.6, w: 1.4, brace: "top" }],
+            [{ x: 0, t: "καί" }, { x: 8.6, w: 1.5, brace: "mid" }, { x: 10.4, t: "ἐπέστησαν" }],
+            [{ x: 0.6, t: "οἱ γραμματεῖς" }, { x: 8.6, w: 1.2, brace: "bot" }],
+        ] },
+        { marker: "f)", level: 1, li: "Remember that genitives which function much like adjectives can attach themselves to any noun, and must therefore be subordinated to that noun. Further, especially in Paul, you will find strings of genitives, so that you will have to subordinate one genitive to another genitive in your flow." },
+        { marker: "g)", level: 1, li: "Articular infinitives, when, as nouns, they are functioning as __subjects__, __objects__, or __predicates__, belong with the other governors on the top line of your flow of a clause." },
+        { marker: "h)", level: 1, li: "__Substantive__ (or noun) clauses (introduced either by the infinitive or by the conjunctions ὅτι, ἵνα) must be displayed according as subjects or direct objects among your chief governors of a clause." },
+        { indent: true, p: "You will encounter other fine points as you work with your flow. Students find it rough going at first, since the flow demands careful grammatical scrutiny of a text, but there comes a point at which the flow will “flow” more as a river than as volcanic lava. Although it painfully forces the student to fine-tune his or her syntactical skills, he or she will nevertheless eventually meander more swiftly through the mountainous and rocky terrain for which Greek is known." },
+
+        { h: "Sentence Flow: John 13:1–5" },
+        { compact: true, sf: [
+            [{ x: 0, t: "^1^ δὲ" }],
+            [{ x: 3.7, t: "ὁ Ἰησοῦς… ἠγάπησεν αὐτούς." }],
+            [{ x: 7.5, t: "ἀγαπήσας τοὺς ἰδίους" }],
+            [{ x: 11.1, t: "τοὺς ἐν τῷ κόσμῳ εἰς τέλος" }],
+            [{ x: 7.4, t: "εἰδὼς…ὅτι ἦλθεν … ἡ ὥρα" }],
+            [{ x: 19.7, t: "αὐτοῦ" }],
+            [{ x: 25.5, t: "ἵνα" }],
+            [{ x: 21.9, t: "μεταβῇ" }],
+            [{ x: 25.5, t: "ἐκ τοῦ κόσμου τούτου" }],
+            [{ x: 25.5, t: "πρὸς τὸν πατέρα," }],
+            [{ x: 7.3, t: "Πρὸ…τῆς ἑορτῆς" }],
+            [{ x: 14.5, t: "τοῦ πάσχα" }],
+            [],
+            [{ x: 0, t: "^2–4^ καὶ" }],
+            [{ x: 7.4, t: "ἐγείρεται" }],
+            [{ x: 11, t: "ἐκ τοῦ δείπνου" }],
+            [{ x: 3.6, t: "καὶ" }],
+            [{ x: 7.4, t: "τίθησιν τὰ ἱμάτια" }],
+            [{ x: 3.6, t: "καὶ" }],
+            [{ x: 7.4, t: "διέζωσεν ἑαυτόν·" }],
+            [{ x: 11, t: "λαβὼν λέντιον" }],
+            [{ x: 9.3, t: "δείπνου γινομένου," }],
+            [{ x: 9.3, t: "τοῦ διαβόλου βεβληκότος" }],
+            [{ x: 18.2, t: "εἰς τὴν καρδίαν" }],
+            [{ x: 25.5, t: "Ἰούδας Σίμωνος Ἰσκαριώτου," }],
+            [{ x: 18.1, t: "ἤδη" }],
+            [{ x: 18.2, t: "ἵνα παραδοῖ αὐτὸν" }],
+            [{ x: 9.3, t: "εἰδὼς" }, { x: 13.3, t: "ὅτι ὁ πατὴρ πάντα ἔδωκεν αὐτῷ" }],
+            [{ x: 23.8, t: "εἰς τὰς χεῖρας" }],
+            [{ x: 10.9, t: "καὶ" }, { x: 13.5, t: "ὅτι ἐξῆλθεν" }],
+            [{ x: 18.2, t: "ἀπὸ θεοῦ" }],
+            [{ x: 10.9, t: "καὶ …" }, { x: 15.4, t: "ὑπάγει," }],
+            [{ x: 17.3, t: "πρὸς τὸν θεὸν" }],
+            [],
+            [{ x: 0, t: "^5^" }, { x: 3.7, t: "… βάλλει ὕδωρ" }],
+            [{ x: 7.3, t: "εἶτα" }],
+            [{ x: 7.3, t: "εἰς τὸν νιπτῆρα" }],
+            [{ x: 3.6, t: "καὶ" }],
+            [{ x: 5.6, t: "ἤρξατο" }, { x: 11.3, t: "νίπτειν τοὺς πόδας" }],
+            [{ x: 16.9, t: "τῶν μαθητῶν" }],
+            [{ x: 9.7, t: "καὶ" }],
+            [{ x: 10.9, t: "ἐκμάσσειν" }],
+            [{ x: 14.5, t: "τῷ λεντίῳ" }],
+            [{ x: 18, t: "ᾧ" }],
+            [{ x: 18.5, t: "ἦν διεζωσμένος." }],
+        ] },
+];
+
+        const BRACKETING_INSTRUCTIONS = [
+        { h: "1. Discourse Analysis" },
+        { indent: true, p: "Most students of the Bible do not know how to read (= exegete) for understanding. Instead they merely read for information, gladly pouncing upon an author, holding him or her up with their well-trained eye, and then robbing the text of its conclusions. But although their minds become filled with many stolen treasures, they never fool anyone. Everyone knows they are thieves and can be exposed at any time with a good question. The owner’s conclusions have merely become the thief’s opinions. And such stealing is wrong, even when the opinions in view are biblical opinions." },
+        { indent: true, p: "Discourse analysis is designed to help us become “honest” readers who desire to understand rather than steal. The two best teachers I have ever had both taught me that to understand (our goal in exegesis) involves thinking an author’s thoughts after him or her. Or to put it another way, the goal of reading the Bible is to be able to restate an author’s original intention in such a way that if the author were listening he or she would agree. The goal is to see reality through another person’s eyes. But this is simply impossible until one has thought his or her way, step by step, after the author." },
+        { indent: true, p: "This is where the art and skill of discourse analysis fits in. In discourse analysis we do not attempt to put the author’s words into our own; rather, we simply attempt to isolate each proposition (the author’s “steps”) and to demonstrate how they relate to one another. Having done so, we then can trace the logical development of the author’s argument step by step by indicating how the flow of thought moves from logical level to logical level. Finally, after we have a flow chart of the author’s argument, we will be able to isolate each of the author’s main logical levels and gain an overview of the argument’s development. The result of our labor will be an understanding of the main point of a text and the ways in which it is supported. So discourse analysis has four distinct but related steps:" },
+        { marker: "1.", level: 1, li: "Separate out the individual propositions of the text." },
+        { marker: "2.", level: 1, li: "Determine the logical relationships between the propositions." },
+        { marker: "3.", level: 1, li: "Trace the flow of the argument from step to step." },
+        { marker: "4.", level: 1, li: "Organize the text into its major logical levels, thus establishing its main and supporting points." },
+
+        { h: "2. The Logical Relationships between Propositions" },
+        { indent: true, p: "The key to any discourse analysis is therefore the ability to separate a text into its constituent propositions and the art of determining their logical interrelationships. Unfortunately, many people do not know what a proposition is, nor what relationships are possible between them. The first gap is easy to fill. With some practice most people are able to recognize propositions in a text, and even become skilled enough to argue over when a certain prepositional or participial phrase ought to be considered to be one or not! By God’s grace, the second need has also met its match through the work of Dr. Daniel P. Fuller of Fuller Theological Seminary. Dr. Fuller has done a great service to us in our hermeneutical task by classifying these various relationships and providing us with a vocabulary with which we can talk about them. This material can be found in detail in his *Hermeneutics Syllabus* (Pasadena, CA, 1969). What follows is taken from that syllabus with his permission." },
+        { indent: true, p: "The relationships between propositions fall into two major classes: __Coordinate Relationships__ and __Subordinate Relationships__. Two clauses have a coordinate relationship if one does not support the other in some way, but each is independent and makes its own contribution to the whole. “I ate pickles for lunch and I studied for my Interp class” are two coordinate propositions. They do not support each other, but describe a series of things that I did. Each can stand independent of the other. On the other hand, a proposition has a subordinate relationship to another clause if it supports that clause in some way. For example: “I ate pickles because I had no money” is a compound sentence with two propositions. The second proposition, “because I had no money,” is subordinate to the first, providing its ground. “I ate pickles” is thus the main point of this text. ***The main point of a text is that proposition which is supported by all the other propositions and which itself does not support any other.***" },
+        { indent: true, p: "There are a number of subclasses under each of these major classes, and each of these, together with the typical conjunctions used to indicate them, must be mastered." },
+
+        { marker: "I.", level: 0, li: "**Coordinate Relationships between Propositions** (non-supportive)" },
+        { marker: "A.", level: 1, li: "**Series:** the relationship between propositions, each of which makes its independent contribution to the whole." },
+        { level: 1, p: "*Typical conjunctions:* and, moreover, furthermore, likewise (and many more)." },
+        { level: 1, p: "*Example:* “Every one who asks receives, and he who seeks finds, and to him who knocks it will be opened” (Matt 7:8)." },
+        { marker: "B.", level: 1, li: "**Progression:** like a series, but each proposition is a further step toward a climax." },
+        { level: 1, p: "*Conjunctions:* then (plus others like those under “Series”)." },
+        { level: 1, p: "*Example:* “Those whom he predestined he called; and those whom he called he also justified; and those whom he justified he also glorified” (Rom 8:30)." },
+        { marker: "C.", level: 1, li: "**Alternative:** each proposition expresses an opposite possibility arising from a situation." },
+        { level: 1, p: "*Conjunctions:* but, on the other hand, while, etc." },
+        { level: 1, p: "*Example:* “Some were convinced while others disbelieved” (Acts 28:24)." },
+
+        { marker: "II.", level: 0, li: "**Subordinate Relationships between Propositions** (supportive)" },
+        { marker: "A.", level: 1, li: "**Support by Restatement**" },
+        { marker: "a.", level: 2, li: "**Way-End** (modal clause – main clause): the relationship between a statement of an action (end) and one which tells more explicitly what is involved in carrying out this action (way)." },
+        { level: 2, p: "*Conjunctions:* in that, by, etc." },
+        { level: 2, p: "*Example:* “God left not himself without a witness, in that he gave you from heaven rains and fruitful seasons” (Acts 14:17). (We speak of the second proposition “supporting” the first here because it is not independent of it but stands in the service of the first proposition, spelling out in more detail the “way” God gave witness.)" },
+        { marker: "b.", level: 2, li: "**Comparison:** the relationship between a statement expressing an action and one making that action clearer by showing what it is like." },
+        { level: 2, p: "*Conjunctions:* even as, as … so, etc." },
+        { level: 2, p: "*Example:* “As my Father has sent me, so send I you” (John 20:21)." },
+        { marker: "c.", level: 2, li: "**Negative-Positive:** the relationship between two alternatives, one of which is denied so that the other is enforced. It is also the relationship implicit in contrasting statements." },
+        { level: 2, p: "*Conjunctions:* not … but, etc." },
+        { level: 2, p: "*Example:* “Do not be foolish, but understand what the will of the Lord is” (Eph 5:17; cf. 1 Cor 4:10 for an example of contrast)." },
+        { marker: "d.", level: 2, li: "**General-Specific:** the relationship between a proposition stating a whole and one or more propositions which set forth the parts of the whole." },
+        { level: 2, p: "*Example:* “Jacob supplanted me these two times; he took away my birthright and now he has taken away my blessing” (Gen 27:36; cf. 1 Cor 9:19–22)." },
+        { marker: "e.", level: 2, li: "**Fact-Interpretation:** the relationship between an original statement and one clarifying its meaning. The interpreting proposition might define only one word of a preceding proposition. It differs from “General-Specific” in that the interpreting proposition does not set forth a distinguishable part of the preceding whole." },
+        { level: 2, p: "*Example:* “And they drank of the rock that followed them, and the rock was Christ” (1 Cor 10:4; cf. 1 Cor 5:9–11)." },
+        { marker: "B.", level: 1, li: "**Support by Distinct Statement**" },
+        { marker: "a.", level: 2, li: "**Ground** (main clause – causal clause): the relationship between a statement and the argument or basis on which it stands. In this relationship the supporting proposition follows the supported one." },
+        { level: 2, p: "*Conjunctions:* for, because, since, etc." },
+        { level: 2, p: "*Example:* “Blessed are the poor in spirit, for theirs is the kingdom of heaven” (Matt 5:3; cf. Phil 2:25–26)." },
+        { marker: "b.", level: 2, li: "**Inference** (main clause – inferential clause): the only difference between this and the “Ground” relationship is that here the supporting proposition always precedes the supported one." },
+        { level: 2, p: "*Conjunctions:* therefore, wherefore, consequently, accordingly, etc." },
+        { level: 2, p: "*Example:* “The scribes and Pharisees sit in Moses’ seat. All these things therefore, whatever they bid you, these do and observe” (Matt 23:2–3; cf. 1 Pet 5:5b–6)." },
+        { marker: "c.", level: 2, li: "**Cause-Effect** (main clause – result clause): the relationship between an action and one automatically consequent upon that action." },
+        { level: 2, p: "*Conjunctions:* so … that; that; so that; etc." },
+        { level: 2, p: "*Example:* “God so loved the world that he gave his only begotten Son” (John 3:16)." },
+        { marker: "d.", level: 2, li: "**Conditional:** this is like the “Cause-Effect” relationship except that the existence of the cause is only potential." },
+        { level: 2, p: "*Conjunctions:* if … then; if; provided that; except; etc." },
+        { level: 2, p: "*Example:* “If you love me, keep my commandments” (John 14:15; cf. Gal 5:16)." },
+        { marker: "e.", level: 2, li: "**Means-End** (main clause – purpose clause): the relationship between an action and the one that is intended to come as a result." },
+        { level: 2, p: "*Conjunctions:* in order that; that; with a view to; to the end that; lest; etc." },
+        { level: 2, p: "*Example:* “I long to see you, that I might impart some spiritual gift to strengthen you” (Rom 1:11)." },
+        { marker: "f.", level: 2, li: "**Temporal:** the relationship between a proposition and the occasion (not quite the cause) when it can occur." },
+        { level: 2, p: "*Conjunctions:* when; whenever; etc." },
+        { level: 2, p: "*Examples:* “When you fast, do not look dismal” (Matt 6:16). “Blessed are you when men hate you” (Luke 6:22)." },
+        { marker: "g.", level: 2, li: "**Locative**" },
+        { marker: "C.", level: 1, li: "**Support by Contrary Statement**" },
+        { marker: "a.", level: 2, li: "**Adversative** (concessive clause – main clause): the relationship between a main clause that stands despite a contrary statement, and that contrary statement. The concessive clause “supports” the main clause because it highlights the strength of the main clause, which stands despite the obstacle of the concessive clause." },
+        { level: 2, p: "*Conjunctions:* although … yet; though; but; nevertheless; etc." },
+        { level: 2, p: "*Example:* “Though you have ten thousand instructors in Christ, yet you do not have many fathers” (1 Cor 4:15; cf. 1 Cor 9:13–15)." },
+        { marker: "b.", level: 2, li: "**Question-Answer:** this relationship is included here under “C” because, when the answer is opposite that implied or expected in the question, the question behaves like a concessive clause and the relationship is in reality adversative." },
+        { level: 2, p: "*Example:* “Shall we continue in sin that grace may abound? God forbid” (Rom 6:1–2)." },
+        { level: 2, p: "But when an answer contains no surprise, it functions like a restatement of the question." },
+        { level: 2, p: "*Example:* “What says the Scripture? Abraham believed God …” (Rom 4:3)." },
+        { marker: "c.", level: 2, li: "**Situation-Response:** this relationship is included here under “C” because when a person responds in a way not intended by the situation that another creates, the situation behaves like a concessive clause and the relationship is in reality adversative." },
+        { level: 2, p: "*Example:* “How often would I have gathered your children together as a hen gathers her brood under her wings, and you would not” (Matt 23:37; cf. Jer 25:4–7)." },
+        { level: 2, p: "But when the response accords with the situation that has been created, then “Situation-Response” behaves like “Cause-Effect.”" },
+        { level: 2, p: "*Example:* “I did one deed, and you all marvel at it” (John 7:21)." },
+
+        { h: "3. Abbreviations for the Relationships" },
+        { indent: true, p: "Most units of thought consist of a series of propositions which is too long and whose logical interrelationships are too complicated for us to hold them suspended in our minds. But in order to gain an overview of an author’s argument which is clear enough to allow serious interaction with the text, this is precisely what must be done. It thus becomes imperative that we have a way in which we can represent the flow of the argument in symbols so that complicated arguments can be easily followed. The following brackets and their symbols will enable us to accomplish this important task." },
+        { marker: "I.", level: 0, li: "Coordinate Relationships" },
+        { level: 1, sym: [
+            { marker: "A.", term: "Series", mid: "S", note: "S" },
+            { marker: "B.", term: "Progression", mid: "P", note: "P" },
+            { marker: "C.", term: "Alternative", mid: "A", note: "A" },
+        ] },
+        { marker: "II.", level: 0, li: "Subordinate Relationships" },
+        { marker: "A.", level: 1, li: "Support by Restatement" },
+        { level: 2, sym: [
+            { marker: "a.", term: "Way-End", top: "W", bot: "Ed", note: "W → Ed*" },
+            { marker: "b.", term: "Comparison", mid: "//", note: "// → *" },
+            { marker: "c.", term: "Negative-Positive", top: "−", bot: "+", note: "− → +*" },
+            { marker: "d.", term: "General-Specific", top: "Gn", bot: "Sp", note: "Gn → Sp*" },
+            { marker: "e.", term: "Fact-Interpretation", top: "Ft", bot: "In", note: "Ft → In*" },
+        ] },
+        { marker: "B.", level: 1, li: "Support by Distinct Statement" },
+        { level: 2, sym: [
+            { marker: "a.", term: "Ground", mid: "G", note: "G → *" },
+            { marker: "b.", term: "Inference", mid: "∴", note: "∴ → *" },
+            { marker: "c.", term: "Cause-Effect", top: "C", bot: "E", note: "C → E*" },
+            { marker: "d.", term: "Conditional", top: "C?", bot: "E", note: "C? → E*" },
+            { marker: "e.", term: "Means-End", top: "M", bot: "Ed", note: "M → Ed*" },
+            { marker: "f.", term: "Temporal", mid: "T", note: "T → *" },
+            { marker: "g.", term: "Locative", mid: "L", note: "L → *" },
+        ] },
+        { marker: "C.", level: 1, li: "Support by Contrary Statement" },
+        { level: 2, sym: [
+            { marker: "a.", term: "Adversative", mid: "Adv", note: "Adv → *" },
+            { marker: "b.", term: "Question-Answer", top: "Q", bot: "A", note: "Q → A*" },
+            { marker: "c.", term: "Situation-Response", top: "S", bot: "R", note: "S → R*" },
+        ] },
+        { indent: true, p: "**Memorize these classifications and their symbols.** Now we can begin to do the hard work of reading, a work so difficult (no “speed reading” is real reading!) that a sure sign you have done it will be fatigue. As Mortimer J. Adler put it, “Reading that is reading entails the most intense mental activity. If you are not tired out, you probably have not been doing the work. Far from being passive and relaxing, I have always found what little reading I have done the most arduous and active occupation” (*How to Read a Book*, 1940 ed., p. 110)." },
+
+        { h: "4. Tracing the Flow of the Argument" },
+        { indent: true, p: "Once we have mastered the various logical relationships that *can* exist between propositions, we will be able to discover and determine which relationships actually do exist as the author’s argument unfolds. Therefore, our first task in exegesis will be to analyze the discourse by tracing the flow of the argument. Specifically, we will" },
+        { marker: "a.", level: 1, li: "translate the passage from Greek into a literal English rendering;" },
+        { marker: "b.", level: 1, li: "then go through the passage isolating the individual propositions. Remember that each proposition must contain both a subject and a predicate. If you deem it necessary to make a participial or prepositional phrase into a separate proposition, you must either convert the participle into a finite verb or supply one for the prepositional phrase;" },
+        { marker: "c.", level: 1, li: "next, attempt to relate each proposition to what __precedes__; indicate your understanding of the argument by selecting a connecting word or phrase which makes each relationship explicit. Whenever an author supplies such a connecting link (conjunction or phrase), remain faithful to it unless it seems absolutely impossible to do so!" },
+        { marker: "d.", level: 1, li: "Finally, outline the argument in the margin by using the bracket method. When you are finished, you should be able to state the main point of the text and all of its supporting points." },
+
+        { h: "Discourse Analysis in a Nutshell" },
+        { marker: "1.", level: 0, li: "Make a literal English translation for your passage." },
+        { marker: "2.", level: 0, li: "Isolate the individual propositions (each with a subject and predicate) and place one proposition on each line (tab these lines over to about the center of the page)." },
+        { marker: "3.", level: 0, li: "Determine how each proposition relates to its preceding and following propositions (Cause-Effect, Ground, Inference, Comparison, etc.)." },
+        { marker: "4.", level: 0, li: "Insert a connecting word or phrase at the beginning of each line to make the logical relationship explicit." },
+        { marker: "a.", level: 1, li: "When the author supplies a connecting word, use this to help determine the relationship by determining the syntactical and lexical range of the word (e.g., the conjunction γάρ usually introduces a Ground statement; consult BDAG or Wallace’s grammar on such words)." },
+        { marker: "b.", level: 1, li: "Underline the connecting words or phrases at the start of each line." },
+        { marker: "5.", level: 0, li: "Trace the argument by inserting brackets in the left margin." },
+        { marker: "a.", level: 1, li: "Begin with the subordinate brackets, connecting the thoughts within the sub-units of the passage." },
+        { marker: "b.", level: 1, li: "Then connect the brackets between the sub-units to trace the larger arguments." },
+        { marker: "c.", level: 1, li: "How to connect brackets:" },
+        { marker: "i.", level: 2, li: "On each bracket, the end carrying the logical main point should be marked with an asterisk (except for Series, Progressions, Comparisons, etc.)." },
+        { marker: "ii.", level: 2, li: "Connect brackets by connecting the asterisks (with Series, etc., draw your bracket from the middle). Every bracket must be connected to another (never more than one)." },
+        { marker: "iii.", level: 2, li: "Never cross over lines when drawing brackets." },
+        { marker: "iv.", level: 2, li: "The outermost asterisk on your brackets should indicate the logical main point of the entire passage." },
+        { marker: "6.", level: 0, li: "Check to make sure that your connecting words or phrases match your D.A. brackets (e.g., an Inference must be indicated by a connecting word like “therefore”)." },
+        { marker: "7.", level: 0, li: "Based upon your D.A., write out a one-sentence exegetical idea for your passage. Then reformulate it into a one-sentence homiletical idea (the preaching idea)." },
+        { marker: "a.", level: 1, li: "Exegetical Idea" },
+        { marker: "i.", level: 2, li: "What is the author talking about? Formulate this as a question." },
+        { marker: "ii.", level: 2, li: "What is the author saying about what he is talking about? Formulate this as the answer to the question." },
+        { marker: "iii.", level: 2, li: "Then merge your question and answer by lopping off the interrogative. This is your exegetical idea." },
+        { marker: "b.", level: 1, li: "Homiletical Idea" },
+        { marker: "i.", level: 2, li: "Now take your exegetical idea and formulate it in a manner that is more directed towards your hearers (focusing upon application)." },
+        { marker: "ii.", level: 2, li: "This is the phrase that you will repeat over and over throughout your sermon." },
+        { marker: "iii.", level: 2, li: "As you move towards application, be aware of the various hermeneutical errors that can be committed even by seasoned exegetes: personalizing, universalizing, spiritualizing, allegorizing, exemplarizing, moralizing, etc." },
+
+        { h: "Hints for Doing Logical Relationships" },
+        { marker: "1)", level: 0, li: "Think in terms of sub-units within the argument." },
+        { marker: "a.", level: 1, li: "Too often it is too easy to just naturally try to relate one line to the following line, whether or not they are directly related in the flow of argument. The goal is not to relate one line to the next, but the component parts in the argument." },
+        { marker: "b.", level: 1, li: "Therefore look for logical connectors within the flow of the argument (i.e., “so that,” “because,” “for,” etc.), and then surmise whether a particular connector is conjoining thoughts WITHIN a particular sub-unit or BETWEEN sub-units in the flow of an argument. In this way you will see how the various building blocks within the argument are put together." },
+        { marker: "2)", level: 0, li: "Brackets are to be subordinate or superordinate." },
+        { marker: "a.", level: 1, li: "Inner brackets are subordinate (these are thoughts within sub-units)." },
+        { marker: "-", level: 2, li: "When the following proposition supports the preceding proposition, the bracket goes on the inside. (There may be exceptions.)" },
+        { marker: "b.", level: 1, li: "Outer brackets are superordinate (these are for connecting sub-units together)." },
+        { marker: "-", level: 2, li: "When the following proposition is supported by the preceding proposition, the bracket goes on the outside. (There may be exceptions.)" },
+        { marker: "c.", level: 1, li: "Brackets are NEVER to be crossed." },
+        { marker: "3)", level: 0, li: "Bracket off your asterisks; this is how you reflect the logical progression of the argument. That is to say, all asterisks must be “covered” by a Discourse Analysis bracket except that asterisk with which you are designating the main point of the passage." },
+        { marker: "4)", level: 0, li: "General Rules of D.A.:" },
+        { marker: "a.", level: 1, li: "Every bracket has a * (except S, some //, P, etc.)." },
+        { marker: "b.", level: 1, li: "Every bracket must be connected to another (no “hanging” brackets), and they are to be connected to the *’d end of that bracket (or the middle of the bracket if there is no *)." },
+        { marker: "c.", level: 1, li: "Brackets should connect propositions, not keywords. Keywords only help you identify the connection." },
+        { marker: "5)", level: 0, li: "General principles for your English translation:" },
+        { marker: "a.", level: 1, li: "Every logical relationship should be reflected in the translation." },
+        { marker: "1.", level: 2, li: "If you call something a Series, you must translate with “and”; do not assume it." },
+        { marker: "2.", level: 2, li: "If you call something a CE* but you translate with “after” or “when,” then you have not grasped what the D.A. is telling you." },
+        { marker: "3.", level: 2, li: "**This step is the evidence that you understand what you are doing.** Failure to do this correctly reveals a failure to understand the logical flow of the passage. If your logical analysis, translated into English, does not properly reflect the Greek passage, then you have not done Discourse Analysis correctly. Don’t fudge your translation; change your Discourse Analysis!!" },
+        { marker: "b.", level: 1, li: "Only underline Logical Relationship phrases (like *in order that*, etc.). No need to underline the pronoun or the tense of the participle; those items are carried in the Grammar, not the Logical Analysis." },
+        { marker: "c.", level: 1, li: "REPEAT: Every logical relationship should be reflected in your translation!" },
+        { marker: "6)", level: 0, li: "When doing a Translation Comparison:" },
+        { level: 1, p: "The point of this part of the assignment is to make you realize that the translators assume certain logical relationships between propositions when they translate. Your task is not to identify the different lexical issues, or the different ordering, or the different choice of pronouns, or the different phrasing, BUT the different Logical Relationship assumed by the translator! If one translates a participle with “after” and another translates the same participle with “because,” the difference is not in the Greek word or text! The difference is in the Discourse Analysis, which, ultimately, is an interpretation of the logical relationships between the propositions in a passage! This is intended to sharpen your skills at doing D.A., not merely an exercise in looking at six different translations." },
+        { p: "***Finally…*** When your logically related flow is complete, look to see that the asterisked unit of thought on the outermost bracket reflects what you believe to be the main point in the argument. If it does not, then your bracketing does not reflect your interpretation of the argument." },
 ];
 </script>
 </body>

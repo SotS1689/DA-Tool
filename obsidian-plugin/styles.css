@@ -1132,10 +1132,143 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 .da-tool-view .da-tfi-gap {
 	height: 0.8em;
 }
-.da-tool-view .da-tfi-flow sup {
+.da-tool-view .da-tfi-flow sup,
+.da-tool-view .da-tfi-sf sup {
 	font-size: 0.65em;
 	vertical-align: super;
 	line-height: 0;
+}
+.da-tool-view .da-tfi-source {
+	font-size: 0.8rem;
+	color: var(--da-muted);
+	margin-top: 2px;
+}
+.da-tool-view .da-tfi-gov {
+	text-decoration: underline dashed;
+	text-underline-offset: 3px;
+}
+
+/* Sentence-flow diagrams: rows are 2.1em tall and every segment is placed
+ * at an em offset, so modifiers sit under the word they modify. Elbows run
+ * from a stem down to the row's middle; a chained elbow starts at the row
+ * above's middle so siblings join into one line. */
+.da-tool-view .da-tfi-sf {
+	margin: 6px 0 12px calc(var(--da-tfi-level) * 1.75em + 1.75em);
+	font-family: "DA Serif", "DA Sentence Flow Greek", var(--da-font-serif-ltr);
+	font-size: 1rem;
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding-bottom: 2px;
+}
+.da-tool-view .da-tf-instructions h3 + .da-tfi-sf {
+	margin-left: 0;
+}
+.da-tool-view .da-tfi-sf-row {
+	position: relative;
+	height: 2.1em;
+	line-height: 2.1em;
+}
+.da-tool-view .da-tfi-sf .da-tfi-gap {
+	height: 1em;
+}
+.da-tool-view .da-tfi-sf-compact .da-tfi-sf-row {
+	height: 1.5em;
+	line-height: 1.5em;
+}
+.da-tool-view .da-tfi-sf-seg {
+	position: absolute;
+	top: 0;
+	white-space: nowrap;
+	padding-right: 0.5em;
+}
+.da-tool-view .da-tfi-sf-elbow,
+.da-tool-view .da-tfi-sf-brace {
+	position: absolute;
+	box-sizing: border-box;
+	border: 0 dashed currentColor;
+	opacity: 0.6;
+	pointer-events: none;
+}
+.da-tool-view .da-tfi-sf-elbow {
+	top: -0.6em;
+	height: 1.65em;
+	border-left-width: 1px;
+	border-bottom-width: 1px;
+}
+.da-tool-view .da-tfi-sf-elbow.da-tfi-sf-chain {
+	top: -1.05em;
+	height: 2.1em;
+}
+.da-tool-view .da-tfi-sf-brace-top {
+	top: 50%;
+	height: 50%;
+	border-top-width: 1px;
+	border-right-width: 1px;
+}
+.da-tool-view .da-tfi-sf-brace-bot {
+	top: 0;
+	height: 50%;
+	border-bottom-width: 1px;
+	border-right-width: 1px;
+}
+.da-tool-view .da-tfi-sf-brace-mid {
+	top: 0;
+	height: 100%;
+	border-left-width: 1px;
+}
+.da-tool-view .da-tfi-sf-brace-mid::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 50%;
+	border-top: 1px dashed currentColor;
+}
+
+/* Bracket symbols: term, a bracket with its corner labels, notation. */
+.da-tool-view .da-tfi-sym {
+	display: flex;
+	align-items: center;
+	margin: 2px 0 2px calc(var(--da-tfi-level) * 1.75em);
+}
+.da-tool-view .da-tfi-sym-term {
+	flex: 0 0 11em;
+}
+.da-tool-view .da-tfi-sym-glyph {
+	position: relative;
+	flex: 0 0 5em;
+	height: 2.6em;
+}
+.da-tool-view .da-tfi-sym-bracket {
+	position: absolute;
+	left: 2.3em;
+	top: 0.35em;
+	bottom: 0.35em;
+	width: 1.6em;
+	border: 2px solid currentColor;
+	border-right: 0;
+}
+.da-tool-view .da-tfi-sym-label {
+	position: absolute;
+	right: 2.9em;
+	line-height: 1;
+	font-weight: 600;
+	white-space: nowrap;
+}
+.da-tool-view .da-tfi-sym-top {
+	top: 0;
+}
+.da-tool-view .da-tfi-sym-mid {
+	top: 50%;
+	transform: translateY(-50%);
+}
+.da-tool-view .da-tfi-sym-bot {
+	bottom: 0;
+}
+.da-tool-view .da-tfi-sym-note {
+	margin-left: 1em;
+	color: var(--da-muted);
+	white-space: nowrap;
 }
 
 .da-tool-view .da-relationship-grid {

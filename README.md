@@ -17,6 +17,7 @@ Discourse analysis (also called phrasing or bracketing) is a method of visually 
 - Connect propositions with two-node or single-node brackets; nesting depth is computed automatically so brackets never cross
 - Label brackets with logical relationships, with a built-in reference for 20 relationship types; type `	f` or `	herefore` to get ∴
 - Double-click a bracket's label box to mark it as the passage's **main point** (shown in a distinct color)
+- An **Instructions** button opens *Bracketing Instructions*: Daniel Fuller's bracket symbols for each relationship, the steps of discourse analysis, and hints for bracketing (adapted from G. K. Beale's *Exegetical Manual*)
 - Indent/outdent, drag-and-drop reorder, and undo/redo your edits (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, or the ↶ / ↷ buttons)
 - Zoom controls and a right-to-left mode for Hebrew text
 - Export the diagram as a PNG saved directly into your vault
@@ -27,7 +28,7 @@ A Word-like canvas for laying out a whole Greek passage clause by clause — ind
 
 ### Sentence Flow
 
-The same canvas, kept separately, for grammatically breaking down individual complex sentences.
+The same canvas, kept separately, for grammatically breaking down individual complex sentences. Its **Instructions** button opens *Sentence Flow Instructions* adapted from G. K. Beale's *Exegetical Manual*: governors, what to subordinate to nouns and verbs, dependent clauses, fine points, and a worked flow of John 13:1–5.
 
 Both flow tabs support:
 
@@ -82,6 +83,8 @@ See the source in [`obsidian-plugin/src/`](obsidian-plugin/src/) — `main.ts` r
 ## Credits
 
 *Text Flow Instructions* (v1.6) by Blake Franze.
+
+*Sentence Flow Instructions* and *Bracketing Instructions* adapted from G. K. Beale's *Exegetical Manual* (with material from Daniel P. Fuller's Hermeneutics Syllabus, as summarized by Scott Hafemann).
 
 ## License
 

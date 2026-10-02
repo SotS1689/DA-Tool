@@ -9,14 +9,31 @@
 //   { flow, level? }   Greek example lines. Leading tabs on a line give its
 //                      indent (each tab = one step); "" is a blank line.
 //                      Wrapped lines stay aligned with their own first line.
-// Inline markup: **bold**, *italic*, ***bold italic***, __underline__, ^superscript^.
+//   { sf, level? }     sentence-flow diagram (Sentence Flow Instructions):
+//                      rows of segments, each placed at x em from the left;
+//                      [] is a blank row. A segment with `from` gets a
+//                      dashed elbow down from a stem at that x (rows sharing
+//                      a stem join into one line). A `brace` segment draws
+//                      part of a right-hand brace at x with arms w em long.
+//                      compact: single-spaced rows (flows without connectors).
+//   { sym, level? }    bracket symbols (Bracketing Instructions): term, a
+//                      bracket with its labels, and the summary notation.
+// Inline markup: **bold**, *italic*, ***bold italic***, __underline__,
+// ~~dashed underline~~ (a governor in a sentence flow), ^superscript^.
 // The web tool (../index.html) carries an identical copy of this array.
+
+export interface SentenceFlowSegment { x: number; t?: string; from?: number; brace?: "top" | "mid" | "bot"; w?: number }
+export interface BracketSymbol { marker: string; term: string; top?: string; mid?: string; bot?: string; note: string }
+
+export const TEXT_FLOW_SOURCE = "Blake Franze";
 
 export type TextFlowBlock =
 	| { h: string }
 	| { p: string; level?: number; indent?: boolean }
 	| { li: string; marker: string; level: number }
-	| { flow: string[]; level?: number };
+	| { flow: string[]; level?: number }
+	| { sf: SentenceFlowSegment[][]; level?: number; compact?: boolean }
+	| { sym: BracketSymbol[]; level?: number };
 
 export const TEXT_FLOW_INSTRUCTIONS: TextFlowBlock[] = [
 	{ h: "Introduction to the “Text Flow”" },

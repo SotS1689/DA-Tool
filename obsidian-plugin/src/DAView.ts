@@ -1,6 +1,8 @@
 import { addIcon, App, Modal, Scope, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import html2canvas from "html2canvas";
-import { TEXT_FLOW_INSTRUCTIONS, TextFlowBlock } from "./textFlowInstructions";
+import { TEXT_FLOW_INSTRUCTIONS, TEXT_FLOW_SOURCE, TextFlowBlock } from "./textFlowInstructions";
+import { SENTENCE_FLOW_INSTRUCTIONS, SENTENCE_FLOW_SOURCE } from "./sentenceFlowInstructions";
+import { BRACKETING_INSTRUCTIONS, BRACKETING_SOURCE } from "./bracketingInstructions";
 
 export const VIEW_TYPE_DA = "da-tool-view";
 
@@ -1106,6 +1108,7 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 		] },
 		"**Add Single-Node Bracket** (second toolbar button). First select **two or more** propositions and/or corner boxes. Two corners of the same bracket can't be used together.",
 		"Then click the button. The layout is worked out for you, so brackets never cross.",
+		"**Instructions** (toolbar) opens the Bracketing Instructions: Fuller's bracket symbols, the steps of discourse analysis, and hints for bracketing, adapted from Beale's Exegetical Manual.",
 	] },
 	{ heading: "Labels and main point", items: [
 		"**Right-click a corner box** to type its label (e.g. G, Inf, ∴). [[Enter]]/OK saves; [[Esc]]/Cancel closes.",
@@ -1144,7 +1147,7 @@ const FLOW_INSTRUCTIONS: InstructionSection[] = [
 		"Pasting gives plain text; tabs in the pasted text become tab stops.",
 		"[[Ctrl]]+[[Z]] undoes typing here separately from the Brackets tab.",
 		"**→** (Text Flow) copies each line into the Brackets tab as a proposition. How far a line is indented sets the proposition's indent, and verse numbers become labels. If Brackets already has content, you'll be asked whether to **Replace** it (this also clears the brackets) or **Append** to it.",
-		"**Instructions** (Text Flow) opens Blake Franze's Text Flow Instructions.",
+		"**Instructions** opens Blake Franze's Text Flow Instructions (Text Flow) or the Sentence Flow Instructions adapted from Beale's Exegetical Manual (Sentence Flow).",
 	] },
 ];
 
@@ -1173,9 +1176,10 @@ function renderInstructionSections(container: HTMLElement, sections: Instruction
 }
 
 // Inline markup for the Text Flow Instructions: **bold**, *italic*,
-// ***bold italic***, __underline__, ^superscript^ (nestable).
+// ***bold italic***, __underline__, ~~dashed underline~~, ^superscript^
+// (nestable).
 function appendTextFlowInline(parent: HTMLElement, text: string): void {
-	const markers: [string, keyof HTMLElementTagNameMap][] = [["***", "strong"], ["**", "strong"], ["__", "u"], ["*", "em"], ["^", "sup"]];
+	const markers: [string, keyof HTMLElementTagNameMap][] = [["***", "strong"], ["**", "strong"], ["__", "u"], ["~~", "span"], ["*", "em"], ["^", "sup"]];
 	let plain = "";
 	let i = 0;
 	while (i < text.length) {
@@ -1192,6 +1196,7 @@ function appendTextFlowInline(parent: HTMLElement, text: string): void {
 		if (plain) { parent.appendText(plain); plain = ""; }
 		let el = parent.createEl(m[1]);
 		if (m[0] === "***") el = el.createEl("em");
+		if (m[0] === "~~") el.addClass("da-tfi-gov");
 		appendTextFlowInline(el, text.slice(i + m[0].length, close));
 		i = close + m[0].length;
 	}
@@ -1212,6 +1217,49 @@ function renderTextFlowInstructions(container: HTMLElement, blocks: TextFlowBloc
 			const p = container.createEl("p", { cls: b.indent ? "da-tfi-p da-tfi-indent" : "da-tfi-p" });
 			p.style.setProperty("--da-tfi-level", String(b.level ?? 0));
 			appendTextFlowInline(p, b.p);
+			continue;
+		}
+		if ("sf" in b) {
+			const sf = container.createDiv({ cls: b.compact ? "da-tfi-sf da-tfi-sf-compact" : "da-tfi-sf" });
+			sf.style.setProperty("--da-tfi-level", String(b.level ?? 0));
+			let prevStems: number[] = [];
+			for (const row of b.sf) {
+				const rowEl = sf.createDiv({ cls: row.length ? "da-tfi-sf-row" : "da-tfi-gap" });
+				for (const seg of row) {
+					if (seg.brace) {
+						const w = seg.w ?? 1;
+						const brace = rowEl.createSpan({ cls: `da-tfi-sf-brace da-tfi-sf-brace-${seg.brace}` });
+						brace.style.left = `${seg.brace === "mid" ? seg.x : seg.x - w}em`;
+						brace.style.width = `${w}em`;
+						continue;
+					}
+					if (seg.from !== undefined) {
+						// Rows hanging from the same stem chain into one line.
+						const elbow = rowEl.createSpan({ cls: prevStems.includes(seg.from) ? "da-tfi-sf-elbow da-tfi-sf-chain" : "da-tfi-sf-elbow" });
+						elbow.style.left = `${seg.from}em`;
+						elbow.style.width = `${Math.max(0.2, seg.x - seg.from - 0.25)}em`;
+					}
+					const text = rowEl.createSpan({ cls: "da-tfi-sf-seg" });
+					text.style.left = `${seg.x}em`;
+					appendTextFlowInline(text, seg.t ?? "");
+				}
+				prevStems = row.flatMap((seg) => (seg.from === undefined ? [] : [seg.from]));
+			}
+			continue;
+		}
+		if ("sym" in b) {
+			for (const s of b.sym) {
+				const row = container.createDiv({ cls: "da-tfi-sym" });
+				row.style.setProperty("--da-tfi-level", String(b.level ?? 0));
+				row.createSpan({ cls: "da-tfi-marker", text: s.marker });
+				row.createSpan({ cls: "da-tfi-sym-term", text: s.term });
+				const glyph = row.createSpan({ cls: "da-tfi-sym-glyph" });
+				glyph.createSpan({ cls: "da-tfi-sym-bracket" });
+				if (s.top) glyph.createSpan({ cls: "da-tfi-sym-label da-tfi-sym-top", text: s.top });
+				if (s.mid) glyph.createSpan({ cls: "da-tfi-sym-label da-tfi-sym-mid", text: s.mid });
+				if (s.bot) glyph.createSpan({ cls: "da-tfi-sym-label da-tfi-sym-bot", text: s.bot });
+				row.createSpan({ cls: "da-tfi-sym-note", text: s.note });
+			}
 			continue;
 		}
 		const flow = container.createDiv({ cls: "da-tfi-flow" });
@@ -1581,7 +1629,8 @@ export class DAView extends TextFileView {
 		tabToolbar.createEl("button", { cls: "da-btn da-btn-warn", text: "Clear Brackets", attr: { "data-action": "clear-brackets", title: "Clear All Brackets" } });
 		tabToolbar.createEl("button", { cls: "da-btn da-btn-danger", text: "Reset All", attr: { "data-action": "reset-all", title: "Reset Everything" } });
 
-		tabToolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "?", attr: { "data-action": "show-instructions", title: "Instructions", "aria-label": "Instructions" } });
+		tabToolbar.createEl("button", { cls: "da-btn", text: "Instructions", attr: { "data-action": "show-bracketing-instructions", title: "Bracketing Instructions", "aria-label": "Bracketing Instructions" } });
+		tabToolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "?", attr: { "data-action": "show-instructions", title: "Using this tool", "aria-label": "Using this tool" } });
 
 		this.buildFlowToolbar(tabStrip, "textflow", "tf");
 		this.buildFlowToolbar(tabStrip, "sentenceflow", "sf");
@@ -1688,16 +1737,26 @@ export class DAView extends TextFileView {
 		flowHelpHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-flow-help" } });
 		renderInstructionSections(flowHelpInner.createDiv({ cls: "da-modal-body" }).createDiv({ cls: "da-instructions" }), FLOW_INSTRUCTIONS);
 
-		const tfModal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: "textflow-instructions-modal" } });
-		const tfModalInner = tfModal.createDiv({ cls: "da-modal da-modal-tfi da-ui-scaled" });
-		const tfModalHeader = tfModalInner.createDiv({ cls: "da-modal-header" });
-		tfModalHeader.createEl("h2", { cls: "da-modal-title", text: "Text Flow Instructions" });
-		tfModalHeader.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": "hide-textflow-instructions" } });
-		renderTextFlowInstructions(tfModalInner.createDiv({ cls: "da-modal-body" }).createDiv({ cls: "da-instructions da-tf-instructions" }), TEXT_FLOW_INSTRUCTIONS);
+		this.buildMethodInstructionsModal("textflow", "Text Flow Instructions", TEXT_FLOW_INSTRUCTIONS, TEXT_FLOW_SOURCE);
+		this.buildMethodInstructionsModal("sentenceflow", "Sentence Flow Instructions", SENTENCE_FLOW_INSTRUCTIONS, SENTENCE_FLOW_SOURCE);
+		this.buildMethodInstructionsModal("bracketing", "Bracketing Instructions", BRACKETING_INSTRUCTIONS, BRACKETING_SOURCE);
+	}
+
+	// Modal for a method's instructions (Text Flow, Sentence Flow, Bracketing),
+	// opened by "show-<key>-instructions" and closed by "hide-<key>-instructions".
+	private buildMethodInstructionsModal(key: string, title: string, blocks: TextFlowBlock[], source?: string): void {
+		const modal = this.contentEl.createDiv({ cls: "da-modal-backdrop hidden", attr: { id: `${key}-instructions-modal` } });
+		const inner = modal.createDiv({ cls: "da-modal da-modal-tfi da-ui-scaled" });
+		const header = inner.createDiv({ cls: "da-modal-header" });
+		const titleWrap = header.createDiv();
+		titleWrap.createEl("h2", { cls: "da-modal-title", text: title });
+		if (source) titleWrap.createDiv({ cls: "da-tfi-source", text: `Source: ${source}` });
+		header.createEl("button", { cls: "da-modal-close", text: "×", attr: { "data-action": `hide-${key}-instructions` } });
+		renderTextFlowInstructions(inner.createDiv({ cls: "da-modal-body" }).createDiv({ cls: "da-instructions da-tf-instructions" }), blocks);
 	}
 
 	// Toolbar for a flow tab (Text Flow or Sentence Flow - identical apart
-	// from the Text Flow Instructions button). zoomPrefix namespaces the zoom
+	// from Text Flow's → button; each opens its own Instructions). zoomPrefix namespaces the zoom
 	// buttons' data-actions ("sf-zoom-in", "tf-zoom-in", ...).
 	private buildFlowToolbar(tabStrip: HTMLElement, key: FlowKey, zoomPrefix: string): void {
 		const f = this.flows[key];
@@ -1722,8 +1781,9 @@ export class DAView extends TextFileView {
 
 		if (key === "textflow") {
 			toolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "→", attr: { "data-action": "textflow-to-brackets", title: "Copy each line to the Brackets canvas as a proposition", "aria-label": "Copy lines to Brackets" } });
-			toolbar.createEl("button", { cls: "da-btn", text: "Instructions", attr: { "data-action": "show-textflow-instructions", title: "Text Flow Instructions", "aria-label": "Text Flow Instructions" } });
 		}
+		const instructionsTitle = key === "textflow" ? "Text Flow Instructions" : "Sentence Flow Instructions";
+		toolbar.createEl("button", { cls: "da-btn", text: "Instructions", attr: { "data-action": `show-${key}-instructions`, title: instructionsTitle, "aria-label": instructionsTitle } });
 		toolbar.createEl("button", { cls: "da-btn da-btn-icon-only", text: "?", attr: { "data-action": "show-flow-help", title: "Using this editor", "aria-label": "Using this editor" } });
 	}
 
@@ -1753,8 +1813,10 @@ export class DAView extends TextFileView {
 		on("show-resources", () => this.showResources());
 		on("hide-resources", () => this.hideResources());
 		on("show-instructions", () => this.showInstructions());
-		on("show-textflow-instructions", () => this.showTextFlowInstructions());
-		on("hide-textflow-instructions", () => this.hideTextFlowInstructions());
+		for (const key of ["textflow", "sentenceflow", "bracketing"]) {
+			on(`show-${key}-instructions`, () => this.byId(`${key}-instructions-modal`)?.classList.remove("hidden"));
+			on(`hide-${key}-instructions`, () => this.byId(`${key}-instructions-modal`)?.classList.add("hidden"));
+		}
 		on("textflow-to-brackets", () => this.convertTextFlowToBrackets());
 		on("hide-instructions", () => this.hideInstructions());
 		on("show-flow-help", () => this.byId("flow-help-modal")?.classList.remove("hidden"));
@@ -4019,12 +4081,6 @@ export class DAView extends TextFileView {
 	}
 	hideLogicalRelationships(): void {
 		this.byId("lr-modal")?.classList.add("hidden");
-	}
-	showTextFlowInstructions(): void {
-		this.byId("textflow-instructions-modal")?.classList.remove("hidden");
-	}
-	hideTextFlowInstructions(): void {
-		this.byId("textflow-instructions-modal")?.classList.add("hidden");
 	}
 	showResources(): void {
 		this.byId("resource-modal")?.classList.remove("hidden");
