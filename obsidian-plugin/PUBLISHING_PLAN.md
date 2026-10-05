@@ -16,7 +16,7 @@ submitting an unreviewed, untested plugin wastes the reviewers' time and yours.
 - [x] `LICENSE` added in `obsidian-plugin/` (MIT, copyright SotS1689)
 - [x] `versions.json` added in `obsidian-plugin/` (`"0.1.0": "1.4.0"`)
 - [x] Plugin guidelines self-review (Step 3 below) done — see results inline below
-- [x] GitHub Releases are being cut (Step 4) — latest is 0.2.24 (2026-10-02). 0.2.15 was
+- [x] GitHub Releases are being cut (Step 4) — latest is 0.2.25 (2026-10-05). 0.2.15 was
       bumped but never released; its changes shipped in 0.2.16.
 - [ ] Not yet submitted via community.obsidian.md (see Step 6 — **the submission process
       changed from a PR against `obsidian-releases` to a web form**; this doc has been updated
