@@ -1,4 +1,4 @@
-import { addIcon, App, Modal, Scope, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
+import { addIcon, App, Modal, Modifier, Scope, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import html2canvas from "html2canvas";
 import { TEXT_FLOW_INSTRUCTIONS, TEXT_FLOW_SOURCE, TextFlowBlock } from "./textFlowInstructions";
 import { SENTENCE_FLOW_INSTRUCTIONS, SENTENCE_FLOW_SOURCE } from "./sentenceFlowInstructions";
@@ -1145,7 +1145,7 @@ const FLOW_INSTRUCTIONS: InstructionSection[] = [
 		"**Default tab** sets the tab-stop spacing in inches (0.25 by default).",
 		"Each tab has its own zoom.",
 		"Pasting gives plain text; tabs in the pasted text become tab stops.",
-		"[[Ctrl]]+[[Z]] undoes typing here separately from the Brackets tab.",
+		"[[Ctrl]]+[[Z]] undoes your last change here (typing a word, a line break, a tab, an indent, formatting, a paste), separately from the Brackets tab. [[Ctrl]]+[[Y]] or [[Ctrl]]+[[Shift]]+[[Z]] redoes it.",
 		"**→** (Text Flow) copies each line into the Brackets tab as a proposition. How far a line is indented sets the proposition's indent, and verse numbers become labels. If Brackets already has content, you'll be asked whether to **Replace** it (this also clears the brackets) or **Append** to it.",
 		"**Instructions** opens Blake Franze's Text Flow Instructions (Text Flow) or the Sentence Flow Instructions adapted from Beale's Exegetical Manual (Sentence Flow).",
 	] },
@@ -1274,6 +1274,18 @@ function renderTextFlowInstructions(container: HTMLElement, blocks: TextFlowBloc
 }
 
 const HISTORY_LIMIT = 20;
+// The flow canvases record typing in word-sized steps, so they keep more.
+const FLOW_HISTORY_LIMIT = 100;
+// A pause in typing longer than this starts a new undo step.
+const FLOW_TYPING_IDLE_MS = 1000;
+
+// A flow canvas's content plus where the caret was: line index and offset
+// within it, counting characters, with each tab marker as one (offset -1 =
+// end of the line).
+interface FlowSnapshot {
+	lines: NotesLine[];
+	caret: { line: number; offset: number } | null;
+}
 
 function emptyProjectData(): ProjectData {
 	return { propositions: [], brackets: [], zoomLevel: 1, isRTL: false, notes: emptyNotesData(), timestamp: new Date().toISOString() };
@@ -1288,6 +1300,11 @@ export class DAView extends TextFileView {
 	sidebarSelected = -1;
 	historyStack: string[] = [];
 	redoStack: string[] = [];
+	// Per-flow undo/redo for the Text Flow / Sentence Flow canvases (see
+	// pushFlowHistory).
+	flowUndo: Record<FlowKey, FlowSnapshot[]> = { sentenceflow: [], textflow: [] };
+	flowRedo: Record<FlowKey, FlowSnapshot[]> = { sentenceflow: [], textflow: [] };
+	private flowTypingGroup: { key: FlowKey; kind: "insert" | "delete"; at: number; lastSpace: boolean } | null = null;
 	zoomLevel = 1;
 	isRTL = false;
 	dragSrcIndex: number | null = null;
@@ -1342,6 +1359,24 @@ export class DAView extends TextFileView {
 		bindFormatKey("i", "italic");
 		bindFormatKey("u", "underline");
 
+		// Same for Mod+M / Mod+Shift+M (indent / outdent the line): any
+		// command bound to them - e.g. the Editing Toolbar plugin's
+		// "Indent list" / "Undent list" - would otherwise swallow the key
+		// before the canvas sees it. Left alone outside a flow canvas so
+		// those commands still work everywhere else.
+		const bindIndentKey = (modifiers: Modifier[], direction: 1 | -1) => {
+			this.scope!.register(modifiers, "m", (evt) => {
+				const anchor = window.getSelection()?.anchorNode ?? null;
+				if (!isFlowTab(this.activeTab) || !anchor || !this.flowCanvas()?.contains(anchor)) return;
+				evt.preventDefault();
+				this.pushFlowHistory(this.curFlowKey());
+				this.indentNotesParagraph(direction);
+				return false;
+			});
+		};
+		bindIndentKey(["Mod"], 1);
+		bindIndentKey(["Mod", "Shift"], -1);
+
 		// Same interception problem affects Mod+X: Obsidian's Keymap grabs it
 		// before the contenteditable's native cut handling ever sees it (Mod+C
 		// and Mod+V happen to pass through untouched). Unlike the format keys,
@@ -1354,6 +1389,7 @@ export class DAView extends TextFileView {
 			const editable = !!active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
 			if (!editable) return;
 			evt.preventDefault();
+			if (active?.classList.contains("da-sf-canvas") && isFlowTab(this.activeTab)) this.pushFlowHistory(this.curFlowKey());
 			document.execCommand("cut");
 			if (active?.classList.contains("da-sf-canvas") && isFlowTab(this.activeTab)) this.scheduleNotesLayout(true);
 			this.requestSave();
@@ -1459,6 +1495,7 @@ export class DAView extends TextFileView {
 		this.sidebarSelected = -1;
 		this.historyStack = [];
 		this.redoStack = [];
+		this.clearFlowHistory();
 		this.loaded = true;
 
 		if (this.domBuilt) {
@@ -1485,6 +1522,7 @@ export class DAView extends TextFileView {
 		this.sidebarSelected = -1;
 		this.historyStack = [];
 		this.redoStack = [];
+		this.clearFlowHistory();
 		this.unreadableData = null;
 	}
 
@@ -1932,6 +1970,7 @@ export class DAView extends TextFileView {
 			if (!canvas) return;
 			this.registerDomEvent(canvas, "paste", (e: ClipboardEvent) => this.handleNotesPaste(e));
 			this.registerDomEvent(canvas, "keydown", (e: KeyboardEvent) => this.handleNotesKeydown(e));
+			this.registerDomEvent(canvas, "beforeinput", (e: InputEvent) => this.handleNotesBeforeInput(e, key));
 			this.registerDomEvent(canvas, "input", () => { this.scheduleNotesLayout(false, key); this.requestSave(); });
 		});
 
@@ -2024,6 +2063,7 @@ export class DAView extends TextFileView {
 			return true;
 		}
 		if (!active.isContentEditable) return false;
+		if (active.classList.contains("da-sf-canvas") && isFlowTab(this.activeTab)) this.pushFlowHistory(this.curFlowKey());
 		document.execCommand("insertText", false, "∴");
 		return true;
 	}
@@ -2061,9 +2101,8 @@ export class DAView extends TextFileView {
 		}
 
 		// The flow canvases handle their own Tab/Ctrl+Z/Ctrl+B etc. (see
-		// handleNotesKeydown) and rely on the browser's native contentEditable
-		// undo stack, so none of the Brackets-tab shortcuts below should run
-		// while focus is inside one.
+		// handleNotesKeydown) with their own undo history, so none of the
+		// Brackets-tab shortcuts below should run while focus is inside one.
 		const inNotesCanvas = !!(e.target as HTMLElement | null)?.closest?.(".da-sf-canvas");
 		if (inNotesCanvas) return;
 		if (this.qsa(".da-modal-backdrop:not(.hidden)").length) return;
@@ -2293,7 +2332,7 @@ export class DAView extends TextFileView {
 	// ---------- history / persistence ----------
 
 	// A snapshot of the undoable Brackets-tab state. The flow tabs keep their
-	// own native (contenteditable) undo, so their content is only captured
+	// own undo history (flowUndo/flowRedo), so their content is only captured
 	// for actions that change it (Reset All) - restoring it on every undo
 	// would throw away typing done since.
 	private historySnapshot(includeFlows: boolean): string {
@@ -2338,6 +2377,8 @@ export class DAView extends TextFileView {
 		if (this.sidebarSelected >= this.propositions.length) this.sidebarSelected = -1;
 		if (prev.flows) {
 			FLOW_KEYS.forEach(key => this.loadFlowFromJson(key, prev.flows[key]));
+			// The flows' own step history no longer matches their content.
+			this.clearFlowHistory();
 			this.renderNotesTab();
 			this.applyNotesZoom();
 		}
@@ -3830,6 +3871,7 @@ export class DAView extends TextFileView {
 			const ta = this.byId<HTMLTextAreaElement>("paste-area");
 			if (ta) ta.value = "";
 			FLOW_KEYS.forEach(key => this.loadFlowFromJson(key, undefined));
+			this.clearFlowHistory();
 			this.renderSidebarList();
 			this.renderMainRows();
 			this.renderCanvas();
@@ -4095,10 +4137,181 @@ export class DAView extends TextFileView {
 		this.byId("instructions-modal")?.classList.add("hidden");
 	}
 
+	// ---------- Sentence Flow: undo / redo ----------
+
+	// The flow canvases don't use the browser's built-in undo: Enter, Tab,
+	// Shift+Tab and Ctrl+M edit the DOM directly, which that undo never
+	// records (Ctrl+Z skipped right over a line break) and which leaves its
+	// history pointing at nodes that no longer exist. Instead every change
+	// saves a snapshot of the flow first - explicitly for the editor's own
+	// actions, and via beforeinput for the browser's (typing, deleting,
+	// Shift+Enter, drag-and-drop), grouped into word-sized steps.
+
+	private clearFlowHistory(): void {
+		FLOW_KEYS.forEach(k => { this.flowUndo[k] = []; this.flowRedo[k] = []; });
+		this.flowTypingGroup = null;
+	}
+
+	// Call right before a change to a flow canvas.
+	private pushFlowHistory(key: FlowKey): void {
+		const snap = this.flowSnapshot(key);
+		const stack = this.flowUndo[key];
+		const top = stack[stack.length - 1];
+		if (!top || !this.sameFlowContent(top, snap)) {
+			stack.push(snap);
+			if (stack.length > FLOW_HISTORY_LIMIT) stack.shift();
+		}
+		this.flowRedo[key] = [];
+		this.flowTypingGroup = null;
+	}
+
+	private handleNotesBeforeInput(e: InputEvent, key: FlowKey): void {
+		const t = e.inputType;
+		// Edit menu / context menu Undo and Redo.
+		if (t === "historyUndo" || t === "historyRedo") {
+			e.preventDefault();
+			if (t === "historyUndo") this.undoFlow(key);
+			else this.redoFlow(key);
+			return;
+		}
+		// Typing and deleting coalesce into one step per word; anything else
+		// (Shift+Enter, drop, ...) is a step of its own.
+		const kind = t === "insertText" || t === "insertCompositionText" || t === "insertReplacementText" ? "insert"
+			: t.startsWith("delete") && t !== "deleteByDrag" && t !== "deleteByCut" ? "delete"
+			: null;
+		if (!kind) { this.pushFlowHistory(key); return; }
+		const space = kind === "insert" && /^\s+$/.test(e.data ?? "");
+		const now = Date.now();
+		const g = this.flowTypingGroup;
+		const newStep = !g || g.key !== key || g.kind !== kind || now - g.at > FLOW_TYPING_IDLE_MS
+			|| (kind === "insert" && g.lastSpace && !space);
+		if (newStep) this.pushFlowHistory(key);
+		this.flowTypingGroup = { key, kind, at: now, lastSpace: space };
+	}
+
+	undoFlow(key: FlowKey): void {
+		this.stepFlowHistory(key, this.flowUndo[key], this.flowRedo[key]);
+	}
+
+	redoFlow(key: FlowKey): void {
+		this.stepFlowHistory(key, this.flowRedo[key], this.flowUndo[key]);
+	}
+
+	private stepFlowHistory(key: FlowKey, from: FlowSnapshot[], to: FlowSnapshot[]): void {
+		const cur = this.flowSnapshot(key);
+		let snap = from.pop();
+		// Skip steps that changed nothing (e.g. Shift+Tab with no tab before
+		// the caret), so every Ctrl+Z visibly does something.
+		while (snap && this.sameFlowContent(snap, cur)) snap = from.pop();
+		if (!snap) return;
+		to.push(cur);
+		if (to.length > FLOW_HISTORY_LIMIT) to.shift();
+		this.restoreFlowSnapshot(key, snap);
+	}
+
+	private sameFlowContent(a: FlowSnapshot, b: FlowSnapshot): boolean {
+		return JSON.stringify(a.lines) === JSON.stringify(b.lines);
+	}
+
+	private flowSnapshot(key: FlowKey): FlowSnapshot {
+		return { lines: this.serializeNotesLines(key), caret: this.getFlowCaret(key) };
+	}
+
+	private restoreFlowSnapshot(key: FlowKey, snap: FlowSnapshot): void {
+		this.flows[key].lines = JSON.parse(JSON.stringify(snap.lines));
+		this.renderNotesTab(key);
+		this.layoutNotesTabs(key);
+		this.setFlowCaret(key, snap.caret);
+		this.flowTypingGroup = null;
+		this.requestSave();
+	}
+
+	// Characters in a line (or part of one), each tab marker counting as one.
+	private flowUnitCount(node: Node): number {
+		if (node.nodeType === Node.TEXT_NODE) return (node as Text).data.length;
+		if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains("da-tab")) return 1;
+		let n = 0;
+		node.childNodes.forEach(c => { n += this.flowUnitCount(c); });
+		return n;
+	}
+
+	private getFlowCaret(key: FlowKey): FlowSnapshot["caret"] {
+		const canvas = this.flowCanvas(key);
+		const sel = window.getSelection();
+		if (!canvas || !sel || sel.rangeCount === 0 || !canvas.contains(sel.getRangeAt(0).startContainer)) return null;
+		const lines = this.getNotesLines(canvas);
+		// getNotesLines may have re-wrapped loose nodes; read the selection after.
+		const r = sel.getRangeAt(0);
+		if (r.startContainer === canvas && lines[0] !== canvas) {
+			const i = Math.min(r.startOffset, lines.length - 1);
+			return { line: i, offset: r.startOffset < lines.length ? 0 : -1 };
+		}
+		const i = lines.findIndex(l => l.contains(r.startContainer));
+		if (i < 0) return null;
+		const before = document.createRange();
+		before.setStart(lines[i], 0);
+		before.setEnd(r.startContainer, r.startOffset);
+		return { line: i, offset: this.flowUnitCount(before.cloneContents()) };
+	}
+
+	private setFlowCaret(key: FlowKey, caret: FlowSnapshot["caret"]): void {
+		const canvas = this.flowCanvas(key);
+		const sel = window.getSelection();
+		if (!canvas || !sel) return;
+		canvas.focus();
+		const lines = Array.from(canvas.children).filter(c => c.tagName === "DIV") as HTMLElement[];
+		if (!caret || lines.length === 0) return;
+		const line = lines[Math.min(caret.line, lines.length - 1)];
+		const range = document.createRange();
+		let remaining = caret.offset;
+		const place = (node: Node): boolean => {
+			if (node.nodeType === Node.TEXT_NODE) {
+				const len = (node as Text).data.length;
+				if (remaining <= len) { range.setStart(node, remaining); return true; }
+				remaining -= len;
+				return false;
+			}
+			if (node.nodeType !== Node.ELEMENT_NODE) return false;
+			const el = node as HTMLElement;
+			if (el.classList.contains("da-tab")) {
+				if (remaining === 0) { range.setStartBefore(el); return true; }
+				remaining -= 1;
+				if (remaining === 0 && !el.nextSibling) { range.setStartAfter(el); return true; }
+				return false;
+			}
+			if (el.tagName === "BR") return false;
+			return Array.from(el.childNodes).some(place);
+		};
+		const placed = remaining >= 0 && Array.from(line.childNodes).some(place);
+		if (!placed) {
+			// End of the line, but before a placeholder <br> (see
+			// splitNotesLineAtCaret for why a caret can't sit inside one).
+			const last = line.lastChild;
+			if (last && last.nodeName === "BR") range.setStartBefore(last);
+			else range.setStart(line, line.childNodes.length);
+		}
+		range.collapse(true);
+		sel.removeAllRanges();
+		sel.addRange(range);
+	}
+
 	// ---------- Sentence Flow: editing ----------
 
 	private handleNotesKeydown(e: KeyboardEvent): void {
 		const mod = e.ctrlKey || e.metaKey;
+		const key = this.curFlowKey();
+
+		const letter = (e.key || "").toLowerCase();
+		if (mod && !e.altKey && !e.isComposing && (letter === "z" || letter === "y")) {
+			// The browser's own undo can't see the edits this editor makes
+			// directly to the DOM (Enter, Tab, indent), so it skipped them -
+			// and mixing the two corrupted its history. Everything goes
+			// through the flow's own history instead.
+			e.preventDefault();
+			if (letter === "y" || e.shiftKey) this.redoFlow(key);
+			else this.undoFlow(key);
+			return;
+		}
 
 		if (e.key === "Tab") {
 			// Default contenteditable behavior for Tab moves focus to the next
@@ -4106,17 +4319,15 @@ export class DAView extends TextFileView {
 			// taken over entirely. Shift+Tab takes back the tab just before
 			// the caret.
 			e.preventDefault();
+			this.pushFlowHistory(key);
 			if (e.shiftKey) this.removeNotesTabBeforeCaret();
 			else this.insertNotesTabAtCaret();
 			this.scheduleNotesLayout(true);
 			this.requestSave();
 			return;
 		}
-		if (mod && (e.key === "m" || e.key === "M")) {
-			e.preventDefault();
-			this.indentNotesParagraph(e.shiftKey ? -1 : 1);
-			return;
-		}
+		// Ctrl+M / Ctrl+Shift+M are handled via this.scope (see the
+		// constructor), for the same reason as Bold/Italic/Underline below.
 		if (e.key === "Enter" && !e.shiftKey) {
 			// Handled manually rather than letting the browser's default
 			// paragraph-insert action run: that action's own choice of whether
@@ -4130,6 +4341,7 @@ export class DAView extends TextFileView {
 			// indent onto the new line ourselves makes this deterministic
 			// instead of hoping the default action happens to do it.
 			e.preventDefault();
+			this.pushFlowHistory(key);
 			this.splitNotesLineAtCaret();
 			return;
 		}
@@ -4177,13 +4389,26 @@ export class DAView extends TextFileView {
 		//   `line` (the caret was typed after it) - it has to be cloned across
 		//   explicitly instead.
 		if (line.style.marginInlineStart) newLine.style.marginInlineStart = line.style.marginInlineStart;
-		for (const child of Array.from(line.childNodes)) {
-			if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).classList.contains("da-tab")) {
-				newLine.appendChild(child.cloneNode(true));
-			} else {
-				break;
+		// The leading tabs aren't always plain first children: an empty text
+		// node can sit in front of them (left by Tab pressed at the start of
+		// existing text - Range.insertNode splits the text node, leaving an
+		// empty piece before the marker), and bold/italic/underline applied to
+		// the whole line wraps them in <b>/<i>/<u>. Either used to stop the
+		// scan at once, so the new line started at the left margin.
+		const collectLeadingTabs = (parent: Node): boolean => {
+			for (const child of Array.from(parent.childNodes)) {
+				if (child.nodeType === Node.TEXT_NODE) {
+					if ((child.textContent || "").replace(/​/g, "") === "") continue;
+					return false;
+				}
+				if (child.nodeType !== Node.ELEMENT_NODE) continue;
+				const el = child as HTMLElement;
+				if (el.classList.contains("da-tab")) { newLine.appendChild(el.cloneNode(true)); continue; }
+				if (el.tagName === "BR" || !collectLeadingTabs(el)) return false;
 			}
-		}
+			return true;
+		};
+		collectLeadingTabs(line);
 		const tabPrefixCount = newLine.childNodes.length;
 		newLine.appendChild(afterContent);
 
@@ -4245,7 +4470,7 @@ export class DAView extends TextFileView {
 	// they participate in the tab-width grid alignment instead of rendering
 	// as a browser-default tab. Text runs go through execCommand("insertText"),
 	// which natively turns embedded newlines into new paragraphs (matching
-	// Enter) and stays in the native undo stack; tab markers are inserted
+	// Enter); the whole paste is one undo step. Tab markers are inserted
 	// via insertNotesTabAtCaret (see its comment for why, not execCommand).
 	private handleNotesPaste(e: ClipboardEvent): void {
 		const canvas = this.flowCanvas();
@@ -4253,6 +4478,7 @@ export class DAView extends TextFileView {
 		const text = e.clipboardData?.getData("text/plain") ?? "";
 		if (!text) return;
 		e.preventDefault();
+		this.pushFlowHistory(this.curFlowKey());
 
 		const parts = text.split("\t");
 		parts.forEach((part, i) => {
@@ -4281,6 +4507,11 @@ export class DAView extends TextFileView {
 		span.contentEditable = "false";
 		span.textContent = "​";
 		range.insertNode(span);
+		// insertNode at the start of a text node splits off an empty piece
+		// before the marker; drop it so it can't hide the tab from Enter's
+		// indent carry-over.
+		const prev = span.previousSibling;
+		if (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent === "") prev.remove();
 
 		const after = document.createRange();
 		after.setStartAfter(span);
@@ -4557,6 +4788,8 @@ export class DAView extends TextFileView {
 	// Docs both exclude it. Bold/Italic don't have this problem visually, so
 	// they're untouched.
 	private applySentenceFlowFormat(command: string): void {
+		const anchor = window.getSelection()?.anchorNode ?? null;
+		if (isFlowTab(this.activeTab) && anchor && this.flowCanvas()?.contains(anchor)) this.pushFlowHistory(this.curFlowKey());
 		if (command !== "underline" || document.queryCommandState("underline")) {
 			// Only the turning-on case needs the trim - toggling underline off
 			// again should clear it from the full selection as-is.
@@ -4651,6 +4884,8 @@ export class DAView extends TextFileView {
 				if (seg.bold) { const b = document.createElement("b"); b.appendChild(node); node = b; }
 				div.appendChild(node);
 			});
+			// A blank line needs a <br> or it collapses to zero height.
+			if (!div.hasChildNodes()) div.appendChild(document.createElement("br"));
 		});
 
 		canvas.dir = this.isRTL ? "rtl" : "ltr";
