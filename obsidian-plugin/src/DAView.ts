@@ -1139,7 +1139,7 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 const FLOW_INSTRUCTIONS: InstructionSection[] = [
 	{ items: [
 		"[[Tab]] moves the text to the next tab stop, so clauses line up in columns. [[Shift]]+[[Tab]] removes the tab just before the cursor.",
-		"[[Ctrl]]+[[M]] / [[Ctrl]]+[[Shift]]+[[M]] indents or outdents the whole line.",
+		"[[Ctrl]]+[[M]] / [[Ctrl]]+[[Shift]]+[[M]] indents or outdents the whole line. Select several lines first to indent or outdent them all at once.",
 		"[[Enter]] starts a new line with the same indent as the one above, so you can flow a passage with just Enter and Tab.",
 		"[[Ctrl]]+[[B]] / [[Ctrl]]+[[I]] / [[Ctrl]]+[[U]] make text bold, italic, or underlined.",
 		"**Default tab** sets the tab-stop spacing in inches (0.25 by default).",
@@ -4447,21 +4447,44 @@ export class DAView extends TextFileView {
 		this.requestSave();
 	}
 
-	// Increases/decreases the indent of whichever paragraph the caret is in,
-	// snapping to the next/previous multiple of the default tab width -
-	// mirroring Word's Increase/Decrease Indent behavior.
+	// Increases/decreases the indent of whichever paragraph the caret is in -
+	// or every paragraph the selection touches - each snapping to its own
+	// next/previous multiple of the default tab width, mirroring Word's
+	// Increase/Decrease Indent behavior.
 	private indentNotesParagraph(direction: 1 | -1): void {
-		const line = this.getCurrentLine();
-		if (!line) return;
-		const current = this.getLineMarginPx(line);
 		const tabWidth = this.flows[this.curFlowKey()].defaultTabWidth;
-		const target = direction > 0
-			? this.nextStop(current, tabWidth)
-			: this.prevStop(current, tabWidth);
-		if (target > 0) line.style.marginInlineStart = `${target}px`;
-		else line.style.removeProperty("margin-inline-start");
+		this.getSelectedLines().forEach(line => {
+			const current = this.getLineMarginPx(line);
+			const target = direction > 0
+				? this.nextStop(current, tabWidth)
+				: this.prevStop(current, tabWidth);
+			if (target > 0) line.style.marginInlineStart = `${target}px`;
+			else line.style.removeProperty("margin-inline-start");
+		});
 		this.scheduleNotesLayout(true);
 		this.requestSave();
+	}
+
+	// The line <div>s the selection touches; just the caret's line when the
+	// selection is collapsed. A selection ending at the very start of a line
+	// (what a triple-click or a drag to the left edge leaves) doesn't count
+	// that line, matching Word.
+	private getSelectedLines(): HTMLElement[] {
+		const first = this.getCurrentLine(); // also wraps loose first-line content
+		const canvas = this.flowCanvas();
+		const sel = window.getSelection();
+		if (!first || !canvas || !sel || sel.rangeCount === 0 || sel.isCollapsed) return first ? [first] : [];
+		const range = sel.getRangeAt(0);
+		const lines = (Array.from(canvas.children) as HTMLElement[])
+			.filter(c => c.tagName === "DIV" && range.intersectsNode(c));
+		const last = lines[lines.length - 1];
+		if (lines.length > 1 && last.contains(range.endContainer)) {
+			const lead = document.createRange();
+			lead.setStart(last, 0);
+			lead.setEnd(range.endContainer, range.endOffset);
+			if (this.flowUnitCount(lead.cloneContents()) === 0) lines.pop();
+		}
+		return lines.length > 0 ? lines : [first];
 	}
 
 	// Reads clipboard plain text only (formatting from other apps is
