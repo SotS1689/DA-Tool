@@ -19,7 +19,7 @@ Discourse analysis (also called phrasing or bracketing) is a method of visually 
 - Double-click a bracket's label box to mark it as the passage's **main point** (shown in a distinct color)
 - An **Instructions** button opens *Bracketing Instructions*: Daniel Fuller's bracket symbols for each relationship, the steps of discourse analysis, and hints for bracketing (adapted from G. K. Beale's *Exegetical Manual*)
 - Indent/outdent, drag-and-drop reorder, and undo/redo your edits (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, or the ↶ / ↷ buttons)
-- Zoom controls and a right-to-left mode for Hebrew text
+- Zoom controls (buttons or Ctrl+scroll) and a right-to-left mode for Hebrew text
 - Export the diagram as a PNG saved directly into your vault
 
 ### Text Flow
@@ -36,7 +36,7 @@ Both flow tabs support:
 - New lines keep the previous line's indent, so you can flow a passage with just Enter and Tab
 - Bold, italic, and underline
 - Plain-text paste (tabs are preserved as tab stops)
-- Their own independent zoom level
+- Their own independent zoom level (buttons or Ctrl+scroll)
 - A **?** button with the editor's keyboard shortcuts
 - Correct rendering of polytonic Greek accents
 

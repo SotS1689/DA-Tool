@@ -1124,7 +1124,7 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 	] },
 	{ heading: "Moving around", items: [
 		"**Click and drag** on empty space to pan the diagram.",
-		"**− / + / ↺** zoom out, zoom in, and reset (30%–300%).",
+		"**− / + / ↺** zoom out, zoom in, and reset (30%–300%). [[Ctrl]]+scroll over the diagram also zooms.",
 		"The panel button at the far left of the tab bar (or the command **Toggle propositions sidebar**) hides or shows the Propositions list. Drag the list's edge to resize it; the width is remembered.",
 	] },
 	{ heading: "Header buttons", items: [
@@ -1143,7 +1143,7 @@ const FLOW_INSTRUCTIONS: InstructionSection[] = [
 		"[[Enter]] starts a new line with the same indent as the one above, so you can flow a passage with just Enter and Tab.",
 		"[[Ctrl]]+[[B]] / [[Ctrl]]+[[I]] / [[Ctrl]]+[[U]] make text bold, italic, or underlined.",
 		"**Default tab** sets the tab-stop spacing in inches (0.25 by default).",
-		"Each tab has its own zoom.",
+		"Each tab has its own zoom. [[Ctrl]]+scroll over the page zooms in and out.",
 		"Pasting gives plain text; tabs in the pasted text become tab stops.",
 		"[[Ctrl]]+[[Z]] undoes your last change here (typing a word, a line break, a tab, an indent, formatting, a paste), separately from the Brackets tab. [[Ctrl]]+[[Y]] or [[Ctrl]]+[[Shift]]+[[Z]] redoes it.",
 		"**→** (Text Flow) copies each line into the Brackets tab as a proposition. How far a line is indented sets the proposition's indent, and verse numbers become labels. If Brackets already has content, you'll be asked whether to **Replace** it (this also clears the brackets) or **Append** to it.",
@@ -1902,6 +1902,7 @@ export class DAView extends TextFileView {
 
 		this.initializeCanvasClick();
 		this.initializePanning();
+		this.initializeWheelZoom();
 		this.makeResizable("left-resizer", "left-sidebar", "left");
 		this.applySidebarHidden();
 
@@ -2161,6 +2162,31 @@ export class DAView extends TextFileView {
 
 	// ---------- zoom ----------
 
+	// Ctrl+scroll (and trackpad pinch, which Chromium reports as a ctrl+wheel)
+	// zooms the bracket workspace and each flow canvas. Deltas accumulate so
+	// one mouse-wheel notch is one 10% step, while a pinch's stream of tiny
+	// deltas doesn't race through the whole range. passive:false so
+	// preventDefault can stop Obsidian/Electron from zooming the whole window.
+	private wheelZoomAccum = 0;
+
+	private initializeWheelZoom(): void {
+		const attach = (el: HTMLElement | null | undefined, step: (delta: number, e: WheelEvent) => void) => {
+			if (!el) return;
+			this.registerDomEvent(el, "wheel", (e: WheelEvent) => {
+				if (!e.ctrlKey && !e.metaKey) return;
+				e.preventDefault();
+				const px = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 100 : e.deltaY;
+				this.wheelZoomAccum += px;
+				if (Math.abs(this.wheelZoomAccum) < 50) return;
+				const delta = this.wheelZoomAccum < 0 ? 0.1 : -0.1;
+				this.wheelZoomAccum = 0;
+				step(delta, e);
+			}, { passive: false });
+		};
+		attach(this.byId("diagram-container"), (d, e) => this.zoomBracketsAt(d, e.clientX, e.clientY));
+		FLOW_KEYS.forEach(key => attach(this.flowCanvas(key)?.parentElement, d => this.adjustNotesZoom(d)));
+	}
+
 	adjustZoom(delta: number): void {
 		const oldZoom = this.zoomLevel;
 		this.zoomLevel = Math.min(3, Math.max(0.3, Math.round((this.zoomLevel + delta) * 10) / 10));
@@ -2180,6 +2206,30 @@ export class DAView extends TextFileView {
 			return;
 		}
 		this.applyZoom();
+		this.requestSave();
+	}
+
+	// Ctrl+scroll zoom on the bracket workspace: keeps the diagram point under
+	// the pointer fixed. Measured from bounding rects, so it works with either
+	// transform-origin (LTR or RTL). The CSS transition is skipped so the new
+	// scale is in effect immediately and the scroll correction lands on it.
+	zoomBracketsAt(delta: number, clientX: number, clientY: number): void {
+		const container = this.byId("diagram-container");
+		const scaler = this.byId("workspace-scaler");
+		if (!container || !scaler) { this.adjustZoom(delta); return; }
+		const oldZoom = this.zoomLevel;
+		const newZoom = Math.min(3, Math.max(0.3, Math.round((oldZoom + delta) * 10) / 10));
+		if (newZoom === oldZoom) return;
+		const before = scaler.getBoundingClientRect();
+		const cx = (clientX - before.left) / oldZoom;
+		const cy = (clientY - before.top) / oldZoom;
+		this.zoomLevel = newZoom;
+		scaler.setCssStyles({ transition: "none" });
+		this.applyZoom();
+		const after = scaler.getBoundingClientRect();
+		container.scrollLeft += after.left + cx * newZoom - clientX;
+		container.scrollTop += after.top + cy * newZoom - clientY;
+		scaler.setCssStyles({ transition: "" });
 		this.requestSave();
 	}
 
