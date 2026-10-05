@@ -1,6 +1,6 @@
 {
 	"name": "da-tool-obsidian",
-	"version": "0.2.26",
+	"version": "0.2.27",
 	"description": "Obsidian plugin port of the DA-Tool discourse analysis bracket diagrammer",
 	"private": true,
 	"scripts": {
