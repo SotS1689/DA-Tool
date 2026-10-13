@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
+import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
 import { COLOR_THEMES, COLOR_TOKENS, colorThemeClasses, DA_TOOL_ICON, DAToolSettings, DAView, UI_SCALE_STEPS, VIEW_TYPE_DA } from "./DAView";
 import { openColorPickerPopover } from "./ColorPicker";
 
@@ -41,6 +41,35 @@ function cssColorToHex(cssColor: string): string {
 	return `#${toHex(m[1])}${toHex(m[2])}${toHex(m[3])}`;
 }
 
+class FolderSuggest extends AbstractInputSuggest<TFolder> {
+	constructor(app: App, private inputEl: HTMLInputElement, private onPick: (path: string) => void) {
+		super(app, inputEl);
+	}
+
+	protected getSuggestions(query: string): TFolder[] {
+		const q = query.trim().toLowerCase().replace(/^\/+/, "");
+		const folders: TFolder[] = [];
+		const collect = (folder: TFolder) => {
+			if (folder.path.toLowerCase().includes(q)) folders.push(folder);
+			for (const child of folder.children) {
+				if (child instanceof TFolder) collect(child);
+			}
+		};
+		collect(this.app.vault.getRoot());
+		return folders.sort((a, b) => a.path.localeCompare(b.path));
+	}
+
+	renderSuggestion(folder: TFolder, el: HTMLElement): void {
+		el.setText(folder.path === "" ? "/ (vault root)" : folder.path);
+	}
+
+	selectSuggestion(folder: TFolder): void {
+		this.setValue(folder.path);
+		this.onPick(folder.path);
+		this.close();
+	}
+}
+
 class NewDAFileModal extends Modal {
 	private titleValue = "Untitled";
 	private folderValue: string;
@@ -66,27 +95,13 @@ class NewDAFileModal extends Modal {
 		titleInput.addEventListener("input", () => { this.titleValue = titleInput.value; });
 
 		contentEl.createEl("label", { text: "Folder", attr: { style: "display:block; font-weight:600; margin-bottom:4px;" } });
-		const folderSelect = contentEl.createEl("select", { attr: { style: "width:100%; margin-bottom:20px;" } });
-
-		const folders: TFolder[] = [];
-		const collect = (folder: TFolder) => {
-			folders.push(folder);
-			for (const child of folder.children) {
-				if (child instanceof TFolder) collect(child);
-			}
-		};
-		collect(this.app.vault.getRoot());
-
-		folders
-			.sort((a, b) => a.path.localeCompare(b.path))
-			.forEach(folder => {
-				const opt = folderSelect.createEl("option", {
-					text: folder.path === "" ? "/ (vault root)" : folder.path,
-					value: folder.path,
-				});
-				if (folder.path === this.folderValue) opt.selected = true;
-			});
-		folderSelect.addEventListener("change", () => { this.folderValue = folderSelect.value; });
+		const folderInput = contentEl.createEl("input", {
+			type: "text",
+			value: this.folderValue,
+			attr: { style: "width:100%; margin-bottom:20px;", placeholder: "/ (vault root)" },
+		});
+		folderInput.addEventListener("input", () => { this.folderValue = folderInput.value; });
+		new FolderSuggest(this.app, folderInput, (path) => { this.folderValue = path; });
 
 		const buttonRow = contentEl.createDiv({ attr: { style: "display:flex; justify-content:flex-end; gap:8px;" } });
 
@@ -96,8 +111,9 @@ class NewDAFileModal extends Modal {
 		const createBtn = buttonRow.createEl("button", { text: "Create", cls: "mod-cta" });
 		const submit = () => {
 			const cleanTitle = this.titleValue.replace(ILLEGAL_FILENAME_CHARS, "").trim() || "Untitled";
+			const cleanFolder = this.folderValue.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
 			this.close();
-			this.onSubmit(cleanTitle, this.folderValue);
+			this.onSubmit(cleanTitle, cleanFolder);
 		};
 		createBtn.addEventListener("click", submit);
 
