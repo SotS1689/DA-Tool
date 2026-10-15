@@ -1,0 +1,4 @@
+# Local only: Claude's preview config, and the DA helper tools
+# (kept in Documents\Programming\Discourse Analysis Tool\tools).
+.claude/
+tools/
