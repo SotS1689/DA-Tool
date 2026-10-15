@@ -53,6 +53,7 @@
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #fca5a5;
 	--da-main-point: #d97706;
+	--da-note: #1e40af;
 	--da-main-point-soft-bg: #fff7ed;
 
 	display: flex;
@@ -91,6 +92,7 @@
 	--da-danger-hover: color-mix(in srgb, var(--color-red, #ef4444) 80%, black);
 	--da-danger-bg: color-mix(in srgb, var(--color-red, #ef4444) 35%, var(--background-primary));
 	--da-main-point: var(--color-orange, #d97706);
+	--da-note: var(--interactive-accent);
 	--da-main-point-soft-bg: color-mix(in srgb, var(--color-orange, #d97706) 18%, var(--background-primary));
 }
 .da-tool-view.da-theme-adopt .da-workspace,
@@ -127,6 +129,7 @@
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #fca5a5;
 	--da-main-point: #d97706;
+	--da-note: #1a6fa8;
 	--da-main-point-soft-bg: #fff7ed;
 }
 body.theme-dark .da-tool-view.da-scheme-blue {
@@ -152,6 +155,7 @@ body.theme-dark .da-tool-view.da-scheme-blue {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #5c2936;
 	--da-main-point: #d97706;
+	--da-note: #0088ab;
 	--da-main-point-soft-bg: #322c27;
 }
 .da-tool-view.da-scheme-yellow {
@@ -177,6 +181,7 @@ body.theme-dark .da-tool-view.da-scheme-blue {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #fca5a5;
 	--da-main-point: #d97706;
+	--da-note: #b07800;
 	--da-main-point-soft-bg: #fff7ed;
 }
 body.theme-dark .da-tool-view.da-scheme-yellow {
@@ -202,6 +207,7 @@ body.theme-dark .da-tool-view.da-scheme-yellow {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #662918;
 	--da-main-point: #d97706;
+	--da-note: #f0a500;
 	--da-main-point-soft-bg: #3e2b01;
 }
 .da-tool-view.da-scheme-red {
@@ -227,6 +233,7 @@ body.theme-dark .da-tool-view.da-scheme-yellow {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #fca5a5;
 	--da-main-point: #d97706;
+	--da-note: #c0392b;
 	--da-main-point-soft-bg: #fff7ed;
 }
 body.theme-dark .da-tool-view.da-scheme-red {
@@ -252,6 +259,7 @@ body.theme-dark .da-tool-view.da-scheme-red {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #671e1e;
 	--da-main-point: #d97706;
+	--da-note: #e94560;
 	--da-main-point-soft-bg: #401e09;
 }
 .da-tool-view.da-scheme-green {
@@ -277,6 +285,7 @@ body.theme-dark .da-tool-view.da-scheme-red {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #fca5a5;
 	--da-main-point: #d97706;
+	--da-note: #1a7a40;
 	--da-main-point-soft-bg: #fff7ed;
 }
 body.theme-dark .da-tool-view.da-scheme-green {
@@ -302,6 +311,7 @@ body.theme-dark .da-tool-view.da-scheme-green {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #5a2921;
 	--da-main-point: #d97706;
+	--da-note: #4caf82;
 	--da-main-point-soft-bg: #2f2b0d;
 }
 .da-tool-view.da-scheme-purple {
@@ -327,6 +337,7 @@ body.theme-dark .da-tool-view.da-scheme-green {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #fca5a5;
 	--da-main-point: #d97706;
+	--da-note: #7030b0;
 	--da-main-point-soft-bg: #fff7ed;
 }
 body.theme-dark .da-tool-view.da-scheme-purple {
@@ -352,6 +363,7 @@ body.theme-dark .da-tool-view.da-scheme-purple {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #5f1e2b;
 	--da-main-point: #d97706;
+	--da-note: #c06aff;
 	--da-main-point-soft-bg: #361e1a;
 }
 .da-tool-view.da-scheme-cream {
@@ -377,6 +389,7 @@ body.theme-dark .da-tool-view.da-scheme-purple {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #fca5a5;
 	--da-main-point: #d97706;
+	--da-note: #8a5a2a;
 	--da-main-point-soft-bg: #fff7ed;
 }
 body.theme-dark .da-tool-view.da-scheme-cream {
@@ -402,6 +415,7 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	--da-danger-hover: #dc2626;
 	--da-danger-bg: #662722;
 	--da-main-point: #d97706;
+	--da-note: #d4a050;
 	--da-main-point-soft-bg: #3e290e;
 }
 
@@ -927,6 +941,102 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	flex-shrink: 0;
 }
 .da-tool-view .da-row-del:hover { color: var(--da-danger); }
+
+/* ---------- proposition notes ---------- */
+
+.da-tool-view .da-proposition-box.da-has-note {
+	position: relative;
+}
+/* Lifted above the rows below so an open callout overlaps them. */
+.da-tool-view .da-proposition-box.da-note-open {
+	z-index: 20;
+}
+
+/* Folded-corner tab in the row's top end corner. */
+.da-tool-view .da-note-tab {
+	position: absolute;
+	top: -1px;
+	inset-inline-end: -1px;
+	width: 16px;
+	height: 16px;
+	background: linear-gradient(to bottom left, var(--da-note) 50%, transparent 50%);
+	border-start-end-radius: 12px;
+	cursor: pointer;
+}
+.da-tool-view [dir="rtl"] .da-note-tab,
+.da-tool-view .da-note-tab:dir(rtl) {
+	background: linear-gradient(to bottom right, var(--da-note) 50%, transparent 50%);
+}
+.da-tool-view .da-note-tab:hover,
+.da-tool-view .da-note-tab.is-open {
+	width: 20px;
+	height: 20px;
+}
+
+.da-tool-view .da-note-callout {
+	position: absolute;
+	top: 0;
+	inset-inline-start: calc(100% + 14px);
+	width: 260px;
+	padding: 6px 8px 8px;
+	background: color-mix(in srgb, var(--da-note) 12%, var(--da-bg));
+	border: 1px solid var(--da-note);
+	border-inline-start-width: 4px;
+	border-radius: 8px;
+	box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+	cursor: default;
+}
+/* Pointer back toward the row. */
+.da-tool-view .da-note-callout::before {
+	content: "";
+	position: absolute;
+	top: 10px;
+	inset-inline-start: -11px;
+	border: 6px solid transparent;
+	border-inline-end-color: var(--da-note);
+}
+.da-tool-view .da-note-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 0.68rem;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--da-muted);
+	margin-bottom: 4px;
+}
+.da-tool-view .da-note-close {
+	border: none;
+	background: transparent;
+	box-shadow: none;
+	padding: 0 2px;
+	height: auto;
+	color: var(--da-muted);
+	font-size: 1.1rem;
+	line-height: 1;
+	cursor: pointer;
+}
+.da-tool-view .da-note-close:hover { color: var(--da-text); }
+.da-tool-view .da-note-input {
+	display: block;
+	width: 100%;
+	min-height: 2.6em;
+	resize: none;
+	overflow: hidden;
+	border: none;
+	background: transparent;
+	color: var(--da-text);
+	font-family: inherit;
+	font-size: 0.85rem;
+	line-height: 1.35;
+	padding: 0;
+	box-shadow: none;
+}
+.da-tool-view .da-note-input:focus {
+	outline: none;
+	box-shadow: none;
+}
 
 /* ---------- zoom controls / instructions ---------- */
 
@@ -1780,6 +1890,7 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 }
 
 /* PNG export: hide editing chrome (row delete buttons) in the image */
-.da-tool-view .da-exporting .da-row-del {
+.da-tool-view .da-exporting .da-row-del,
+.da-tool-view .da-exporting .da-note-callout {
 	visibility: hidden;
 }

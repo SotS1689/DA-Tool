@@ -353,8 +353,55 @@
         html[data-theme] .cc-input { border-color: var(--border); }
         html[data-theme] .cc-label { color: var(--text); }
 
-        /* PNG export: hide editing chrome (row delete buttons) in the image */
-        #workspace-scaler.exporting .row-del-btn { visibility: hidden; }
+        /* PNG export: hide editing chrome (row delete buttons, note boxes) in the image */
+        #workspace-scaler.exporting .row-del-btn,
+        #workspace-scaler.exporting .note-callout { visibility: hidden; }
+
+        /* ---------- proposition notes ----------
+         * Same feature as the Obsidian plugin: a folded corner tab on a row
+         * with a note, and a callout beside the row when it's open. The
+         * colour follows the scheme's accent. */
+        :root { --note: var(--accent, #1e40af); --note-bg: var(--bg, #f8fafc); --note-text: var(--text, #0f172a); --note-muted: var(--muted, #64748b); }
+        .proposition-box.has-note { position: relative; }
+        .proposition-box.note-open { z-index: 20; }
+        .note-tab {
+            position: absolute; top: -1px; inset-inline-end: -1px; width: 16px; height: 16px;
+            background: linear-gradient(to bottom left, var(--note) 50%, transparent 50%);
+            border-start-end-radius: 12px; cursor: pointer;
+        }
+        .note-tab:dir(rtl) { background: linear-gradient(to bottom right, var(--note) 50%, transparent 50%); }
+        .note-tab:hover, .note-tab.is-open { width: 20px; height: 20px; }
+        .note-callout {
+            position: absolute; top: 0; inset-inline-start: calc(100% + 14px); width: 260px;
+            padding: 6px 8px 8px; cursor: default;
+            background: color-mix(in srgb, var(--note) 12%, var(--note-bg));
+            border: 1px solid var(--note); border-inline-start-width: 4px; border-radius: 8px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+        }
+        .note-callout::before {
+            content: ""; position: absolute; top: 10px; inset-inline-start: -11px;
+            border: 6px solid transparent; border-inline-end-color: var(--note);
+        }
+        .note-header {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+            color: var(--note-muted); margin-bottom: 4px;
+        }
+        .note-close { border: none; background: transparent; padding: 0 2px; color: var(--note-muted); font-size: 1.1rem; line-height: 1; cursor: pointer; }
+        .note-close:hover { color: var(--note-text); }
+        .note-input {
+            display: block; width: 100%; min-height: 2.6em; resize: none; overflow: hidden;
+            border: none; background: transparent; color: var(--note-text); font: inherit;
+            font-size: 0.85rem; line-height: 1.35; padding: 0; outline: none;
+        }
+        .note-menu {
+            position: fixed; z-index: 1000; min-width: 150px; padding: 4px;
+            background: var(--surface, #fff); color: var(--note-text);
+            border: 1px solid var(--border, #cbd5e1); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+            font-size: 0.85rem;
+        }
+        .note-menu button { display: block; width: 100%; text-align: start; padding: 5px 10px; border: none; background: transparent; color: inherit; border-radius: 5px; cursor: pointer; }
+        .note-menu button:hover { background: var(--active-bg, #eff6ff); }
     </style>
     <script>
         // Colour scheme + light/dark mode. Applied here in <head> so a saved
@@ -716,6 +763,14 @@
                         <li><b>Double-click a corner box</b> to mark it as the passage's <b>main point</b> (shown in orange). Double-click again to unmark it.</li>
                         <li>Type <code>\tf</code> or <code>\therefore</code> in any label or text to get ∴.</li>
                         <li>🔗 in the header lists the logical relationships with their abbreviations.</li>
+                    </ul>
+                    <h3>Notes</h3>
+                    <ul>
+                        <li><b>Right-click a proposition</b> in the work area and choose <b>Add note</b>. A note box opens beside it; just type.</li>
+                        <li>A proposition with a note shows a small colored <b>corner tab</b> at its top-right. <b>Click the tab</b> to open or close the note.</li>
+                        <li>Close an open note with its <b>×</b>, by clicking the tab again, or with <kbd>Esc</kbd>. A note left empty is removed.</li>
+                        <li>Right-click a proposition that has a note to <b>Show/Hide</b> or <b>Delete</b> it. Notes are saved with the file, and <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes note changes.</li>
+                        <li>Notes are not included in Export PNG.</li>
                     </ul>
                     <h3>Deleting, undo and redo</h3>
                     <ul>
@@ -1503,11 +1558,166 @@
                 // The label and text are filled in as text nodes after the
                 // markup is inserted, never interpolated into it, so "<" or "&"
                 // in a proposition (or a project file) can't turn into HTML.
-                const rowHTML = `<div class="flex items-start gap-0 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onmousedown="handleMainRowClick(${i}, this); event.stopPropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();"><div class="font-mono text-xs text-slate-400 row-num-badge pt-1" title="Click to edit this row's label" onmousedown="event.stopPropagation();" ondblclick="event.stopImmediatePropagation();" onclick="startEditRowLabel(this, ${i}); event.stopImmediatePropagation();" onkeydown="handleRowLabelKeydown(event, this);" onblur="finishEditRowLabel(this, ${i});"></div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" data-index="${i}" onblur="updatePropositionText(${i}, this)" class="row-text flex-1 text-[15px] leading-tight outline-none min-h-[22px]"></div><button onmousedown="event.stopPropagation();" onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="row-del-btn text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
+                const rowHTML = `<div class="flex items-start gap-0 proposition-box ${isSelected ? 'selected' : ''}" style="${indentStyle} padding: 6px 12px;" onmousedown="if (event.button !== 2) handleMainRowClick(${i}, this); event.stopPropagation();" ondblclick="splitProposition(${i}, event); event.stopImmediatePropagation();" oncontextmenu="showPropositionMenu(event, ${i});"><div class="font-mono text-xs text-slate-400 row-num-badge pt-1" title="Click to edit this row's label" onmousedown="event.stopPropagation();" ondblclick="event.stopImmediatePropagation();" onclick="startEditRowLabel(this, ${i}); event.stopImmediatePropagation();" onkeydown="handleRowLabelKeydown(event, this);" onblur="finishEditRowLabel(this, ${i});"></div><div contenteditable="true" spellcheck="false" dir="${isRTL?'rtl':'ltr'}" data-index="${i}" onblur="updatePropositionText(${i}, this)" class="row-text flex-1 text-[15px] leading-tight outline-none min-h-[22px]"></div><button onmousedown="event.stopPropagation();" onclick="deleteProposition(${i}); event.stopImmediatePropagation();" class="row-del-btn text-slate-300 hover:text-red-500 text-xl leading-none mt-px">×</button></div>`;
                 container.insertAdjacentHTML('beforeend', rowHTML);
                 const rowEl = container.lastElementChild;
                 rowEl.querySelector('.row-num-badge').textContent = rowLabels[i];
                 renderRunsInto(rowEl.querySelector('.row-text'), propRuns(prop));
+                if (prop.note !== undefined) addNoteChrome(rowEl, prop);
+            });
+            fitNoteInputs.forEach(f => f());
+            fitNoteInputs = [];
+        }
+
+        // ---------- proposition notes ----------
+        //
+        // A proposition can carry `note`: free text attached with right-click >
+        // Add note (same field as the Obsidian plugin's .da files, so it's saved
+        // with the rest of the proposition). A row with a note shows a corner
+        // tab; clicking it opens/closes the note's callout. Which callouts are
+        // open isn't saved.
+        const openNoteIds = new Set();
+        let focusNoteId = null;
+        let fitNoteInputs = [];
+
+        function hideNoteMenu() {
+            document.querySelectorAll('.note-menu').forEach(m => m.remove());
+        }
+        document.addEventListener('mousedown', e => { if (!e.target.closest || !e.target.closest('.note-menu')) hideNoteMenu(); }, true);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') hideNoteMenu(); });
+        window.addEventListener('blur', hideNoteMenu);
+
+        function showPropositionMenu(e, i) {
+            e.preventDefault();
+            e.stopPropagation();
+            hideNoteMenu();
+            const prop = propositions[i];
+            if (!prop) return;
+            const items = [];
+            if (prop.note === undefined) {
+                items.push(['Add note', () => {
+                    // Stays "" (and out of the undo history) until something is
+                    // typed; a note left empty is dropped when its box loses focus.
+                    prop.note = '';
+                    openNoteIds.add(prop.id);
+                    focusNoteId = prop.id;
+                    renderMainRows();
+                }]);
+            } else {
+                items.push([openNoteIds.has(prop.id) ? 'Hide note' : 'Show note', () => toggleNote(prop)]);
+                items.push(['Delete note', () => {
+                    saveToHistory();
+                    delete prop.note;
+                    openNoteIds.delete(prop.id);
+                    renderMainRows();
+                }]);
+            }
+            const menu = document.createElement('div');
+            menu.className = 'note-menu';
+            items.forEach(([label, run]) => {
+                const btn = document.createElement('button');
+                btn.textContent = label;
+                btn.addEventListener('click', () => { hideNoteMenu(); run(); });
+                menu.appendChild(btn);
+            });
+            document.body.appendChild(menu);
+            const r = menu.getBoundingClientRect();
+            menu.style.left = Math.min(e.clientX, window.innerWidth - r.width - 4) + 'px';
+            menu.style.top = Math.min(e.clientY, window.innerHeight - r.height - 4) + 'px';
+        }
+
+        function toggleNote(prop) {
+            if (openNoteIds.has(prop.id)) openNoteIds.delete(prop.id);
+            else openNoteIds.add(prop.id);
+            renderMainRows();
+        }
+
+        // The corner tab and, when open, the callout beside the row. The
+        // callout is absolutely positioned so opening it never changes row
+        // heights - the bracket geometry is measured from those.
+        function addNoteChrome(row, prop) {
+            const isOpen = openNoteIds.has(prop.id);
+            row.classList.add('has-note');
+            const stopRowEvents = el => {
+                el.addEventListener('mousedown', e => e.stopPropagation());
+                el.addEventListener('dblclick', e => e.stopImmediatePropagation());
+                el.addEventListener('contextmenu', e => e.stopPropagation());
+            };
+
+            const tab = document.createElement('div');
+            tab.className = 'note-tab' + (isOpen ? ' is-open' : '');
+            tab.title = isOpen ? 'Hide note' : 'Show note';
+            stopRowEvents(tab);
+            tab.addEventListener('click', e => { e.stopImmediatePropagation(); toggleNote(prop); });
+            row.appendChild(tab);
+            if (!isOpen) return;
+
+            row.classList.add('note-open');
+            const callout = document.createElement('div');
+            callout.className = 'note-callout';
+            stopRowEvents(callout);
+            const header = document.createElement('div');
+            header.className = 'note-header';
+            const title = document.createElement('span');
+            title.textContent = 'Note';
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'note-close';
+            closeBtn.textContent = '×';
+            closeBtn.title = 'Hide note';
+            closeBtn.addEventListener('click', e => { e.stopImmediatePropagation(); openNoteIds.delete(prop.id); renderMainRows(); });
+            header.append(title, closeBtn);
+
+            const input = document.createElement('textarea');
+            input.className = 'note-input';
+            input.placeholder = 'Type a note…';
+            input.rows = 2;
+            input.dir = 'auto';
+            input.value = prop.note || '';
+            callout.append(header, input);
+            row.appendChild(callout);
+
+            const fit = () => { input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; };
+            const focusNow = focusNoteId === prop.id;
+            if (focusNow) focusNoteId = null;
+            fitNoteInputs.push(() => { fit(); if (focusNow) input.focus(); });
+
+            // Typing updates the note live (so autosave never misses it), and
+            // the whole edit becomes one undo step: the state from when the box
+            // was focused goes onto the history once it loses focus changed.
+            let before = null;
+            let orig = '';
+            input.addEventListener('focus', () => {
+                orig = prop.note || '';
+                // A just-added note is still "": undo should take it away
+                // entirely, not leave an empty note behind.
+                if (prop.note === '') { delete prop.note; before = historySnapshot(false); prop.note = ''; }
+                else before = historySnapshot(false);
+            });
+            input.addEventListener('input', () => { prop.note = input.value; fit(); scheduleAutosave(); });
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    input.blur();
+                    openNoteIds.delete(prop.id);
+                    renderMainRows();
+                }
+            });
+            input.addEventListener('blur', () => {
+                if (before !== null && input.value !== orig) {
+                    historyStack.push(before);
+                    if (historyStack.length > HISTORY_LIMIT) historyStack.shift();
+                    redoStack = [];
+                }
+                before = null;
+                if (input.value.trim() === '' && prop.note !== undefined) {
+                    delete prop.note;
+                    openNoteIds.delete(prop.id);
+                    scheduleAutosave();
+                    // Deferred: this blur may be part of a click on something
+                    // else that a rebuild now would pull out from under it.
+                    setTimeout(renderMainRows, 0);
+                }
             });
         }
 

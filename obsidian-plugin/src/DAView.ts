@@ -1,8 +1,9 @@
-import { addIcon, App, Modal, Modifier, Scope, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
+import { addIcon, App, Menu, Modal, Modifier, Scope, TextFileView, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import html2canvas from "html2canvas";
 import { TEXT_FLOW_INSTRUCTIONS, TEXT_FLOW_SOURCE, TextFlowBlock } from "./textFlowInstructions";
 import { SENTENCE_FLOW_INSTRUCTIONS, SENTENCE_FLOW_SOURCE } from "./sentenceFlowInstructions";
 import { BRACKETING_INSTRUCTIONS, BRACKETING_SOURCE } from "./bracketingInstructions";
+import { FLOW_CLIPBOARD_TYPE, FlowClipboard, flowLinesToHtml, flowLinesToPlain, NotesLine, NotesSegment, parseFlowClipboard, segmentsLength, sliceSegments } from "./flowClipboard";
 
 export const VIEW_TYPE_DA = "da-tool-view";
 
@@ -107,6 +108,7 @@ export const COLOR_TOKENS: ColorToken[] = [
 	{ id: "dangerBg", cssVar: "--da-danger-bg", label: "Danger background", desc: "Reset Everything button." },
 	{ id: "mainPoint", cssVar: "--da-main-point", label: "Main point", desc: "Border of a label box double-clicked to mark it as the main point." },
 	{ id: "mainPointSoftBg", cssVar: "--da-main-point-soft-bg", label: "Main point (soft background)", desc: "Fill of a label box marked as the main point." },
+	{ id: "note", cssVar: "--da-note", label: "Proposition note", desc: "Corner tab and border of a note attached to a proposition." },
 ];
 
 // The header dropdown / settings choices. "standard" is the tool's own
@@ -179,6 +181,11 @@ interface Proposition {
 	// longer match it (e.g. the file was edited in the web tool, which
 	// doesn't know about them) are ignored - see propRuns.
 	runs?: FormatRun[];
+	// A free-text note attached to this row (right-click > Add note). Shown
+	// as a colored corner tab on the row; clicking the tab opens/closes the
+	// note's callout box. Whether a callout is open isn't saved - see
+	// openNoteIds.
+	note?: string;
 }
 
 interface FormatRun {
@@ -949,17 +956,6 @@ interface Corner {
 	isTop: boolean;
 }
 
-// A single run of text in a Sentence Flow line, or a tab marker that the
-// layout pass (layoutNotesTabs) resizes to land on the next tab stop.
-type NotesSegment =
-	| { kind: "text"; text: string; bold?: boolean; italic?: boolean; underline?: boolean }
-	| { kind: "tab" };
-
-interface NotesLine {
-	indent: number; // px, snapped to a tab-width multiple by indentNotesParagraph
-	segments: NotesSegment[];
-}
-
 interface NotesData {
 	lines: NotesLine[];
 	defaultTabWidth: number; // px; the fixed grid Tab/indent snap to
@@ -1115,6 +1111,13 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 		"**Double-click a corner box** to mark it as the passage's **main point** (shown in the main-point color). Double-click again to unmark it.",
 		"Type `\tf` or `\therefore` in any label or text to get ∴. The command **Insert ∴ (therefore)** does the same.",
 		"🔗 in the header lists the logical relationships with their abbreviations.",
+	] },
+	{ heading: "Notes", items: [
+		"**Right-click a proposition** in the work area and choose **Add note**. A note box opens beside it; just type.",
+		"A proposition with a note shows a small colored **corner tab** at its top-right. **Click the tab** to open or close the note.",
+		"Close an open note with its **×**, by clicking the tab again, or with [[Esc]]. A note left empty is removed.",
+		"Right-click a proposition that has a note to **Show/Hide** or **Delete** it. Notes are saved with the file, and [[Ctrl]]+[[Z]] undoes note changes.",
+		"Notes are not included in Export PNG.",
 	] },
 	{ heading: "Deleting, undo and redo", items: [
 		"**Select a bracket, then press [[Delete]]** (or [[Backspace]]) to remove it after you confirm. Brackets attached to it stay, but become free-standing.",
@@ -1298,6 +1301,9 @@ export class DAView extends TextFileView {
 	selectedBracketId: number | null = null;
 	selectedCorners: Corner[] = [];
 	sidebarSelected = -1;
+	// Proposition ids whose note callout is currently open. View state only
+	// (not saved), so every note starts closed when the file is opened.
+	openNoteIds = new Set<number>();
 	historyStack: string[] = [];
 	redoStack: string[] = [];
 	// Per-flow undo/redo for the Text Flow / Sentence Flow canvases (see
@@ -1970,6 +1976,8 @@ export class DAView extends TextFileView {
 			const canvas = this.flowCanvas(key);
 			if (!canvas) return;
 			this.registerDomEvent(canvas, "paste", (e: ClipboardEvent) => this.handleNotesPaste(e));
+			this.registerDomEvent(canvas, "copy", (e: ClipboardEvent) => this.handleNotesCopy(e, false));
+			this.registerDomEvent(canvas, "cut", (e: ClipboardEvent) => this.handleNotesCopy(e, true));
 			this.registerDomEvent(canvas, "keydown", (e: KeyboardEvent) => this.handleNotesKeydown(e));
 			this.registerDomEvent(canvas, "beforeinput", (e: InputEvent) => this.handleNotesBeforeInput(e, key));
 			this.registerDomEvent(canvas, "input", () => { this.scheduleNotesLayout(false, key); this.requestSave(); });
@@ -2706,8 +2714,11 @@ export class DAView extends TextFileView {
 			// first click (it only blurred the old row) and require a second one.
 			// Running the toggle on mousedown - before that rebuild happens -
 			// avoids the race entirely.
-			row.addEventListener("mousedown", e => { e.stopPropagation(); this.handleMainRowClick(i); });
+			// A right-click opens the note menu (below) instead of toggling
+			// selection.
+			row.addEventListener("mousedown", e => { e.stopPropagation(); if (e.button !== 2) this.handleMainRowClick(i); });
 			row.addEventListener("dblclick", e => { e.stopImmediatePropagation(); this.splitProposition(i, e); });
+			row.addEventListener("contextmenu", e => this.showPropositionMenu(e, prop));
 
 			const numEl = createDiv({ cls: "da-row-num", text: rowLabels[i], attr: { title: "Click to edit this row's label" } });
 			// Click-to-edit this row's label (e.g. "5a") directly, as free
@@ -2783,11 +2794,146 @@ export class DAView extends TextFileView {
 			row.appendChild(numEl);
 			row.appendChild(textEl);
 			row.appendChild(delBtn);
+			if (prop.note !== undefined) this.addNoteChrome(row, prop);
 			container.appendChild(row);
 		});
+		this.fitNoteInputs?.();
+		this.fitNoteInputs = null;
 
 		restoreScroll();
 		window.requestAnimationFrame(restoreScroll);
+	}
+
+	// ---------- proposition notes ----------
+
+	// Set by addNoteChrome while rows are rebuilt; sizes the open callouts'
+	// text boxes once they're in the DOM (scrollHeight is 0 before that).
+	private fitNoteInputs: (() => void) | null = null;
+	// A note just added from the menu, whose text box should take focus.
+	private focusNoteId: number | null = null;
+
+	private showPropositionMenu(e: MouseEvent, prop: Proposition): void {
+		e.preventDefault();
+		e.stopPropagation();
+		const menu = new Menu();
+		if (prop.note === undefined) {
+			menu.addItem(item => item.setTitle("Add note").setIcon("sticky-note").onClick(() => {
+				// Stays "" (and unsaved in history) until something is typed;
+				// a note left empty is dropped again when its box loses focus.
+				prop.note = "";
+				this.openNoteIds.add(prop.id);
+				this.focusNoteId = prop.id;
+				this.renderMainRows();
+			}));
+		} else {
+			const isOpen = this.openNoteIds.has(prop.id);
+			menu.addItem(item => item.setTitle(isOpen ? "Hide note" : "Show note").setIcon("sticky-note").onClick(() => {
+				this.toggleNote(prop);
+			}));
+			menu.addItem(item => item.setTitle("Delete note").setIcon("trash").onClick(() => {
+				this.saveToHistory();
+				delete prop.note;
+				this.openNoteIds.delete(prop.id);
+				this.renderMainRows();
+			}));
+		}
+		menu.showAtMouseEvent(e);
+	}
+
+	private toggleNote(prop: Proposition): void {
+		if (this.openNoteIds.has(prop.id)) this.openNoteIds.delete(prop.id);
+		else this.openNoteIds.add(prop.id);
+		this.renderMainRows();
+	}
+
+	// The corner tab (always shown on a row with a note) and, when open, the
+	// callout box beside the row. The callout is absolutely positioned so
+	// opening it never changes row heights - the bracket geometry is
+	// measured from those.
+	private addNoteChrome(row: HTMLElement, prop: Proposition): void {
+		const isOpen = this.openNoteIds.has(prop.id);
+		row.addClass("da-has-note");
+		const stopRowEvents = (el: HTMLElement) => {
+			el.addEventListener("mousedown", e => e.stopPropagation());
+			el.addEventListener("dblclick", e => e.stopImmediatePropagation());
+			el.addEventListener("contextmenu", e => e.stopPropagation());
+		};
+
+		const tab = row.createDiv({ cls: `da-note-tab${isOpen ? " is-open" : ""}`, attr: { "aria-label": isOpen ? "Hide note" : "Show note" } });
+		stopRowEvents(tab);
+		tab.addEventListener("click", e => { e.stopImmediatePropagation(); this.toggleNote(prop); });
+		if (!isOpen) return;
+
+		row.addClass("da-note-open");
+		const callout = row.createDiv({ cls: "da-note-callout" });
+		stopRowEvents(callout);
+		const header = callout.createDiv({ cls: "da-note-header" });
+		header.createSpan({ text: "Note" });
+		const closeBtn = header.createEl("button", { cls: "da-note-close", text: "×", attr: { "aria-label": "Hide note" } });
+		closeBtn.addEventListener("click", e => {
+			e.stopImmediatePropagation();
+			this.openNoteIds.delete(prop.id);
+			this.renderMainRows();
+		});
+
+		const input = callout.createEl("textarea", { cls: "da-note-input", attr: { placeholder: "Type a note…", rows: "2", dir: "auto" } });
+		input.value = prop.note ?? "";
+		const fit = () => {
+			input.setCssStyles({ height: "auto" });
+			input.setCssStyles({ height: `${input.scrollHeight}px` });
+		};
+		const prevFit = this.fitNoteInputs;
+		const focusNow = this.focusNoteId === prop.id;
+		if (focusNow) this.focusNoteId = null;
+		this.fitNoteInputs = () => {
+			prevFit?.();
+			fit();
+			if (focusNow) input.focus();
+		};
+
+		// Typing updates the note live (so a save never misses it), and the
+		// whole edit becomes one undo step: the state from when the box was
+		// focused is pushed onto the history once it loses focus changed.
+		let before: string | null = null;
+		let orig = "";
+		input.addEventListener("focus", () => {
+			orig = prop.note ?? "";
+			// A just-added note is still "": undo should take it away
+			// entirely, not leave an empty note behind.
+			if (prop.note === "") { delete prop.note; before = this.historySnapshot(false); prop.note = ""; }
+			else before = this.historySnapshot(false);
+		});
+		input.addEventListener("input", () => {
+			prop.note = input.value;
+			fit();
+			this.requestSave();
+		});
+		input.addEventListener("keydown", e => {
+			if (e.key === "Escape") {
+				e.preventDefault();
+				e.stopPropagation();
+				input.blur();
+				this.openNoteIds.delete(prop.id);
+				this.renderMainRows();
+			}
+		});
+		input.addEventListener("blur", () => {
+			if (before !== null && input.value !== orig) {
+				this.historyStack.push(before);
+				if (this.historyStack.length > HISTORY_LIMIT) this.historyStack.shift();
+				this.redoStack = [];
+			}
+			before = null;
+			if (input.value.trim() === "" && prop.note !== undefined) {
+				delete prop.note;
+				this.openNoteIds.delete(prop.id);
+				this.requestSave();
+				// Deferred like updatePropositionText: this blur may be part
+				// of a click on something else that a rebuild now would
+				// pull out from under it.
+				window.setTimeout(() => this.renderMainRows(), 0);
+			}
+		});
 	}
 
 	// ---------- column assignment ----------
@@ -4537,7 +4683,8 @@ export class DAView extends TextFileView {
 		return lines.length > 0 ? lines : [first];
 	}
 
-	// Reads clipboard plain text only (formatting from other apps is
+	// Lines copied from a flow paste back exactly (pasteFlowLines). Anything
+	// else is read as plain text only (formatting from other apps is
 	// intentionally dropped - Sentence Flow only supports bold/italic/
 	// underline, applied manually). Tab characters become da-tab markers so
 	// they participate in the tab-width grid alignment instead of rendering
@@ -4548,6 +4695,13 @@ export class DAView extends TextFileView {
 	private handleNotesPaste(e: ClipboardEvent): void {
 		const canvas = this.flowCanvas();
 		if (!canvas || !canvas.contains(window.getSelection()?.anchorNode ?? null)) return;
+		const clip = parseFlowClipboard(e.clipboardData);
+		if (clip) {
+			e.preventDefault();
+			this.pushFlowHistory(this.curFlowKey());
+			this.pasteFlowLines(this.curFlowKey(), clip);
+			return;
+		}
 		const text = e.clipboardData?.getData("text/plain") ?? "";
 		if (!text) return;
 		e.preventDefault();
@@ -4559,6 +4713,115 @@ export class DAView extends TextFileView {
 			if (i < parts.length - 1) this.insertNotesTabAtCaret();
 		});
 		this.scheduleNotesLayout(true);
+		this.requestSave();
+	}
+
+	// Copy/cut put the selected lines on the clipboard in the formats
+	// flowClipboard.ts describes. Left to the browser, a da-tab marker copies
+	// as just its zero-width space and a paragraph indent (Ctrl+M, a margin
+	// style) isn't text at all, so every line pasted flush left. A line's
+	// paragraph indent is copied only when the selection includes its start.
+	private handleNotesCopy(e: ClipboardEvent, cut: boolean): void {
+		const key = this.curFlowKey();
+		const canvas = this.flowCanvas(key);
+		if (!canvas || !e.clipboardData) return;
+		const model = this.serializeNotesLines(key); // normalizes the canvas first
+		const lineEls = this.getNotesLines(canvas);
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+		const range = sel.getRangeAt(0);
+		if (!canvas.contains(range.commonAncestorContainer)) return;
+		const start = this.flowPoint(lineEls, range.startContainer, range.startOffset);
+		const end = this.flowPoint(lineEls, range.endContainer, range.endOffset);
+		if (!start || !end) return;
+
+		const lines: NotesLine[] = [];
+		for (let i = start.line; i <= end.line && i < model.length; i++) {
+			const from = i === start.line ? start.offset : 0;
+			const to = i === end.line ? end.offset : Infinity;
+			// A selection ending at the very start of a line (triple-click,
+			// or a drag to the left edge) doesn't include that line.
+			if (i > start.line && i === end.line && to === 0) break;
+			lines.push({ indent: from === 0 ? model[i].indent : 0, segments: sliceSegments(model[i].segments, from, to) });
+		}
+		if (lines.length === 0) return;
+
+		const tabWidth = this.flows[key].defaultTabWidth || 48;
+		const cs = getComputedStyle(canvas);
+		const payload: FlowClipboard = { lines, tabWidth };
+		e.preventDefault();
+		e.clipboardData.setData("text/plain", flowLinesToPlain(lines, tabWidth));
+		e.clipboardData.setData("text/html", flowLinesToHtml(lines, tabWidth, { family: cs.fontFamily, sizePx: parseFloat(cs.fontSize) || 16 }, this.isRTL));
+		e.clipboardData.setData(FLOW_CLIPBOARD_TYPE, JSON.stringify(payload));
+		if (cut) {
+			this.pushFlowHistory(key);
+			document.execCommand("delete");
+			this.scheduleNotesLayout(true);
+			this.requestSave();
+		}
+	}
+
+	// A selection boundary as {line index, character offset in that line},
+	// each tab marker counting as one character (the units sliceSegments
+	// and setFlowCaret use).
+	private flowPoint(lines: HTMLElement[], node: Node, offset: number): { line: number; offset: number } | null {
+		const canvas = this.flowCanvas();
+		if (node === canvas && lines[0] !== canvas) {
+			if (offset >= lines.length) return { line: lines.length - 1, offset: this.flowUnitCount(lines[lines.length - 1]) };
+			return { line: offset, offset: 0 };
+		}
+		const i = lines.findIndex(l => l.contains(node));
+		if (i < 0) return null;
+		const before = document.createRange();
+		before.setStart(lines[i], 0);
+		before.setEnd(node, offset);
+		return { line: i, offset: this.flowUnitCount(before.cloneContents()) };
+	}
+
+	// Pastes lines copied from a flow (this file or another) at the caret,
+	// keeping their indents, tabs and formatting - the browser's own paste
+	// can't, since it never sees the tab markers or indents as content. The
+	// first pasted line joins the line the caret is in, and the last one
+	// takes the rest of that line, as in Word. Indents are re-snapped to this
+	// flow's tab width, counting tab steps.
+	private pasteFlowLines(key: FlowKey, clip: FlowClipboard): void {
+		const sel = window.getSelection();
+		if (sel && !sel.isCollapsed) document.execCommand("delete");
+		const canvas = this.flowCanvas(key);
+		if (!canvas) return;
+		const model = this.serializeNotesLines(key);
+		const caret = this.getFlowCaret(key) ?? { line: model.length - 1, offset: -1 };
+		const tabWidth = this.flows[key].defaultTabWidth || 48;
+		const pasted = clip.lines.map(l => ({ indent: Math.round(l.indent / clip.tabWidth) * tabWidth, segments: l.segments }));
+		if (pasted.length === 0) return;
+
+		const lineIdx = Math.max(0, Math.min(caret.line, model.length - 1));
+		const current: NotesLine = model[lineIdx] ?? { indent: 0, segments: [] };
+		const offset = caret.offset < 0 ? segmentsLength(current.segments) : caret.offset;
+		const head = sliceSegments(current.segments, 0, offset);
+		const tail = sliceSegments(current.segments, offset, Infinity);
+		const first = pasted[0];
+		const firstIndent = offset === 0 && first.indent > 0 ? first.indent : current.indent;
+
+		let result: NotesLine[];
+		let caretOffset: number;
+		if (pasted.length === 1) {
+			result = [{ indent: firstIndent, segments: [...head, ...first.segments, ...tail] }];
+			caretOffset = segmentsLength(head) + segmentsLength(first.segments);
+		} else {
+			const last = pasted[pasted.length - 1];
+			result = [
+				{ indent: firstIndent, segments: [...head, ...first.segments] },
+				...pasted.slice(1, -1),
+				{ indent: last.indent, segments: [...last.segments, ...tail] },
+			];
+			caretOffset = segmentsLength(last.segments);
+		}
+		model.splice(lineIdx, model.length === 0 ? 0 : 1, ...result);
+		this.flows[key].lines = model;
+		this.renderNotesTab(key);
+		this.layoutNotesTabs(key);
+		this.setFlowCaret(key, { line: lineIdx + result.length - 1, offset: caretOffset });
 		this.requestSave();
 	}
 

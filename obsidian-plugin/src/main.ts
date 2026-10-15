@@ -1,6 +1,7 @@
 import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
 import { COLOR_THEMES, COLOR_TOKENS, colorThemeClasses, DA_TOOL_ICON, DAToolSettings, DAView, UI_SCALE_STEPS, VIEW_TYPE_DA } from "./DAView";
 import { openColorPickerPopover } from "./ColorPicker";
+import { flowLinesToMarkdown, parseFlowClipboard } from "./flowClipboard";
 
 const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 
@@ -152,6 +153,17 @@ export default class DAToolPlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE_DA, (leaf) => new DAView(leaf, this));
 		this.registerExtensions(["da"], VIEW_TYPE_DA);
+
+		// Lines copied from a Sentence/Text Flow tab, pasted into a note:
+		// Obsidian would otherwise convert the copy's Word-oriented HTML,
+		// losing the indentation.
+		this.registerEvent(this.app.workspace.on("editor-paste", (evt, editor) => {
+			if (evt.defaultPrevented) return;
+			const clip = parseFlowClipboard(evt.clipboardData);
+			if (!clip) return;
+			evt.preventDefault();
+			editor.replaceSelection(flowLinesToMarkdown(clip.lines, clip.tabWidth));
+		}));
 		this.addSettingTab(new DAToolSettingTab(this.app, this));
 
 		this.addRibbonIcon(DA_TOOL_ICON, "Create new Discourse Analysis", async () => {
