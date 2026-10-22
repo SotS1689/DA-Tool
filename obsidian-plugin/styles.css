@@ -1965,10 +1965,10 @@
  * know, inside .omnisearch-result__icon. Each result row carries the file's
  * vault path as data-result-id, so the same path-suffix match as the File
  * Explorer rule above swaps that icon for the ∴. */
-[data-result-id$=".da"] .omnisearch-result__icon > svg {
+[data-result-id$=".da"] .omnisearch-result__title .omnisearch-result__icon > svg {
 	display: none;
 }
-[data-result-id$=".da"] .omnisearch-result__icon::before {
+[data-result-id$=".da"] .omnisearch-result__title .omnisearch-result__icon::before {
 	content: "";
 	display: block;
 	width: 100%;
