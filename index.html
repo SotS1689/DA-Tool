@@ -55,8 +55,9 @@
 
 #diagram-container {
     max-width: calc(100vw - 384px);
-    overflow-x: auto;
-    overflow-y: auto;
+    /* No scrolling at all (not even the scroll-into-view a focus does):
+       the view moves only by panX/panY, see panWorkspace(). */
+    overflow: clip;
 }
 
 #workspace-scaler {
@@ -698,7 +699,7 @@
 				<div id="left-resizer" style="width:5px; cursor:col-resize; flex-shrink:0; background:transparent; hover:background:#cbd5e1; position:relative; z-index:10;"
 				  onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='transparent'"></div>
             <div class="flex-1 flex flex-col bg-white relative min-w-0" id="workspace">
-                <div id="diagram-container" class="flex-1 relative p-8 overflow-auto" style="position:relative; min-width:0">
+                <div id="diagram-container" class="flex-1 relative p-8 overflow-hidden" style="position:relative; min-width:0">
                     <div class="overlay" onclick="deselectAll()" style="position:absolute;inset:0;z-index:0;"></div>
                     <div id="workspace-scaler" style="position:relative;z-index:1;">
                         <svg id="bracket-svg" width="365" height="1200" class="canvas-container" style="background: transparent; left: 0px; right: auto; width: 365px;"></svg>
@@ -793,8 +794,8 @@
                     </ul>
                     <h3>Moving around</h3>
                     <ul>
-                        <li><b>Click and drag</b> on empty space to pan the diagram.</li>
-                        <li><b>− / + / ↺</b> zoom out, zoom in, and reset (30%–300%).</li>
+                        <li><b>Click and drag</b> anywhere on the diagram to move it, or scroll (<kbd>Shift</kbd>+scroll for sideways). It can go anywhere, past any edge.</li>
+                        <li><b>− / +</b> zoom out and in (30%–300%), keeping the middle of the view in place. <b>↺</b> goes back to 100% with the diagram in its starting spot.</li>
                         <li>The panel button at the far left of the tab bar hides or shows the Propositions list. Drag the list's edge to make it wider or narrower; the width is remembered.</li>
                     </ul>
                     <h3>Header buttons</h3>
@@ -959,63 +960,60 @@
             f.zoomLevel = data.zoomLevel || 1;
         }
 
-        function adjustZoom(delta) {
-            const oldZoom = zoomLevel;
-            zoomLevel = Math.min(3, Math.max(0.3, Math.round((zoomLevel + delta) * 10) / 10));
+        // The diagram moves freely, like the Story canvas: dragging or
+        // scrolling shifts the whole workspace by panX/panY with no edges, so
+        // it can be put anywhere at any zoom, and zooming keeps the point in
+        // the middle of the view where it is.
+        let panX = 0, panY = 0;
 
-            if (!isRTL) {
-                const container = document.getElementById('diagram-container');
-                if (container) {
-                    if (zoomLevel >= 1) {
-                        // Zoomed in (≥100%): anchor right edge via scroll adjustment so the
-                        // right side of the content stays fixed as we zoom.
-                        const clientWidth = container.clientWidth;
-                        const oldScrollLeft = container.scrollLeft;
-                        applyZoom();
-                        const newScrollLeft = (oldScrollLeft + clientWidth) * (zoomLevel / oldZoom) - clientWidth;
-                        container.scrollLeft = Math.max(0, newScrollLeft);
-                    } else {
-                        // Zoomed out (<100%): applyZoom uses translateX to pin content to
-                        // the top-right of the viewport, so no scroll adjustment is needed.
-                        applyZoom();
-                        container.scrollLeft = 0;
-                    }
-                    return;
-                }
+        function adjustZoom(delta) {
+            const zoom = Math.min(3, Math.max(0.3, Math.round((zoomLevel + delta) * 10) / 10));
+            const old = zoomLevel;
+            if (zoom === old) return;
+            const container = document.getElementById('diagram-container');
+            const scaler = document.getElementById('workspace-scaler');
+            if (container && scaler) {
+                // Middle of the view, from the scaler's untransformed corner.
+                const ax = container.clientWidth / 2 - scaler.offsetLeft;
+                const ay = container.clientHeight / 2 - scaler.offsetTop;
+                panX = ax - (ax - panX) / old * zoom;
+                panY = ay - (ay - panY) / old * zoom;
             }
+            zoomLevel = zoom;
             applyZoom();
         }
 
+        // Back to 100% with the diagram in its home position.
         function resetZoom() {
             zoomLevel = 1;
-            if (!isRTL) {
-                const container = document.getElementById('diagram-container');
-                if (container) {
-                    applyZoom();
-                    container.scrollLeft = 0;
-                    return;
-                }
-            }
+            panX = 0;
+            panY = 0;
             applyZoom();
+        }
+
+        function workspaceTransform() {
+            return `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
         }
 
         function applyZoom() {
-            // workspace-scaler has min-width:100% (see #workspace-scaler CSS), so
-            // it always spans at least the full container width even when the
-            // diagram itself is narrower - a plain scale() from a fixed corner is
-            // enough to keep that corner pinned at every zoom level, LTR or RTL.
-            // This used to also translateX() the scaler to flush it against the
-            // opposite edge whenever the zoomed-out diagram got narrower than the
-            // container, which made the pinned corner visibly jump around as you
-            // zoomed - removed in favor of a single consistent anchor.
             const scaler = document.getElementById("workspace-scaler");
             if (scaler) {
-                scaler.style.transformOrigin = isRTL ? 'top right' : 'top left';
-                scaler.style.transform = `scale(${zoomLevel})`;
+                scaler.style.transition = '';
+                scaler.style.transform = workspaceTransform();
             }
             const label = document.getElementById("zoom-label");
             if (label) label.textContent = Math.round(zoomLevel * 100) + "%";
             scheduleAutosave();
+        }
+
+        // Moves the view without the zoom's easing, so it tracks the mouse.
+        function panWorkspace(dx, dy) {
+            panX += dx;
+            panY += dy;
+            const scaler = document.getElementById("workspace-scaler");
+            if (!scaler) return;
+            scaler.style.transition = 'none';
+            scaler.style.transform = workspaceTransform();
         }
 
         // Each flow tab has its own independent zoom level (flows[key].zoomLevel), kept
@@ -1183,6 +1181,8 @@
             propositions = saved.propositions || [];
             brackets = saved.brackets || [];
             zoomLevel = saved.zoomLevel || 1;
+            panX = 0;
+            panY = 0;
             loadFlowFromJson('sentenceflow', saved.notes);
             loadFlowFromJson('textflow', saved.textFlow);
             migrateSingleNodeBrackets();
@@ -3385,7 +3385,6 @@ function exportPNG() {
     const scaler    = document.getElementById("workspace-scaler");
     // Find the SVG inside the scaler
     const svg       = scaler.querySelector("svg");
-    const savedZoom = zoomLevel;
 
     // Leave selection highlights and row × buttons out of the image.
     const savedSelection = { selectedIndices, selectedBracketId, selectedCorners };
@@ -3480,7 +3479,7 @@ function exportPNG() {
                     svg.style.width = "";
                 }
                 scaler.style.transition  = "";
-                scaler.style.transform   = `scale(${savedZoom})`;
+                scaler.style.transform   = workspaceTransform();
                 scaler.classList.remove('exporting');
                 selectedIndices = savedSelection.selectedIndices;
                 selectedBracketId = savedSelection.selectedBracketId;
@@ -4754,32 +4753,62 @@ function exportPNG() {
             });
         }
 
-// Click-and-drag panning of the diagram. Move/up are tracked on the
+// Click-and-drag moves the diagram, from anywhere on it except text that's
+// being edited (which keeps drag-to-select). Move/up are tracked on the
 // document, not the container, so letting go outside the diagram still ends
 // the pan instead of leaving it stuck until the next click inside.
 const diagramContainer = document.getElementById('diagram-container');
 diagramContainer.addEventListener('mousedown', function(e) {
     if (e.button !== 0) return;
+    const editing = e.target.closest && e.target.closest('[contenteditable="true"], input, textarea');
+    if (editing && editing === document.activeElement) return;
     const startX = e.clientX;
     const startY = e.clientY;
-    const scrollLeft = diagramContainer.scrollLeft;
-    const scrollTop = diagramContainer.scrollTop;
+    const origX = panX;
+    const origY = panY;
+    let moved = false;
 
     function mouseMoveHandler(ev) {
-        diagramContainer.scrollLeft = scrollLeft - (ev.clientX - startX);
-        diagramContainer.scrollTop = scrollTop - (ev.clientY - startY);
+        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        if (!moved) {
+            if (Math.hypot(dx, dy) < 3) return;
+            moved = true;
+            const active = document.activeElement;
+            if (active && diagramContainer.contains(active)) active.blur();
+            document.body.style.cursor = 'grabbing';
+        }
+        window.getSelection().removeAllRanges();
+        panWorkspace(origX + dx - panX, origY + dy - panY);
     }
 
     function mouseUpHandler() {
         document.removeEventListener('mousemove', mouseMoveHandler);
         document.removeEventListener('mouseup', mouseUpHandler);
         window.removeEventListener('blur', mouseUpHandler);
+        if (!moved) return;
+        document.body.style.cursor = '';
+        // A pan isn't a click: don't let it deselect or pick what it ended on.
+        // (No click follows when it ends on another element, so drop the
+        // guard right after rather than let it eat the next real click.)
+        const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
+        window.addEventListener('click', swallow, { capture: true, once: true });
+        setTimeout(() => window.removeEventListener('click', swallow, true), 0);
     }
 
     document.addEventListener('mousemove', mouseMoveHandler);
     document.addEventListener('mouseup', mouseUpHandler);
     window.addEventListener('blur', mouseUpHandler);
 });
+
+// Scrolling (and Shift+scroll, sideways) pans too; Ctrl+scroll is left to
+// the browser's own zoom.
+diagramContainer.addEventListener('wheel', function(e) {
+    if (e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    const k = e.deltaMode === 1 ? 16 : 1;
+    if (e.shiftKey && !e.deltaX) panWorkspace(-e.deltaY * k, 0);
+    else panWorkspace(-e.deltaX * k, -e.deltaY * k);
+}, { passive: false });
 
   function makeResizable(resizerId, sidebarId, side) {
     const resizer = document.getElementById(resizerId);

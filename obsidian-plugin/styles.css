@@ -868,8 +868,15 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	flex: 1 1 0%;
 	position: relative;
 	padding: 32px;
-	overflow: auto;
+	/* No scrolling at all (not even the scroll-into-view a focus does): the
+	   view moves only by panX/panY, see panWorkspace(). */
+	overflow: clip;
 	min-width: 0;
+}
+
+.da-tool-view .da-diagram-container.is-panning,
+.da-tool-view .da-diagram-container.is-panning * {
+	cursor: grabbing;
 }
 
 .da-tool-view .da-overlay {

@@ -1151,8 +1151,8 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 		"[[Ctrl]]+[[Z]] (or ↶) undoes your last change, up to 20 steps. [[Ctrl]]+[[Y]] or [[Ctrl]]+[[Shift]]+[[Z]] (or ↷) redoes it. While you're typing in a text box, these undo and redo your typing instead.",
 	] },
 	{ heading: "Moving around", items: [
-		"**Click and drag** on empty space to pan the diagram.",
-		"**− / + / ↺** zoom out, zoom in, and reset (30%–300%). [[Ctrl]]+scroll over the diagram also zooms.",
+		"**Click and drag** anywhere on the diagram to move it, or scroll ([[Shift]]+scroll for sideways). It can go anywhere, past any edge.",
+		"**− / +** zoom out and in (30%–300%), keeping the middle of the view in place; [[Ctrl]]+scroll over the diagram does the same. **↺** goes back to 100% with the diagram in its starting spot.",
 		"The panel button at the far left of the tab bar (or the command **Toggle propositions sidebar**) hides or shows the Propositions list. Drag the list's edge to resize it; the width is remembered.",
 	] },
 	{ heading: "Header buttons", items: [
@@ -1336,6 +1336,9 @@ export class DAView extends TextFileView {
 	flowRedo: Record<FlowKey, FlowSnapshot[]> = { sentenceflow: [], textflow: [] };
 	private flowTypingGroup: { key: FlowKey; kind: "insert" | "delete"; at: number; lastSpace: boolean } | null = null;
 	zoomLevel = 1;
+	// The bracket workspace's offset in the view (see panWorkspace); not saved.
+	panX = 0;
+	panY = 0;
 	isRTL = false;
 	dragSrcIndex: number | null = null;
 
@@ -1515,6 +1518,8 @@ export class DAView extends TextFileView {
 		this.propositions = parsed.propositions || [];
 		this.brackets = parsed.brackets || [];
 		this.zoomLevel = parsed.zoomLevel || 1;
+		this.panX = 0;
+		this.panY = 0;
 		this.isRTL = parsed.isRTL || false;
 		this.loadFlowFromJson("sentenceflow", parsed.notes);
 		this.loadFlowFromJson("textflow", parsed.textFlow);
@@ -1545,6 +1550,8 @@ export class DAView extends TextFileView {
 		this.propositions = empty.propositions;
 		this.brackets = empty.brackets;
 		this.zoomLevel = empty.zoomLevel;
+		this.panX = 0;
+		this.panY = 0;
 		this.isRTL = empty.isRTL;
 		FLOW_KEYS.forEach(key => this.loadFlowFromJson(key, undefined));
 		this.selectedIndices = [];
@@ -2252,7 +2259,8 @@ export class DAView extends TextFileView {
 	// ---------- zoom ----------
 
 	// Ctrl+scroll (and trackpad pinch, which Chromium reports as a ctrl+wheel)
-	// zooms the bracket workspace and each flow canvas. Deltas accumulate so
+	// zooms the bracket workspace (around the middle of the view, like the
+	// buttons) and each flow canvas. Deltas accumulate so
 	// one mouse-wheel notch is one 10% step, while a pinch's stream of tiny
 	// deltas doesn't race through the whole range. passive:false so
 	// preventDefault can stop Obsidian/Electron from zooming the whole window.
@@ -2272,87 +2280,57 @@ export class DAView extends TextFileView {
 				step(delta, e);
 			}, { passive: false });
 		};
-		attach(this.byId("diagram-container"), (d, e) => this.zoomBracketsAt(d, e.clientX, e.clientY));
+		attach(this.byId("diagram-container"), d => this.adjustZoom(d));
 		FLOW_KEYS.forEach(key => attach(this.flowCanvas(key)?.parentElement, d => this.adjustNotesZoom(d)));
 	}
 
+	// The bracket workspace moves freely, like the Story canvas in the Hebrew
+	// tool: dragging or scrolling shifts it by panX/panY with no edges, so it
+	// can be put anywhere at any zoom, and zooming keeps the point in the
+	// middle of the view where it is.
 	adjustZoom(delta: number): void {
-		const oldZoom = this.zoomLevel;
-		this.zoomLevel = Math.min(3, Math.max(0.3, Math.round((this.zoomLevel + delta) * 10) / 10));
-		const container = this.byId("diagram-container");
-		if (!this.isRTL && container) {
-			if (this.zoomLevel >= 1) {
-				const clientWidth = container.clientWidth;
-				const oldScrollLeft = container.scrollLeft;
-				this.applyZoom();
-				const newScrollLeft = (oldScrollLeft + clientWidth) * (this.zoomLevel / oldZoom) - clientWidth;
-				container.scrollLeft = Math.max(0, newScrollLeft);
-			} else {
-				this.applyZoom();
-				container.scrollLeft = 0;
-			}
-			this.requestSave();
-			return;
-		}
-		this.applyZoom();
-		this.requestSave();
-	}
-
-	// Ctrl+scroll zoom on the bracket workspace: keeps the diagram point under
-	// the pointer fixed. Measured from bounding rects, so it works with either
-	// transform-origin (LTR or RTL). The CSS transition is skipped so the new
-	// scale is in effect immediately and the scroll correction lands on it.
-	zoomBracketsAt(delta: number, clientX: number, clientY: number): void {
+		const zoom = Math.min(3, Math.max(0.3, Math.round((this.zoomLevel + delta) * 10) / 10));
+		const old = this.zoomLevel;
+		if (zoom === old) return;
 		const container = this.byId("diagram-container");
 		const scaler = this.byId("workspace-scaler");
-		if (!container || !scaler) { this.adjustZoom(delta); return; }
-		const oldZoom = this.zoomLevel;
-		const newZoom = Math.min(3, Math.max(0.3, Math.round((oldZoom + delta) * 10) / 10));
-		if (newZoom === oldZoom) return;
-		const before = scaler.getBoundingClientRect();
-		const cx = (clientX - before.left) / oldZoom;
-		const cy = (clientY - before.top) / oldZoom;
-		this.zoomLevel = newZoom;
-		scaler.setCssStyles({ transition: "none" });
+		if (container && scaler) {
+			// Middle of the view, from the scaler's untransformed corner.
+			const ax = container.clientWidth / 2 - scaler.offsetLeft;
+			const ay = container.clientHeight / 2 - scaler.offsetTop;
+			this.panX = ax - ((ax - this.panX) / old) * zoom;
+			this.panY = ay - ((ay - this.panY) / old) * zoom;
+		}
+		this.zoomLevel = zoom;
 		this.applyZoom();
-		const after = scaler.getBoundingClientRect();
-		container.scrollLeft += after.left + cx * newZoom - clientX;
-		container.scrollTop += after.top + cy * newZoom - clientY;
-		scaler.setCssStyles({ transition: "" });
 		this.requestSave();
 	}
 
+	// Back to 100% with the diagram in its home position.
 	resetZoom(): void {
 		this.zoomLevel = 1;
-		const container = this.byId("diagram-container");
-		if (!this.isRTL && container) {
-			this.applyZoom();
-			container.scrollLeft = 0;
-			this.requestSave();
-			return;
-		}
+		this.panX = 0;
+		this.panY = 0;
 		this.applyZoom();
 		this.requestSave();
+	}
+
+	private workspaceTransform(): string {
+		return `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
 	}
 
 	applyZoom(): void {
-		// workspace-scaler has min-width:100% (see styles.css), so it always
-		// spans at least the full container width even when the diagram
-		// itself is narrower - a plain scale() from a fixed corner is enough
-		// to keep that corner pinned at every zoom level, LTR or RTL. This
-		// used to also translateX() the scaler to flush it against the
-		// opposite edge whenever the zoomed-out diagram got narrower than the
-		// container, which made the pinned corner visibly jump around as you
-		// zoomed - removed in favor of a single consistent anchor.
 		const scaler = this.byId("workspace-scaler");
-		if (scaler) {
-			scaler.setCssStyles({
-				transformOrigin: this.isRTL ? "top right" : "top left",
-				transform: `scale(${this.zoomLevel})`,
-			});
-		}
+		if (scaler) scaler.setCssStyles({ transition: "", transform: this.workspaceTransform() });
 		const label = this.byId("zoom-label");
 		if (label) label.textContent = Math.round(this.zoomLevel * 100) + "%";
+	}
+
+	// Moves the view without the zoom's easing, so it tracks the mouse.
+	private panWorkspace(dx: number, dy: number): void {
+		this.panX += dx;
+		this.panY += dy;
+		this.byId("workspace-scaler")?.setCssStyles({ transition: "none", transform: this.workspaceTransform() });
 	}
 
 	// Each flow tab has its own independent zoom level (flows[key].zoomLevel), kept
@@ -2727,28 +2705,12 @@ export class DAView extends TextFileView {
 		const container = this.byId("proposition-rows");
 		if (!container) return;
 
-		// Emptying the container mid-rebuild briefly collapses its height,
-		// which can make the scrollable workspace clamp its scroll position
-		// to fit the (temporarily) shorter content - showing up as the pan
-		// position jumping every time a row is clicked/edited/reordered.
-		// Save and restore it around the rebuild so panning is unaffected.
-		const scrollContainer = this.byId("diagram-container");
-		const savedScroll = scrollContainer ? { left: scrollContainer.scrollLeft, top: scrollContainer.scrollTop } : null;
-		const restoreScroll = () => {
-			if (scrollContainer && savedScroll) {
-				scrollContainer.scrollLeft = savedScroll.left;
-				scrollContainer.scrollTop = savedScroll.top;
-			}
-		};
-
 		container.empty();
 		if (this.propositions.length === 0) {
 			const hint = container.createDiv({ cls: "da-empty-hint da-empty-hint-main" });
 			hint.createSpan({ text: "Propositions appear here" });
 			hint.createEl("br");
 			hint.createSpan({ text: "Double-click any row to split at exact click location" });
-			restoreScroll();
-			window.requestAnimationFrame(restoreScroll);
 			return;
 		}
 
@@ -2810,33 +2772,6 @@ export class DAView extends TextFileView {
 			textEl.dir = this.isRTL ? "rtl" : "ltr";
 			textEl.addEventListener("blur", () => this.updatePropositionText(i, textEl));
 
-			// Focusing a contenteditable element makes the browser auto-scroll
-			// its nearest scrollable ancestor (the panned workspace) to bring
-			// it fully into view. That's disorienting when panned far from the
-			// origin, so snap the pan position back to what it was right
-			// before the click-triggered focus. Some browsers apply that
-			// auto-scroll synchronously, others defer it a frame, so restore
-			// it both immediately and again on the next frame to catch either
-			// case.
-			let scrollBeforeFocus: { left: number; top: number } | null = null;
-			textEl.addEventListener("mousedown", () => {
-				const container = this.byId("diagram-container");
-				scrollBeforeFocus = container ? { left: container.scrollLeft, top: container.scrollTop } : null;
-			});
-			textEl.addEventListener("focus", () => {
-				const saved = scrollBeforeFocus;
-				scrollBeforeFocus = null;
-				if (!saved) return;
-				const restore = () => {
-					const container = this.byId("diagram-container");
-					if (container) {
-						container.scrollLeft = saved.left;
-						container.scrollTop = saved.top;
-					}
-				};
-				restore();
-				window.requestAnimationFrame(restore);
-			});
 
 			const delBtn = createEl("button", { cls: "da-row-del", text: "×" });
 			// Selection now toggles on the row's mousedown (see above), so this
@@ -2854,9 +2789,6 @@ export class DAView extends TextFileView {
 		});
 		this.fitNoteInputs?.();
 		this.fitNoteInputs = null;
-
-		restoreScroll();
-		window.requestAnimationFrame(restoreScroll);
 	}
 
 	// ---------- proposition notes ----------
@@ -4145,7 +4077,6 @@ export class DAView extends TextFileView {
 		const scaler = this.byId("workspace-scaler");
 		if (!container || !scaler) return;
 		const svg = scaler.querySelector("svg");
-		const savedZoom = this.zoomLevel;
 
 		const savedOverflow = container.style.overflow;
 		const savedWidth = container.style.width;
@@ -4236,7 +4167,7 @@ export class DAView extends TextFileView {
 				if (savedSvgW !== null) svg.setAttribute("width", savedSvgW);
 				svg.setCssStyles({ width: "" });
 			}
-			scaler.setCssStyles({ transition: "", transform: `scale(${savedZoom})` });
+			scaler.setCssStyles({ transition: "", transform: this.workspaceTransform() });
 			scaler.removeClass("da-exporting");
 			this.selectedIndices = savedSelection.indices;
 			this.selectedBracketId = savedSelection.bracketId;
@@ -4302,33 +4233,68 @@ export class DAView extends TextFileView {
 		const diagramContainer = this.byId("diagram-container");
 		if (!diagramContainer) return;
 
-		// Move/up are tracked on the document, not the container, so letting
-		// go outside the diagram still ends the pan instead of leaving it
-		// stuck until the next click inside.
+		// Click-and-drag moves the diagram from anywhere on it - rows and
+		// brackets included, hence the capture phase, since those stop their
+		// own mousedowns - except the reorder handle and text that's being
+		// edited (which keeps drag-to-select). Move/up are tracked on the
+		// document, not the container, so letting go outside the diagram
+		// still ends the pan instead of leaving it stuck until the next click.
 		this.registerDomEvent(diagramContainer, "mousedown", (e: MouseEvent) => {
 			if (e.button !== 0) return;
-			const startX = e.clientX;
-			const startY = e.clientY;
-			const scrollLeft = diagramContainer.scrollLeft;
-			const scrollTop = diagramContainer.scrollTop;
+			const t = e.target as HTMLElement;
+			if (t.closest(".da-drag-handle")) return;
 			const doc = diagramContainer.ownerDocument;
 			const win = doc.defaultView ?? window;
+			const editing = t.closest("[contenteditable='true'], input, textarea");
+			if (editing && editing === doc.activeElement) return;
+			const startX = e.clientX;
+			const startY = e.clientY;
+			const origX = this.panX;
+			const origY = this.panY;
+			let moved = false;
 
 			const mouseMoveHandler = (ev: MouseEvent) => {
-				diagramContainer.scrollLeft = scrollLeft - (ev.clientX - startX);
-				diagramContainer.scrollTop = scrollTop - (ev.clientY - startY);
+				const dx = ev.clientX - startX, dy = ev.clientY - startY;
+				if (!moved) {
+					if (Math.hypot(dx, dy) < 3) return;
+					moved = true;
+					const active = doc.activeElement as HTMLElement | null;
+					if (active && diagramContainer.contains(active)) active.blur();
+					diagramContainer.addClass("is-panning");
+				}
+				win.getSelection()?.removeAllRanges();
+				this.panWorkspace(origX + dx - this.panX, origY + dy - this.panY);
 			};
 
 			const mouseUpHandler = () => {
 				doc.removeEventListener("mousemove", mouseMoveHandler);
 				doc.removeEventListener("mouseup", mouseUpHandler);
 				win.removeEventListener("blur", mouseUpHandler);
+				if (!moved) return;
+				diagramContainer.removeClass("is-panning");
+				// A pan isn't a click: don't let it deselect or pick what it
+				// ended on. (No click follows when it ends on another element,
+				// so drop the guard right after rather than let it eat the
+				// next real click.)
+				const swallow = (ev: MouseEvent) => { ev.stopPropagation(); ev.preventDefault(); };
+				win.addEventListener("click", swallow, { capture: true, once: true });
+				win.setTimeout(() => win.removeEventListener("click", swallow, true), 0);
 			};
 
 			doc.addEventListener("mousemove", mouseMoveHandler);
 			doc.addEventListener("mouseup", mouseUpHandler);
 			win.addEventListener("blur", mouseUpHandler);
-		});
+		}, { capture: true });
+
+		// Scrolling (and Shift+scroll, sideways) pans too; Ctrl+scroll zooms
+		// (see initializeWheelZoom).
+		this.registerDomEvent(diagramContainer, "wheel", (e: WheelEvent) => {
+			if (e.ctrlKey || e.metaKey) return;
+			e.preventDefault();
+			const k = e.deltaMode === 1 ? 16 : 1;
+			if (e.shiftKey && !e.deltaX) this.panWorkspace(-e.deltaY * k, 0);
+			else this.panWorkspace(-e.deltaX * k, -e.deltaY * k);
+		}, { passive: false });
 	}
 
 	private makeResizable(resizerId: string, sidebarId: string, side: "left" | "right"): void {
