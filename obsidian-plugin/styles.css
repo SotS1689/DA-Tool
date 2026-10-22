@@ -1959,6 +1959,25 @@
 	mask-repeat: no-repeat !important;
 }
 
+/* ---------- Omnisearch result icon for .da files ---------- */
+
+/* Omnisearch draws a generic Lucide "file" icon for any extension it doesn't
+ * know, inside .omnisearch-result__icon. Each result row carries the file's
+ * vault path as data-result-id, so the same path-suffix match as the File
+ * Explorer rule above swaps that icon for the ∴. */
+[data-result-id$=".da"] .omnisearch-result__icon > svg {
+	display: none;
+}
+[data-result-id$=".da"] .omnisearch-result__icon::before {
+	content: "";
+	display: block;
+	width: 100%;
+	height: 100%;
+	background-color: currentColor;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' text-anchor='middle' dominant-baseline='central' font-size='82' font-weight='bold'%3E%E2%88%B4%3C/text%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' text-anchor='middle' dominant-baseline='central' font-size='82' font-weight='bold'%3E%E2%88%B4%3C/text%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 /* PNG export: hide editing chrome (row delete buttons) in the image */
 .da-tool-view .da-exporting .da-row-del,
 .da-tool-view .da-exporting .da-note-callout {
