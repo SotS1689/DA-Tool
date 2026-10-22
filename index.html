@@ -194,6 +194,37 @@
 	.row-num-badge[contenteditable="true"] { cursor: text; background: #f8fafc; outline: 1px solid #1e40af; color: #1e40af; }
 	.sidebar-num-badge[contenteditable="true"] { cursor: text; outline: 1px solid #1e40af; }
 
+	/* ---------- occasional "would you consider supporting it?" callout ---------- */
+	.support-wrap { position: relative; display: inline-flex; }
+	#support-callout {
+		display: none; position: absolute; top: calc(100% + 10px); right: 0; width: 270px;
+		background: var(--surface, #ffffff); border: 1px solid var(--border, #cbd5e1); border-radius: 8px;
+		box-shadow: 0 6px 20px rgba(0,0,0,0.25); padding: 12px 14px; z-index: 500; text-align: left;
+	}
+	#support-callout.open { display: block; animation: supportCalloutIn 0.18s ease-out; }
+	@keyframes supportCalloutIn {
+		from { opacity: 0; transform: translateY(-4px); }
+		to   { opacity: 1; transform: translateY(0); }
+	}
+	.support-callout-arrow {
+		position: absolute; top: -6px; right: 22px; width: 10px; height: 10px;
+		background: var(--surface, #ffffff);
+		border-left: 1px solid var(--border, #cbd5e1); border-top: 1px solid var(--border, #cbd5e1);
+		transform: rotate(45deg);
+	}
+	.support-callout-title { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--text, #0f172a); }
+	.support-callout-body { margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: var(--muted, #64748b); }
+	.support-callout-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+	.support-callout-btn {
+		font-size: 12px; cursor: pointer; border-radius: 4px; border: none;
+		padding: 5px 10px; text-decoration: none; white-space: nowrap;
+	}
+	.support-callout-btn-primary { background: #10b981; color: #fff; font-weight: 600; }
+	.support-callout-btn-primary:hover { background: #059669; }
+	.support-callout-btn-secondary { background: var(--surface, #ffffff); color: var(--text, #0f172a); border: 1px solid var(--border, #cbd5e1); }
+	.support-callout-btn-text { background: none; color: var(--muted, #64748b); padding: 5px 2px; font-size: 11px; }
+	.support-callout-btn-text:hover { color: var(--text, #0f172a); text-decoration: underline; }
+
 	</style>
     <script>/*!
  * html2canvas 1.4.1 <https://html2canvas.hertzen.com>
@@ -577,10 +608,20 @@
                     <option value="1.4">140%</option>
                     <option value="1.5">150%</option>
                 </select>
-				<button onclick="window.open('https://buymeacoffee.com/reformedretrieval', '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">
+				<div class="support-wrap"><button id="support-btn" onclick="window.open('https://buymeacoffee.com/reformedretrieval', '_blank'); daSupportDismiss('acted')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">
     <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M2 21h18a1 1 0 0 1 0 2H2a1 1 0 0 1 0-2zM20.242 11.022a1 1 0 0 0-.242-.688 2.99 2.99 0 0 0-2-.734H16V6a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-2.022h2a3 3 0 0 0 3-3V11.02a1 1 0 0 0-.758-.998zM14 16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v10zm4-4.022V11.6h-2v-2h2a1 1 0 0 1 1 1v1.378a1 1 0 0 1-1 1z"/></svg>
     <span>Support</span>
 </button>
+<div id="support-callout" role="dialog" aria-label="Support this project">
+    <div class="support-callout-arrow"></div>
+    <p class="support-callout-title">A quick note &mdash;</p>
+    <p class="support-callout-body">This project is built and maintained in spare time so that pastors, students, and anyone tracing the argument of a passage can use it for free. If it's been a help to you, would you consider supporting it? Every bit keeps it running for the next person too.</p>
+    <div class="support-callout-actions">
+        <a href="https://buymeacoffee.com/reformedretrieval" target="_blank" rel="noopener noreferrer" class="support-callout-btn support-callout-btn-primary" onclick="daSupportDismiss('acted')">Yes</a>
+        <button type="button" class="support-callout-btn support-callout-btn-secondary" onclick="daSupportDismiss('later')">Maybe later</button>
+        <button type="button" class="support-callout-btn support-callout-btn-text" onclick="daSupportDismiss('forever')">Don't ask again</button>
+    </div>
+</div></div>
             </div>
         </div>
 
@@ -3603,6 +3644,7 @@ function exportPNG() {
                 const le = document.getElementById('label-editor');
                 if (le && le.style.display !== 'none' && !le.contains(e.target)) hideLabelEditor();
             }, true);
+            daTrackSupportUsage();
             // Save the latest state when the tab is closed or hidden.
             window.addEventListener('pagehide', autosaveNow);
             document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') autosaveNow(); });
@@ -3622,6 +3664,75 @@ function exportPNG() {
         }
 
         window.onload = initialize;
+
+        // ════════════════════════════════════════════════════════════
+        //  SUPPORT CALLOUT  (occasional, dismissible ask for financial support)
+        //
+        //  Same cadence as BibleSearch's: never on first visit; first appears
+        //  once the tool has actually been used (10 visits OR 3 distinct days),
+        //  then resurfaces roughly every 24 days after "Maybe later". Stops
+        //  popping up (the Support button itself always stays) after 5 "Maybe
+        //  later"s, or for good after "Don't ask again" or clicking through.
+        // ════════════════════════════════════════════════════════════
+        const DA_SUPPORT_DAY_MS = 20 * 60 * 60 * 1000;
+        const DA_SUPPORT_FIRST_VISITS_THRESHOLD = 10;
+        const DA_SUPPORT_FIRST_DAYS_THRESHOLD = 3;
+        const DA_SUPPORT_RESHOW_INTERVAL_DAYS = 24;
+        const DA_SUPPORT_MAX_MAYBE_LATER = 5;
+
+        function daTrackSupportUsage() {
+            if (daThemeGet('daSupportDismissedForever') === '1') return;
+            if (daThemeGet('daSupportActed') === '1') return;
+
+            const visits = parseInt(daThemeGet('daSupportVisits') || '0', 10) + 1;
+            daThemeSet('daSupportVisits', String(visits));
+
+            let days = parseInt(daThemeGet('daSupportDaysUsed') || '0', 10);
+            const today = new Date().toISOString().slice(0, 10);
+            if (daThemeGet('daSupportLastDayUsed') !== today) {
+                days += 1;
+                daThemeSet('daSupportDaysUsed', String(days));
+                daThemeSet('daSupportLastDayUsed', today);
+            }
+
+            daMaybeShowSupportCallout(visits, days);
+        }
+
+        function daMaybeShowSupportCallout(visits, daysUsed) {
+            const maybeLaterCount = parseInt(daThemeGet('daSupportMaybeLaterCount') || '0', 10);
+            if (maybeLaterCount >= DA_SUPPORT_MAX_MAYBE_LATER) return;
+
+            const lastShown = parseInt(daThemeGet('daSupportLastShown') || '0', 10);
+            const due = lastShown === 0
+                ? visits >= DA_SUPPORT_FIRST_VISITS_THRESHOLD || daysUsed >= DA_SUPPORT_FIRST_DAYS_THRESHOLD
+                : Date.now() - lastShown >= DA_SUPPORT_RESHOW_INTERVAL_DAYS * DA_SUPPORT_DAY_MS;
+            if (due) daShowSupportCallout();
+        }
+
+        function daShowSupportCallout() {
+            const el = document.getElementById('support-callout');
+            if (!el) return;
+            el.classList.add('open');
+            daThemeSet('daSupportLastShown', String(Date.now()));
+            // Dismiss on outside click (doesn't count as "maybe later" -- just closes it).
+            setTimeout(() => document.addEventListener('click', daSupportOutsideClick), 0);
+        }
+
+        function daSupportOutsideClick(e) {
+            const el = document.getElementById('support-callout');
+            const btn = document.getElementById('support-btn');
+            if (!el || el.contains(e.target) || (btn && btn.contains(e.target))) return;
+            el.classList.remove('open');
+            document.removeEventListener('click', daSupportOutsideClick);
+        }
+
+        function daSupportDismiss(mode) {
+            document.getElementById('support-callout').classList.remove('open');
+            document.removeEventListener('click', daSupportOutsideClick);
+            if (mode === 'forever') daThemeSet('daSupportDismissedForever', '1');
+            else if (mode === 'later') daThemeSet('daSupportMaybeLaterCount', String(parseInt(daThemeGet('daSupportMaybeLaterCount') || '0', 10) + 1));
+            else if (mode === 'acted') daThemeSet('daSupportActed', '1');
+        }
 
         function showLogicalRelationships() {
             document.getElementById('lr-modal').classList.remove('hidden');

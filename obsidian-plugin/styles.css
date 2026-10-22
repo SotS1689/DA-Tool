@@ -579,6 +579,96 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	color: var(--da-on-accent);
 }
 
+/* Occasional "would you consider supporting it?" callout under the Support button. */
+.da-tool-view .da-support-wrap {
+	position: relative;
+	display: inline-flex;
+}
+.da-tool-view .da-support-callout {
+	display: none;
+	position: absolute;
+	top: calc(100% + 10px);
+	right: 0;
+	width: 270px;
+	background: var(--da-surface);
+	border: 1px solid var(--da-border-strong);
+	border-radius: 8px;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+	padding: 12px 14px;
+	z-index: 500;
+	text-align: left;
+}
+.da-tool-view .da-support-callout.da-open {
+	display: block;
+	animation: da-support-callout-in 0.18s ease-out;
+}
+@keyframes da-support-callout-in {
+	from { opacity: 0; transform: translateY(-4px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+.da-tool-view .da-support-callout-arrow {
+	position: absolute;
+	top: -6px;
+	right: 22px;
+	width: 10px;
+	height: 10px;
+	background: var(--da-surface);
+	border-left: 1px solid var(--da-border-strong);
+	border-top: 1px solid var(--da-border-strong);
+	transform: rotate(45deg);
+}
+.da-tool-view .da-support-callout-title {
+	margin: 0 0 4px;
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--da-text);
+}
+.da-tool-view .da-support-callout-body {
+	margin: 0 0 10px;
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--da-muted);
+}
+.da-tool-view .da-support-callout-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 10px;
+}
+.da-tool-view .da-support-callout-btn {
+	font-size: 12px;
+	cursor: pointer;
+	border-radius: 4px;
+	border: none;
+	padding: 5px 10px;
+	white-space: nowrap;
+	box-shadow: none;
+	height: auto;
+}
+.da-tool-view .da-support-callout-btn-primary {
+	background: var(--da-success);
+	color: var(--da-on-accent);
+	font-weight: 600;
+}
+.da-tool-view .da-support-callout-btn-primary:hover {
+	background: var(--da-success-hover);
+}
+.da-tool-view .da-support-callout-btn-secondary {
+	background: var(--da-surface);
+	color: var(--da-text);
+	border: 1px solid var(--da-border-strong);
+}
+.da-tool-view .da-support-callout-btn-text {
+	background: none;
+	color: var(--da-muted);
+	padding: 5px 2px;
+	font-size: 11px;
+}
+.da-tool-view .da-support-callout-btn-text:hover {
+	color: var(--da-text);
+	text-decoration: underline;
+}
+
 .da-tool-view .da-btn-warn {
 	background: var(--da-warn-bg);
 	border-color: var(--da-border-strong);

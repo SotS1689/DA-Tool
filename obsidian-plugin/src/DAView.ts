@@ -149,7 +149,31 @@ export interface DAToolSettings {
 	// Propositions sidebar, label editor, modals) - not the canvases, which
 	// have their own zoom. One of UI_SCALE_STEPS.
 	uiScale?: number;
+	// Bookkeeping for the occasional "would you consider supporting it?"
+	// callout under the header's Support button (see maybeShowSupportCallout).
+	support?: SupportNudgeState;
 }
+
+export interface SupportNudgeState {
+	filesOpened: number;
+	daysUsed: number;
+	lastDayUsed: string;
+	lastShown: number;
+	maybeLaterCount: number;
+	dismissedForever?: boolean;
+	acted?: boolean;
+}
+
+// Support callout cadence, same as BibleSearch's: never on first use; first
+// appears once the tool has actually been used (10 DA files opened OR 3
+// distinct days), then resurfaces every 24 days after a "Maybe later". Stops
+// popping up (the Support button itself always stays) after 5 "Maybe later"s,
+// or for good after "Don't ask again" or after clicking through to support.
+const SUPPORT_URL = "https://buymeacoffee.com/reformedretrieval";
+const SUPPORT_FIRST_FILES_THRESHOLD = 10;
+const SUPPORT_FIRST_DAYS_THRESHOLD = 3;
+const SUPPORT_RESHOW_INTERVAL_MS = 24 * 20 * 60 * 60 * 1000;
+const SUPPORT_MAX_MAYBE_LATER = 5;
 
 export const UI_SCALE_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
 
@@ -1503,6 +1527,8 @@ export class DAView extends TextFileView {
 		this.redoStack = [];
 		this.clearFlowHistory();
 		this.loaded = true;
+		// `clear` is false when the open file merely changed on disk.
+		if (clear) this.trackSupportUsage();
 
 		if (this.domBuilt) {
 			this.syncRtlToggleUi();
@@ -1555,6 +1581,54 @@ export class DAView extends TextFileView {
 		this.registerEvent(this.app.workspace.on("quit", (tasks) => {
 			tasks.addPromise(this.save());
 		}));
+	}
+
+	// ---------- support callout ----------
+
+	private supportState(): SupportNudgeState {
+		const settings = this.plugin.settings;
+		settings.support ??= { filesOpened: 0, daysUsed: 0, lastDayUsed: "", lastShown: 0, maybeLaterCount: 0 };
+		return settings.support;
+	}
+
+	// Counts a DA file opened (and the day it was used on), then shows the
+	// callout if it's due.
+	private trackSupportUsage(): void {
+		const s = this.supportState();
+		if (s.dismissedForever || s.acted) return;
+		s.filesOpened += 1;
+		const today = new Date().toISOString().slice(0, 10);
+		if (s.lastDayUsed !== today) {
+			s.lastDayUsed = today;
+			s.daysUsed += 1;
+		}
+		void this.plugin.saveSettings();
+		// Wait for the view to be laid out, so a file opened in a background
+		// tab doesn't "show" the callout where nobody can see it.
+		window.setTimeout(() => this.maybeShowSupportCallout(), 1500);
+	}
+
+	private maybeShowSupportCallout(): void {
+		const s = this.supportState();
+		if (s.dismissedForever || s.acted || s.maybeLaterCount >= SUPPORT_MAX_MAYBE_LATER) return;
+		const callout = this.byId("support-callout");
+		if (!callout || !this.contentEl.isShown()) return;
+		const due = s.lastShown === 0
+			? s.filesOpened >= SUPPORT_FIRST_FILES_THRESHOLD || s.daysUsed >= SUPPORT_FIRST_DAYS_THRESHOLD
+			: Date.now() - s.lastShown >= SUPPORT_RESHOW_INTERVAL_MS;
+		if (!due) return;
+		callout.addClass("da-open");
+		s.lastShown = Date.now();
+		void this.plugin.saveSettings();
+	}
+
+	private dismissSupportCallout(mode: "acted" | "later" | "forever"): void {
+		this.byId("support-callout")?.removeClass("da-open");
+		const s = this.supportState();
+		if (mode === "forever") s.dismissedForever = true;
+		else if (mode === "later") s.maybeLaterCount += 1;
+		else s.acted = true;
+		void this.plugin.saveSettings();
 	}
 
 	// renderCanvas() measures proposition row positions from the live DOM to lay
@@ -1620,12 +1694,22 @@ export class DAView extends TextFileView {
 		headerRight.createEl("button", { cls: "da-switch", attr: { id: "rtl-toggle", role: "switch", "aria-checked": "false" } }, btn => {
 			btn.createSpan({ cls: "da-switch-thumb", attr: { id: "rtl-thumb" } });
 		});
-		headerRight.createEl("button", { cls: "da-btn da-btn-support", attr: { "data-action": "open-external", "data-url": "https://buymeacoffee.com/reformedretrieval" } }, btn => {
+		const supportWrap = headerRight.createDiv({ cls: "da-support-wrap" });
+		supportWrap.createEl("button", { cls: "da-btn da-btn-support", attr: { id: "support-btn", "data-action": "open-external", "data-url": SUPPORT_URL } }, btn => {
 			// Coffee mug icon, same as BibleSearch's Support button.
 			btn.createSvg("svg", { cls: "da-support-icon", attr: { viewBox: "0 0 24 24", fill: "currentColor", "aria-hidden": "true" } }, svg => {
 				svg.createSvg("path", { attr: { d: "M2 21h18a1 1 0 0 1 0 2H2a1 1 0 0 1 0-2zM20.242 11.022a1 1 0 0 0-.242-.688 2.99 2.99 0 0 0-2-.734H16V6a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-2.022h2a3 3 0 0 0 3-3V11.02a1 1 0 0 0-.758-.998zM14 16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v10zm4-4.022V11.6h-2v-2h2a1 1 0 0 1 1 1v1.378a1 1 0 0 1-1 1z" } });
 			});
 			btn.createSpan({ text: "Support" });
+		});
+		supportWrap.createDiv({ cls: "da-support-callout", attr: { id: "support-callout", role: "dialog", "aria-label": "Support this project" } }, callout => {
+			callout.createDiv({ cls: "da-support-callout-arrow" });
+			callout.createEl("p", { cls: "da-support-callout-title", text: "A quick note —" });
+			callout.createEl("p", { cls: "da-support-callout-body", text: "This project is built and maintained in spare time so that pastors, students, and anyone tracing the argument of a passage can use it for free. If it's been a help to you, would you consider supporting it? Every bit keeps it running for the next person too." });
+			const actions = callout.createDiv({ cls: "da-support-callout-actions" });
+			actions.createEl("button", { cls: "da-support-callout-btn da-support-callout-btn-primary", text: "Yes", attr: { "data-action": "open-external", "data-url": SUPPORT_URL, "data-support": "acted" } });
+			actions.createEl("button", { cls: "da-support-callout-btn da-support-callout-btn-secondary", text: "Maybe later", attr: { "data-support": "later" } });
+			actions.createEl("button", { cls: "da-support-callout-btn da-support-callout-btn-text", text: "Don't ask again", attr: { "data-support": "forever" } });
 		});
 
 		const tabStrip = this.contentEl.createDiv({ cls: "da-tab-strip da-ui-scaled" });
@@ -1898,6 +1982,16 @@ export class DAView extends TextFileView {
 		on("deselect", () => this.deselectAll());
 		this.qsa<HTMLButtonElement>('[data-action="open-external"]').forEach(el => {
 			this.registerDomEvent(el, "click", () => window.open(el.dataset.url, "_blank"));
+		});
+		const supportBtn = this.byId("support-btn");
+		if (supportBtn) this.registerDomEvent(supportBtn, "click", () => this.dismissSupportCallout("acted"));
+		this.qsa<HTMLButtonElement>("[data-support]").forEach(el => {
+			this.registerDomEvent(el, "click", () => this.dismissSupportCallout(el.dataset.support as "acted" | "later" | "forever"));
+		});
+		// Clicking anywhere else just closes the callout (not a "Maybe later").
+		this.registerDomEvent(document, "mousedown", (e: MouseEvent) => {
+			const callout = this.byId("support-callout");
+			if (callout?.hasClass("da-open") && !callout.parentElement?.contains(e.target as Node)) callout.removeClass("da-open");
 		});
 
 		const rtlToggle = this.byId("rtl-toggle");
