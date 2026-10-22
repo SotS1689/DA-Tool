@@ -114,8 +114,8 @@ export const COLOR_TOKENS: ColorToken[] = [
 // The header dropdown / settings choices. "standard" is the tool's own
 // palette, "obsidian" adopts the active Obsidian theme (.da-theme-adopt),
 // and the rest are the BibleSearch colour schemes (.da-scheme-<id> in
-// styles.css). Each has a light and a dark variant, picked by the
-// Appearance setting (APPEARANCES).
+// styles.css). Each has a light and a dark variant (.da-dark, see
+// themeRootClasses).
 export const COLOR_THEMES: { id: string; label: string }[] = [
 	{ id: "standard", label: "Standard" },
 	{ id: "obsidian", label: "Theme" },
@@ -134,32 +134,34 @@ export function colorThemeClasses(theme: string): string[] {
 	return ["da-scheme-standard"];
 }
 
-const ALL_COLOR_THEME_CLASSES = COLOR_THEMES.flatMap(t => colorThemeClasses(t.id));
+// Light / dark mode: "auto" follows Obsidian's own mode.
+export type ColorMode = "auto" | "light" | "dark";
 
-// Light, dark, or "auto" (follow Obsidian's own light/dark mode, which can
-// itself follow the system).
-export type Appearance = "light" | "dark" | "auto";
-export const APPEARANCES: { id: Appearance; label: string }[] = [
-	{ id: "light", label: "☀️ Light" },
-	{ id: "dark", label: "🌙 Dark" },
-	{ id: "auto", label: "🖥️ Automatic" },
-];
-
-// The class(es) a view root needs for the given appearance. Forcing one adds
-// Obsidian's own theme-light/theme-dark class too, so its variables (used by
-// the "Theme" palette) and native controls switch with it.
-export function appearanceClasses(appearance: Appearance | undefined): string[] {
-	if (appearance === "light") return ["da-mode-light", "theme-light"];
-	if (appearance === "dark") return ["da-mode-dark", "theme-dark"];
-	return [];
+// The classes a view root (or the settings tab's color probe) needs for the
+// colour theme and light/dark mode, given Obsidian's <body>.
+export function themeRootClasses(settings: DAToolSettings, body: HTMLElement): string[] {
+	const bodyDark = body.classList.contains("theme-dark");
+	const mode = settings.mode;
+	const dark = mode === "dark" || (mode !== "light" && bodyDark);
+	const cls = colorThemeClasses(settings.colorTheme);
+	if (dark) cls.push("da-dark");
+	// Theme colors come from Obsidian's variables, which the view inherits
+	// as-is while it's in Obsidian's own mode. Only when the setting picks
+	// the other mode does the view get that mode's class, plus copies of the
+	// body's classes: themes key their palettes on body classes (e.g.
+	// AnuPpuccin's ".theme-dark.ctp-frappe", set by Style Settings), so the
+	// bare mode class alone would give the theme's default colors instead
+	// of the chosen ones.
+	if (settings.colorTheme === "obsidian" && dark !== bodyDark) {
+		cls.push(...Array.from(body.classList).filter(c => c !== "theme-dark" && c !== "theme-light"), dark ? "theme-dark" : "theme-light");
+	}
+	return cls;
 }
-
-const ALL_APPEARANCE_CLASSES = ["da-mode-light", "theme-light", "da-mode-dark", "theme-dark"];
 
 export interface DAToolSettings {
 	colorTheme: string;
 	// Absent means "auto".
-	appearance?: Appearance;
+	mode?: ColorMode;
 	// Maps ColorToken.id -> a manual hex override. Absent/empty means "use the
 	// standard or theme-adopted default for that token".
 	colorOverrides: Record<string, string>;
@@ -2415,13 +2417,19 @@ export class DAView extends TextFileView {
 
 	// ---------- theme coloring ----------
 
+	// The classes refreshTheming last put on the view root.
+	private themeClasses: string[] = [];
+
 	// Applies the vault-wide colour theme and any manual color overrides to
 	// this view's DOM and theme dropdown. Called on open and after any
 	// view/settings tab changes either setting, so every open DA view stays
 	// in sync with the shared plugin settings.
 	refreshTheming(): void {
-		this.contentEl.classList.remove(...ALL_COLOR_THEME_CLASSES, ...ALL_APPEARANCE_CLASSES);
-		this.contentEl.classList.add(...colorThemeClasses(this.plugin.settings.colorTheme), ...appearanceClasses(this.plugin.settings.appearance));
+		const root = this.contentEl;
+		root.classList.remove(...this.themeClasses);
+		// Classes the root already has of its own aren't ours to remove later.
+		this.themeClasses = themeRootClasses(this.plugin.settings, root.doc.body).filter(c => !root.classList.contains(c));
+		root.classList.add(...this.themeClasses);
 		this.applyColorOverrides();
 		this.applySidebarHidden();
 		this.contentEl.style.setProperty("--da-ui-scale", String(this.uiScale()));

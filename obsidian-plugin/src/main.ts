@@ -1,5 +1,5 @@
 import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
-import { APPEARANCES, Appearance, appearanceClasses, COLOR_THEMES, COLOR_TOKENS, colorThemeClasses, DA_TOOL_ICON, DAToolSettings, DAView, UI_SCALE_STEPS, VIEW_TYPE_DA } from "./DAView";
+import { COLOR_THEMES, COLOR_TOKENS, ColorMode, DA_TOOL_ICON, DAToolSettings, DAView, UI_SCALE_STEPS, themeRootClasses, VIEW_TYPE_DA } from "./DAView";
 import { openColorPickerPopover } from "./ColorPicker";
 import { flowLinesToMarkdown, parseFlowClipboard } from "./flowClipboard";
 
@@ -8,7 +8,7 @@ const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 function defaultSettings(): DAToolSettings {
 	return {
 		colorTheme: "standard",
-		appearance: "auto",
+		mode: "auto",
 		colorOverrides: {},
 		uiScale: 1,
 	};
@@ -21,8 +21,8 @@ const uiScaleLabel = (scale: number) => `${Math.round(scale * 100)}%`;
 // string, by rendering it off-screen and letting the browser normalize
 // whatever the CSS custom property resolves to (a literal hex, var(...), or
 // a color-mix(...) expression) into an rgb() we can parse.
-function resolveEffectiveColor(cssVar: string, colorTheme: string, appearance: Appearance | undefined): string {
-	const probe = createDiv({ cls: ["da-tool-view", ...colorThemeClasses(colorTheme), ...appearanceClasses(appearance)] });
+function resolveEffectiveColor(cssVar: string, settings: DAToolSettings): string {
+	const probe = createDiv({ cls: ["da-tool-view", ...themeRootClasses(settings, document.body)] });
 	probe.setCssStyles({ position: "fixed", top: "-9999px", left: "-9999px" });
 	document.body.appendChild(probe);
 	const raw = getComputedStyle(probe).getPropertyValue(cssVar).trim();
@@ -151,8 +151,15 @@ export default class DAToolPlugin extends Plugin {
 		if (!COLOR_THEMES.some(t => t.id === this.settings.colorTheme)) this.settings.colorTheme = "standard";
 		delete (this.settings as DAToolSettings & { useThemeColors?: boolean }).useThemeColors;
 		if (!UI_SCALE_STEPS.includes(this.settings.uiScale ?? 1)) this.settings.uiScale = 1;
+		// 0.2.31 saved this as "appearance".
+		const old = (this.settings as DAToolSettings & { appearance?: ColorMode }).appearance;
+		if (!loaded?.mode && old) this.settings.mode = old;
+		delete (this.settings as DAToolSettings & { appearance?: ColorMode }).appearance;
+		if (!["auto", "light", "dark"].includes(this.settings.mode ?? "")) this.settings.mode = "auto";
 
 		this.registerView(VIEW_TYPE_DA, (leaf) => new DAView(leaf, this));
+		// Obsidian switched light/dark (or theme): views on "auto" follow it.
+		this.registerEvent(this.app.workspace.on("css-change", () => this.refreshAllViews()));
 		this.registerExtensions(["da"], VIEW_TYPE_DA);
 
 		// Lines copied from a Sentence/Text Flow tab, pasted into a note:
@@ -340,7 +347,7 @@ class DAToolSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Color theme")
-			.setDesc("Standard is the tool's own palette; Theme follows your current Obsidian theme. Each has a light and a dark version (see Appearance below).")
+			.setDesc("Standard is the tool's own palette; Theme follows your current Obsidian theme. Each has a light and a dark version (see Light / dark mode below).")
 			.addDropdown(dropdown => {
 				for (const t of COLOR_THEMES) dropdown.addOption(t.id, t.label);
 				dropdown.setValue(this.plugin.settings.colorTheme).onChange(async (value) => {
@@ -352,12 +359,12 @@ class DAToolSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Appearance")
-			.setDesc("Light or dark, in every DA file. Automatic follows Obsidian's own light/dark mode (Settings → Appearance), which can itself follow your computer.")
+			.setName("Light / dark mode")
+			.setDesc("Auto follows Obsidian's own mode.")
 			.addDropdown(dropdown => {
-				for (const a of APPEARANCES) dropdown.addOption(a.id, a.label);
-				dropdown.setValue(this.plugin.settings.appearance ?? "auto").onChange(async (value) => {
-					this.plugin.settings.appearance = value as Appearance;
+				dropdown.addOption("auto", "Auto (follow Obsidian)").addOption("light", "Light").addOption("dark", "Dark");
+				dropdown.setValue(this.plugin.settings.mode ?? "auto").onChange(async (value) => {
+					this.plugin.settings.mode = value as ColorMode;
 					await this.plugin.saveSettings();
 					this.plugin.refreshAllViews();
 					this.display();
@@ -382,7 +389,7 @@ class DAToolSettingTab extends PluginSettingTab {
 
 		for (const token of COLOR_TOKENS) {
 			const override = this.plugin.settings.colorOverrides[token.id];
-			const effective = override || resolveEffectiveColor(token.cssVar, this.plugin.settings.colorTheme, this.plugin.settings.appearance);
+			const effective = override || resolveEffectiveColor(token.cssVar, this.plugin.settings);
 
 			const setting = new Setting(containerEl)
 				.setName(token.label);

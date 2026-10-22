@@ -100,31 +100,8 @@
 	background: var(--da-bg);
 }
 
-/* ---- Appearance: forced light or dark ----
-   With Appearance set to Light or Dark the view root also gets Obsidian's
-   own .theme-light/.theme-dark class, which swaps its base colors. A few of
-   the variables the Theme palette uses are declared on body from those base
-   colors, so they're declared again here to pick up the swapped ones. */
-.da-tool-view.da-mode-light,
-.da-tool-view.da-mode-dark {
-	--background-primary: var(--color-base-00);
-	--background-secondary: var(--color-base-20);
-	--background-modifier-border: var(--color-base-30);
-	--text-normal: var(--color-base-100);
-	--text-muted: var(--color-base-70);
-	--text-faint: var(--color-base-50);
-}
-.da-tool-view.da-mode-light {
-	--background-secondary-alt: var(--color-base-05);
-	--interactive-normal: var(--color-base-00);
-	--interactive-hover: var(--color-base-10);
-	--interactive-accent: var(--color-accent-1);
-	--interactive-accent-hover: var(--color-accent-2);
-}
-
 /* Standard palette, dark version (the web tool's dark default). */
-body.theme-dark .da-tool-view.da-scheme-standard:not(.da-mode-light),
-.da-tool-view.da-mode-dark.da-scheme-standard {
+.da-tool-view.da-dark.da-scheme-standard {
 	--da-bg: #1a1a2e;
 	--da-surface: #16213e;
 	--da-row-bg: #0f3460;
@@ -153,8 +130,8 @@ body.theme-dark .da-tool-view.da-scheme-standard:not(.da-mode-light),
 
 /* ---- colour schemes (ported from BibleSearch) ----
    Chosen from the header dropdown / settings. Each scheme has a light and a
-   dark variant; the dark one applies with Appearance set to Dark, or to
-   Automatic while Obsidian itself is in dark mode (body.theme-dark).
+   dark variant; the dark one applies in dark mode (.da-dark: the Light /
+   dark mode setting, or Obsidian's own mode when that's on Auto).
    Values are literal hex (no color-mix) so the settings tab's swatches can
    resolve them. Manual color overrides still win (inline custom properties). */
 .da-tool-view.da-scheme-blue {
@@ -183,8 +160,7 @@ body.theme-dark .da-tool-view.da-scheme-standard:not(.da-mode-light),
 	--da-note: #1a6fa8;
 	--da-main-point-soft-bg: #fff7ed;
 }
-body.theme-dark .da-tool-view.da-scheme-blue:not(.da-mode-light),
-.da-tool-view.da-mode-dark.da-scheme-blue {
+.da-tool-view.da-dark.da-scheme-blue {
 	--da-bg: #0d1b2e;
 	--da-surface: #122240;
 	--da-row-bg: #1a3a6e;
@@ -236,8 +212,7 @@ body.theme-dark .da-tool-view.da-scheme-blue:not(.da-mode-light),
 	--da-note: #b07800;
 	--da-main-point-soft-bg: #fff7ed;
 }
-body.theme-dark .da-tool-view.da-scheme-yellow:not(.da-mode-light),
-.da-tool-view.da-mode-dark.da-scheme-yellow {
+.da-tool-view.da-dark.da-scheme-yellow {
 	--da-bg: #1c1a00;
 	--da-surface: #2a2600;
 	--da-row-bg: #3d3700;
@@ -289,8 +264,7 @@ body.theme-dark .da-tool-view.da-scheme-yellow:not(.da-mode-light),
 	--da-note: #c0392b;
 	--da-main-point-soft-bg: #fff7ed;
 }
-body.theme-dark .da-tool-view.da-scheme-red:not(.da-mode-light),
-.da-tool-view.da-mode-dark.da-scheme-red {
+.da-tool-view.da-dark.da-scheme-red {
 	--da-bg: #1e0a0a;
 	--da-surface: #2e1010;
 	--da-row-bg: #4a1818;
@@ -342,8 +316,7 @@ body.theme-dark .da-tool-view.da-scheme-red:not(.da-mode-light),
 	--da-note: #1a7a40;
 	--da-main-point-soft-bg: #fff7ed;
 }
-body.theme-dark .da-tool-view.da-scheme-green:not(.da-mode-light),
-.da-tool-view.da-mode-dark.da-scheme-green {
+.da-tool-view.da-dark.da-scheme-green {
 	--da-bg: #0a1a0e;
 	--da-surface: #102818;
 	--da-row-bg: #1a4228;
@@ -395,8 +368,7 @@ body.theme-dark .da-tool-view.da-scheme-green:not(.da-mode-light),
 	--da-note: #7030b0;
 	--da-main-point-soft-bg: #fff7ed;
 }
-body.theme-dark .da-tool-view.da-scheme-purple:not(.da-mode-light),
-.da-tool-view.da-mode-dark.da-scheme-purple {
+.da-tool-view.da-dark.da-scheme-purple {
 	--da-bg: #120a1e;
 	--da-surface: #1e1030;
 	--da-row-bg: #301848;
@@ -448,8 +420,7 @@ body.theme-dark .da-tool-view.da-scheme-purple:not(.da-mode-light),
 	--da-note: #8a5a2a;
 	--da-main-point-soft-bg: #fff7ed;
 }
-body.theme-dark .da-tool-view.da-scheme-cream:not(.da-mode-light),
-.da-tool-view.da-mode-dark.da-scheme-cream {
+.da-tool-view.da-dark.da-scheme-cream {
 	--da-bg: #1c1810;
 	--da-surface: #2a2418;
 	--da-row-bg: #3c3424;
