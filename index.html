@@ -102,6 +102,7 @@
 	.toolbar-btn-warn { background: #fef3c7; }
 	.toolbar-btn-warn:hover { background: #fde68a; }
 	.toolbar-btn-danger { background: #fca5a5; }
+	.da-notice { position: fixed; right: 16px; bottom: 16px; z-index: 60; max-width: 26rem; padding: 10px 14px; border-radius: 12px; font-size: 14px; background: var(--surface, #fff); color: var(--text, #0f172a); border: 1px solid var(--border, #cbd5e1); box-shadow: 0 8px 24px rgba(15,23,42,0.18); }
 	.toolbar-btn-danger:hover { background: #f87171; }
 	.toolbar-btn-icon-only { width: 34px; padding: 6px; }
 	.toolbar-zoom { display: flex; align-items: center; gap: 4px; }
@@ -571,7 +572,9 @@
                 <span class="text-xs font-medium px-2.5 py-px bg-amber-100 text-amber-700 rounded-full">Free</span>
             </div>
             <div class="app-header-right flex items-center gap-x-4 text-sm">
-				<button onclick="saveProjectAsHTML()" title="Save Project" aria-label="Save Project" class="w-9 h-9 flex items-center justify-center bg-[#1e40af] hover:bg-[#1a3a9e] border border-slate-300 hover:border-slate-400 rounded-2xl text-white text-lg leading-none">💾</button>
+				<button onclick="newDaProject()" title="New analysis" aria-label="New analysis" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📄</button>
+				<button onclick="openDaProject()" title="Open a .da file" aria-label="Open" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📂</button>
+				<button onclick="saveDaFile()" title="Download as a .da file" aria-label="Save" class="w-9 h-9 flex items-center justify-center bg-[#1e40af] hover:bg-[#1a3a9e] border border-slate-300 hover:border-slate-400 rounded-2xl text-white text-lg leading-none">💾</button>
                 <button onclick="showLogicalRelationships()" title="Logical Relations" aria-label="Logical Relations" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">🔗</button>
                 <button onclick="showResources()" title="Resources" aria-label="Resources" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📖</button>
 				<button onclick="exportPNG()" title="Export PNG" aria-label="Export PNG" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📷</button>
@@ -828,7 +831,8 @@
                     </ul>
                     <h3>Header buttons</h3>
                     <ul>
-                        <li><b>💾</b> saves the whole project as an HTML file (discourse-analysis-DATE.html). Open that file later to carry on where you left off. Your latest work in this browser is also kept automatically between visits.</li>
+                        <li><b>📄</b> starts a new, empty analysis. <b>📂</b> opens a .da file (or a project saved as HTML by an earlier version); you can also drop one anywhere on the page.</li>
+                        <li><b>💾</b> downloads the whole project as a .da file, named after the passage (the same format the Obsidian plugin uses). Your latest work in this browser is also kept automatically between visits, but only one analysis at a time.</li>
                         <li><b>📷 Export PNG</b> downloads bracketing.png of the diagram.</li>
                         <li><b>Custom colors…</b> at the bottom of the color scheme menu sets your own colors for any part of the tool.</li>
                         <li><b>🔗</b> opens the logical relationships reference. <b>📖</b> opens videos and reading on discourse analysis.</li>
@@ -3121,7 +3125,8 @@ const bracketLeftX = (() => {
             // its own verse ref (undefined when no detection stage could anchor
             // one). Each chunk is then split into sentences and lettered within
             // its verse group exactly as before.
-            const { chunks } = parsePastedText(text);
+            const { chunks, passageRef } = parsePastedText(text);
+            if (passageRef && daFileName === 'Untitled') setDaFileName(`DA of ${passageRef.replace(/:/g, '.')}`.replace(ILLEGAL_FILENAME_CHARS, '').trim());
             const newProps = [];
             chunks.forEach(chunk => {
                 let letterIdx = -1;
@@ -3622,6 +3627,7 @@ function exportPNG() {
 				document.body.appendChild(panel);
 			})();
 			    const hasEmbedded = loadEmbeddedProjectData();
+				restoreDaFileName();
 				if (!hasEmbedded && !loadFromStorage()) {
 					renderSidebarList();
 					renderMainRows();
@@ -3960,7 +3966,7 @@ function exportPNG() {
             choices.forEach(c => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'toolbar-btn' + (c.primary ? ' toolbar-btn-primary' : '');
+                btn.className = 'toolbar-btn' + (c.primary ? ' toolbar-btn-primary' : '') + (c.danger ? ' toolbar-btn-danger' : '');
                 btn.textContent = c.label;
                 btn.onclick = () => { hideChoiceModal(); c.onChoose(); };
                 buttons.appendChild(btn);
@@ -4828,80 +4834,131 @@ function loadEmbeddedProjectData() {
 }
 
 		
-		// Save project as standalone HTML file
-		function saveProjectAsHTML() {
-			syncFlowLinesFromDom();
-			const projectData = {
-				propositions,
-				brackets,
-				zoomLevel,
-				isRTL,
-				notes: flowToJson('sentenceflow'),
-				textFlow: flowToJson('textflow'),
-				timestamp: new Date().toISOString()
-			};
+// ---------- New / Open / Save (.da files) ----------
+//
+// The web app holds one analysis at a time, kept in the browser as you
+// type; 📄 / 📂 / 💾 move it in and out as .da files (the same JSON the
+// Obsidian plugin stores). Opening also accepts a project saved as HTML by
+// earlier versions of this page.
 
-			// 1. Clone the document
-			const clonedDoc = document.documentElement.cloneNode(true);
-			// The colour scheme is a per-browser preference (localStorage), not project data.
-			clonedDoc.removeAttribute('data-theme');
-			// Same for the UI scale and custom colours.
-			clonedDoc.style.removeProperty('--ui-scale');
-			DA_COLOR_TOKENS.forEach(t => clonedDoc.style.removeProperty(t.cssVar));
-			if (!clonedDoc.getAttribute('style')) clonedDoc.removeAttribute('style');
+const ILLEGAL_FILENAME_CHARS = /[\/:*?"<>|]/g;
+let daFileName = 'Untitled';
 
-			// 2. The saved file rebuilds everything from the embedded data on
-			// open, so drop the live rendering and any open dialogs from the copy.
-			const clearIn = sel => { const el = clonedDoc.querySelector(sel); if (el) el.innerHTML = ''; };
-			clearIn('#bracket-svg');
-			clearIn('#proposition-rows');
-			clearIn('#sidebar-prop-list');
-			clearIn('#notes-canvas');
-			clearIn('#textflow-canvas');
-			clearIn('#textflow-instructions-body');
-			clearIn('#sentenceflow-instructions-body');
-			clearIn('#bracketing-instructions-body');
-			const le = clonedDoc.querySelector('#label-editor');
-			if (le) le.remove();
-			clonedDoc.querySelectorAll('.da-modal').forEach(m => m.classList.add('hidden'));
+function daNameKey() { return autosaveKey + ':name'; }
 
-			// 3. Create the data node specifically for the cloned document
-			let dataNode = clonedDoc.querySelector('#project-data');
+function setDaFileName(name) {
+    daFileName = name || 'Untitled';
+    document.title = daFileName !== 'Untitled' ? `${daFileName} – Discourse Analysis Tool` : 'Discourse Analysis Tool';
+    try { localStorage.setItem(daNameKey(), daFileName); } catch (e) {}
+}
 
-			if (!dataNode) {
-				// Use clonedDoc to create the element, not the global document
-				dataNode = clonedDoc.createElement('script');
-				dataNode.id = 'project-data';
-				dataNode.type = 'application/json';
+function restoreDaFileName() {
+    let name = null;
+    try { name = localStorage.getItem(daNameKey()); } catch (e) {}
+    setDaFileName(name || 'Untitled');
+}
 
-				const head = clonedDoc.querySelector('head');
-				if (head) {
-					head.appendChild(dataNode);
-				} else {
-					clonedDoc.insertBefore(dataNode, clonedDoc.firstChild);
-				}
-			}
+function showDaNotice(msg, timeout) {
+    const el = document.createElement('div');
+    el.className = 'da-notice ui-scaled';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), timeout || 4000);
+}
 
-			const jsonString = JSON.stringify(projectData).replace(/<\/script>/g, '<\\/script>');
-			dataNode.textContent = jsonString;
+function saveDaFile() {
+    const name = daFileName;
+    setDaFileName(name);
+    const blob = new Blob([JSON.stringify(projectDataForSave(), null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${name}.da`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+    showDaNotice(`Downloaded ${name}.da`);
+}
 
-			// 5. Serialize full HTML
-			const finalHTML = '<!DOCTYPE html>\n' + clonedDoc.outerHTML;
+// Loads a project into the page as a fresh document: no undo history, no
+// selection, and the autosave updated right away.
+function openProjectData(data, name) {
+    historyStack = []; redoStack = [];
+    selectedIndices = []; selectedBracketId = null; selectedCorners = []; sidebarSelected = -1;
+    const paste = document.getElementById('paste-area');
+    if (paste) paste.value = '';
+    // applyProjectData assumes it starts from LTR (it only ever flips the
+    // switch on), so turn Hebrew Mode off first.
+    if (isRTL) toggleRTL();
+    applyProjectData(data);
+    setDaFileName(name);
+    autosaveNow();
+}
 
-			// 6. Download Logic
-			const blob = new Blob([finalHTML], {
-				type: 'text/html;charset=utf-8'
-			});
+function emptyProjectData() {
+    return { propositions: [], brackets: [], zoomLevel: 1, isRTL: false, notes: null, textFlow: null };
+}
 
-			const link = document.createElement('a');
-			const filename = `discourse-analysis-${new Date().toISOString().split('T')[0]}.html`;
+// Replacing the analysis in the browser: ask first unless it's empty.
+function replacingProject(action) {
+    if (isProjectDataEmpty(projectDataForSave())) { action(); return; }
+    showChoiceModal("This replaces the analysis open here. It isn't kept anywhere else unless you've downloaded it.", [
+        { label: 'Download it first', onChoose: () => { saveDaFile(); action(); } },
+        { label: 'Replace', danger: true, onChoose: action },
+    ]);
+}
 
-			link.href = URL.createObjectURL(blob);
-			link.download = filename;
-			link.click();
+function newDaProject() {
+    replacingProject(() => openProjectData(emptyProjectData(), 'Untitled'));
+}
 
-			URL.revokeObjectURL(link.href);
-		}
+// A .da / .json file is the project JSON itself; a saved HTML project
+// carries it in <script id="project-data">.
+function parseProjectFile(text, fileName) {
+    if (/\.html?$/i.test(fileName)) {
+        const doc = new DOMParser().parseFromString(text, 'text/html');
+        const node = doc.getElementById('project-data');
+        if (!node) throw new Error("it doesn't contain a saved project");
+        text = node.textContent;
+    }
+    const data = JSON.parse(text);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error("it isn't DA data");
+    return data;
+}
+
+async function openDaFiles(files) {
+    const f = files[0];
+    if (!f) return;
+    try {
+        const data = parseProjectFile(await f.text(), f.name);
+        replacingProject(() => {
+            openProjectData(data, f.name.replace(/\.[^.]+$/, ''));
+            if (files.length > 1) showDaNotice('Only the first file was opened; the web version holds one analysis at a time.', 8000);
+        });
+    } catch (err) {
+        console.error("DA-Tool: couldn't open", f.name, err);
+        showDaNotice(`Couldn't open ${f.name}: ${err instanceof Error ? err.message : err}`, 10000);
+    }
+}
+
+function openDaProject() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.da,.json,.html,.htm';
+    input.addEventListener('change', () => openDaFiles(Array.from(input.files || [])));
+    input.click();
+}
+
+// Drop a .da (or saved .html project) anywhere on the page to open it.
+document.addEventListener('dragover', e => {
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) e.preventDefault();
+});
+document.addEventListener('drop', e => {
+    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter(f => /\.(da|json|html?)$/i.test(f.name));
+    if (!files.length) return;
+    e.preventDefault();
+    openDaFiles(files);
+});
     </script>
 
     <!-- Logical Relationships Modal -->
