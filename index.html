@@ -3077,6 +3077,11 @@ const bracketLeftX = (() => {
                 return { chunks: dropUnnumberedLead(splitOnMarkers(deduceLeadingVerse(flowMarked, expectedStart))), passageRef, detection: "flow" };
             }
 
+            const singleMarked = detectSingleVerse(body, expectedStart, expectedChapter);
+            if (singleMarked !== null) {
+                return { chunks: splitOnMarkers(singleMarked), passageRef, detection: "flow" };
+            }
+
             const trimmed = body.trim();
             return { chunks: trimmed ? [{ ref: undefined, text: trimmed }] : [], passageRef, detection: "none" };
         }
@@ -3114,6 +3119,21 @@ const bracketLeftX = (() => {
                 if (result !== null && (result.match(/\[\d+(?::\d+)?\]/g) ?? []).length >= 2) return result;
             }
             return null;
+        }
+
+        // A single verse ("21 But now...", "3:21 But now...") has no second number to
+        // prove a chain, so line and flow mode both pass on it. Taken as a verse only
+        // when the number opens the text and agrees with a detected reference, if
+        // there is one. Returns marked-up text or null.
+        function detectSingleVerse(body, expectedStart, expectedChapter) {
+            const m = body.match(/^\s*(\d{1,3})(?::(\d{1,3}))?\s+(?=["'“‘(]?\p{L})/u);
+            if (!m) return null;
+            const chapter = m[2] ? parseInt(m[1], 10) : null;
+            const verse = parseInt(m[2] ?? m[1], 10);
+            if (verse < 1 || chapter === 0) return null;
+            if (expectedStart !== null && verse !== expectedStart) return null;
+            if (chapter !== null && expectedChapter !== null && chapter !== expectedChapter) return null;
+            return `[${verse}] ${body.slice(m[0].length)}`;
         }
 
         function splitIntoPropositions() {
@@ -4034,7 +4054,10 @@ function exportPNG() {
             let marked = body;
             if (!/\[\d+(?::\d+)?\]/.test(body)) {
                 const lineResult = detectVerseLines(body, true);
-                marked = lineResult ? lineResult.marked : (detectVerseFlowAnchored(body, startVerse, chapter, true) ?? body);
+                marked = lineResult ? lineResult.marked
+                    : (detectVerseFlowAnchored(body, startVerse, chapter, true)
+                        ?? detectSingleVerse(body, startVerse, chapter)
+                        ?? body);
             }
             if (/\[\d+(?::\d+)?\]/.test(marked)) marked = deduceLeadingVerse(marked, startVerse);
             else if (startVerse) marked = `[${startVerse}] ${marked}`;
