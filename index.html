@@ -364,16 +364,9 @@
         html[data-theme] #bracket-svg [stroke="#d97706"] { stroke: var(--main-stroke, #d97706); }
         html[data-theme] #bracket-svg text[fill="#1e40af"] { fill: var(--accent); }
 
-        /* ---------- settings dialog: colour-scheme dropdown + light/dark toggle ---------- */
+        /* ---------- settings dialog: colour-scheme and light/dark/automatic dropdowns ---------- */
         .theme-select { height: 2.25rem; padding: 0 10px; border-radius: 1rem; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 0.8rem; cursor: pointer; }
         .theme-select:hover { border-color: #94a3b8; }
-        .theme-toggle { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; cursor: pointer; font-size: 14px; line-height: 1; }
-        .theme-track { width: 34px; height: 18px; border-radius: 9px; background: #64748b; position: relative; flex-shrink: 0; transition: background 0.2s; }
-        .theme-track.on { background: #1e40af; }
-        .theme-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: left 0.2s; }
-        .theme-track.on .theme-thumb { left: 18px; }
-        html[data-theme] .theme-track { background: var(--accent); }
-        html[data-theme] .theme-track.on { background: var(--accent2); }
 
         /* ---------- custom colours (settings dialog) ---------- */
         .cc-heading { font-weight: 600; font-size: 0.95rem; margin: 14px 0 4px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
@@ -442,7 +435,11 @@
         // preference is in place before first paint (no flash of the default).
         const DA_SCHEMES = ['default', 'blue', 'yellow', 'red', 'green', 'purple', 'cream'];
         let daScheme = 'default';
-        let daLightMode = true;
+        // 'light', 'dark', or 'auto' (follow the operating system's setting).
+        const DA_MODES = ['light', 'dark', 'auto'];
+        let daMode = 'light';
+        const daDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+        function daIsLight() { return daMode === 'auto' ? !(daDarkQuery && daDarkQuery.matches) : daMode === 'light'; }
 
         function daThemeGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
         function daThemeSet(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
@@ -474,7 +471,7 @@
             // rules (light-default is the original palette as variables).
             const root = document.documentElement;
             let theme = null;
-            if (daLightMode) { if (daScheme !== 'default') theme = 'light-' + daScheme; }
+            if (daIsLight()) { if (daScheme !== 'default') theme = 'light-' + daScheme; }
             else theme = daScheme === 'default' ? 'dark' : 'dark-' + daScheme;
             if (!theme && daHasColorOverrides()) theme = 'light-default';
             if (theme) root.setAttribute('data-theme', theme);
@@ -496,10 +493,8 @@
         function syncThemeControls() {
             const sel = document.getElementById('theme-scheme-select');
             if (sel) sel.value = daScheme;
-            const track = document.getElementById('theme-track');
-            if (track) track.classList.toggle('on', daLightMode);
-            const btn = document.getElementById('theme-toggle');
-            if (btn) btn.setAttribute('aria-checked', daLightMode ? 'true' : 'false');
+            const modeSel = document.getElementById('theme-mode-select');
+            if (modeSel) modeSel.value = daMode;
         }
 
         function setColorScheme(scheme) {
@@ -509,17 +504,29 @@
             if (typeof renderCustomColors === 'function') renderCustomColors();
         }
 
-        function toggleThemeMode() {
-            daLightMode = !daLightMode;
-            daThemeSet('da-mode', daLightMode ? 'light' : 'dark');
+        function setThemeMode(mode) {
+            daMode = DA_MODES.includes(mode) ? mode : 'light';
+            daThemeSet('da-mode', daMode);
             applyTheme();
             if (typeof renderCustomColors === 'function') renderCustomColors();
+        }
+
+        // In automatic mode, follow the system when it switches light/dark.
+        if (daDarkQuery) {
+            const onSystemChange = () => {
+                if (daMode !== 'auto') return;
+                applyTheme();
+                if (typeof renderCustomColors === 'function') renderCustomColors();
+            };
+            if (daDarkQuery.addEventListener) daDarkQuery.addEventListener('change', onSystemChange);
+            else if (daDarkQuery.addListener) daDarkQuery.addListener(onSystemChange);
         }
 
         (function restoreTheme() {
             const s = daThemeGet('da-scheme');
             if (DA_SCHEMES.includes(s)) daScheme = s;
-            daLightMode = daThemeGet('da-mode') !== 'dark';
+            const m = daThemeGet('da-mode');
+            if (DA_MODES.includes(m)) daMode = m;
             try {
                 const cc = JSON.parse(daThemeGet('da-custom-colors') || '{}');
                 if (cc && typeof cc === 'object') {
@@ -571,7 +578,7 @@
                 <button onclick="showLogicalRelationships()" title="Logical Relations" aria-label="Logical Relations" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">🔗</button>
                 <button onclick="showResources()" title="Resources" aria-label="Resources" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📖</button>
 				<button onclick="exportPNG()" title="Export PNG" aria-label="Export PNG" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">📷</button>
-                <button onclick="showSettings()" title="Settings (Hebrew mode, color scheme, light/dark, custom colors, UI size)" aria-label="Settings" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">⚙️</button>
+                <button onclick="showSettings()" title="Settings (Hebrew mode, color scheme, light/dark/automatic, custom colors, UI size)" aria-label="Settings" class="w-9 h-9 flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900 text-lg leading-none">⚙️</button>
 				<div class="support-wrap"><button id="support-btn" onclick="window.open('https://buymeacoffee.com/reformedretrieval', '_blank'); daSupportDismiss('acted')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">
     <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M2 21h18a1 1 0 0 1 0 2H2a1 1 0 0 1 0-2zM20.242 11.022a1 1 0 0 0-.242-.688 2.99 2.99 0 0 0-2-.734H16V6a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-2.022h2a3 3 0 0 0 3-3V11.02a1 1 0 0 0-.758-.998zM14 16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v10zm4-4.022V11.6h-2v-2h2a1 1 0 0 1 1 1v1.378a1 1 0 0 1-1 1z"/></svg>
     <span>Support</span>
@@ -796,7 +803,7 @@
                         <li><b>💾</b> downloads the whole project as a .da file, named after the passage (the same format the Obsidian plugin uses). Your latest work in this browser is also kept automatically between visits, but only one analysis at a time.</li>
                         <li><b>📷 Export PNG</b> downloads bracketing.png of the diagram.</li>
                         <li><b>🔗</b> opens the logical relationships reference. <b>📖</b> opens videos and reading on discourse analysis.</li>
-                        <li><b>⚙️ Settings</b> has <b>Hebrew mode</b>, which mirrors the diagram right-to-left for Hebrew, and changes how the tool looks: the color scheme, light/dark mode, UI size (50–150%), and custom colors for any part of the tool.</li>
+                        <li><b>⚙️ Settings</b> has <b>Hebrew mode</b>, which mirrors the diagram right-to-left for Hebrew, and changes how the tool looks: the color scheme, light, dark or automatic (follows your computer) appearance, UI size (50–150%), and custom colors for any part of the tool.</li>
                     </ul>
                 </div>
             </div>
@@ -829,7 +836,7 @@
         </div>
     </div>
 
-    <!-- Settings: colour scheme, light/dark, UI size, custom colours -->
+    <!-- Settings: colour scheme, light/dark/automatic, UI size, custom colours -->
     <div id="settings-modal" class="da-modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);" onclick="if (event.target === this) hideSettings()">
         <div class="ui-scaled bg-white rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden" style="max-width: 28rem; max-height: calc(90vh / var(--ui-scale));">
             <div class="flex items-center justify-between px-8 py-5 border-b border-slate-200 flex-shrink-0">
@@ -856,12 +863,12 @@
                     </select>
                 </div>
                 <div class="cc-row">
-                    <span class="cc-label">Light / dark mode</span>
-                    <button type="button" id="theme-toggle" class="theme-toggle" onclick="toggleThemeMode()" role="switch" aria-checked="true" aria-label="Light mode" title="Toggle light/dark mode">
-                        <span aria-hidden="true">🌙</span>
-                        <span id="theme-track" class="theme-track on"><span class="theme-thumb"></span></span>
-                        <span aria-hidden="true">☀️</span>
-                    </button>
+                    <label class="cc-label" for="theme-mode-select">Appearance</label>
+                    <select id="theme-mode-select" class="theme-select" onchange="setThemeMode(this.value)" aria-label="Appearance">
+                        <option value="light">☀️ Light</option>
+                        <option value="dark">🌙 Dark</option>
+                        <option value="auto">🖥️ Automatic</option>
+                    </select>
                 </div>
                 <div class="cc-row">
                     <label class="cc-label" for="ui-scale-select">UI size <span class="text-xs text-slate-500">(buttons, toolbars, sidebar, dialogs)</span></label>
