@@ -114,7 +114,8 @@ export const COLOR_TOKENS: ColorToken[] = [
 // The header dropdown / settings choices. "standard" is the tool's own
 // palette, "obsidian" adopts the active Obsidian theme (.da-theme-adopt),
 // and the rest are the BibleSearch colour schemes (.da-scheme-<id> in
-// styles.css), whose light/dark variant follows Obsidian's own mode.
+// styles.css). Each has a light and a dark variant, picked by the
+// Appearance setting (APPEARANCES).
 export const COLOR_THEMES: { id: string; label: string }[] = [
 	{ id: "standard", label: "Standard" },
 	{ id: "obsidian", label: "Theme" },
@@ -129,14 +130,36 @@ export const COLOR_THEMES: { id: string; label: string }[] = [
 // The class(es) a view root needs for the given colour theme.
 export function colorThemeClasses(theme: string): string[] {
 	if (theme === "obsidian") return ["da-theme-adopt"];
-	if (theme !== "standard" && COLOR_THEMES.some(t => t.id === theme)) return [`da-scheme-${theme}`];
-	return [];
+	if (COLOR_THEMES.some(t => t.id === theme)) return [`da-scheme-${theme}`];
+	return ["da-scheme-standard"];
 }
 
 const ALL_COLOR_THEME_CLASSES = COLOR_THEMES.flatMap(t => colorThemeClasses(t.id));
 
+// Light, dark, or "auto" (follow Obsidian's own light/dark mode, which can
+// itself follow the system).
+export type Appearance = "light" | "dark" | "auto";
+export const APPEARANCES: { id: Appearance; label: string }[] = [
+	{ id: "light", label: "☀️ Light" },
+	{ id: "dark", label: "🌙 Dark" },
+	{ id: "auto", label: "🖥️ Automatic" },
+];
+
+// The class(es) a view root needs for the given appearance. Forcing one adds
+// Obsidian's own theme-light/theme-dark class too, so its variables (used by
+// the "Theme" palette) and native controls switch with it.
+export function appearanceClasses(appearance: Appearance | undefined): string[] {
+	if (appearance === "light") return ["da-mode-light", "theme-light"];
+	if (appearance === "dark") return ["da-mode-dark", "theme-dark"];
+	return [];
+}
+
+const ALL_APPEARANCE_CLASSES = ["da-mode-light", "theme-light", "da-mode-dark", "theme-dark"];
+
 export interface DAToolSettings {
 	colorTheme: string;
+	// Absent means "auto".
+	appearance?: Appearance;
 	// Maps ColorToken.id -> a manual hex override. Absent/empty means "use the
 	// standard or theme-adopted default for that token".
 	colorOverrides: Record<string, string>;
@@ -2397,8 +2420,8 @@ export class DAView extends TextFileView {
 	// view/settings tab changes either setting, so every open DA view stays
 	// in sync with the shared plugin settings.
 	refreshTheming(): void {
-		this.contentEl.classList.remove(...ALL_COLOR_THEME_CLASSES);
-		this.contentEl.classList.add(...colorThemeClasses(this.plugin.settings.colorTheme));
+		this.contentEl.classList.remove(...ALL_COLOR_THEME_CLASSES, ...ALL_APPEARANCE_CLASSES);
+		this.contentEl.classList.add(...colorThemeClasses(this.plugin.settings.colorTheme), ...appearanceClasses(this.plugin.settings.appearance));
 		this.applyColorOverrides();
 		this.applySidebarHidden();
 		this.contentEl.style.setProperty("--da-ui-scale", String(this.uiScale()));
