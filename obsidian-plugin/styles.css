@@ -419,22 +419,6 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	--da-main-point-soft-bg: #3e290e;
 }
 
-/* ---------- colour theme dropdown (header) ---------- */
-.da-tool-view .da-theme-select {
-	height: 30px;
-	padding: 0 8px;
-	border-radius: 8px;
-	border: 1px solid var(--da-border-strong);
-	background: var(--da-surface);
-	color: var(--da-text);
-	font-size: 0.8rem;
-	cursor: pointer;
-	box-shadow: none;
-}
-.da-tool-view .da-theme-select:hover {
-	border-color: var(--da-faint);
-}
-
 /* ---------- UI scale ---------- */
 
 /* CSS zoom scales px and rem sizes alike. It also scales vh/vw lengths and
@@ -493,11 +477,6 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	gap: 10px;
 	flex: 1 1 auto;
 	flex-wrap: wrap;
-	font-size: 0.85rem;
-}
-
-.da-tool-view .da-label {
-	color: var(--da-muted);
 	font-size: 0.85rem;
 }
 
@@ -727,40 +706,6 @@ body.theme-dark .da-tool-view.da-scheme-cream {
 	display: flex;
 	gap: 8px;
 	margin-top: 8px;
-}
-
-/* ---------- RTL / theme switches ---------- */
-
-.da-tool-view .da-switch {
-	position: relative;
-	display: inline-block;
-	flex-shrink: 0;
-	height: 20px;
-	width: 36px;
-	border-radius: 999px;
-	border: none;
-	background: var(--da-border-strong);
-	cursor: pointer;
-	padding: 0;
-	transition: background-color 0.2s ease-in-out;
-}
-.da-tool-view .da-switch.da-switch-on {
-	background: var(--da-success);
-}
-.da-tool-view .da-switch-thumb {
-	pointer-events: none;
-	position: absolute;
-	top: 3px;
-	left: 3px;
-	height: 14px;
-	width: 14px;
-	border-radius: 999px;
-	background: var(--da-on-accent);
-	box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-	transition: left 0.2s ease-in-out;
-}
-.da-tool-view .da-switch.da-switch-on .da-switch-thumb {
-	left: 19px;
 }
 
 /* ---------- body layout ---------- */

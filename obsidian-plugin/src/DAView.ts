@@ -99,7 +99,7 @@ export const COLOR_TOKENS: ColorToken[] = [
 	{ id: "onAccent", cssVar: "--da-on-accent", label: "Text on accent", desc: "Text drawn on top of accent-colored buttons." },
 	{ id: "secondary", cssVar: "--da-secondary", label: "Secondary button", desc: "The single-node bracket / secondary action color." },
 	{ id: "secondaryHover", cssVar: "--da-secondary-hover", label: "Secondary button (hover)", desc: "" },
-	{ id: "success", cssVar: "--da-success", label: "Success", desc: "Support button and RTL switch (on state)." },
+	{ id: "success", cssVar: "--da-success", label: "Success", desc: "Support button." },
 	{ id: "successHover", cssVar: "--da-success-hover", label: "Success (hover)", desc: "" },
 	{ id: "warnBg", cssVar: "--da-warn-bg", label: "Warning background", desc: "Clear All Brackets button." },
 	{ id: "warnHover", cssVar: "--da-warn-hover", label: "Warning (hover)", desc: "" },
@@ -181,6 +181,7 @@ export interface DAToolPluginHost {
 	settings: DAToolSettings;
 	saveSettings(): Promise<void>;
 	refreshAllViews(): void;
+	openSettings(): void;
 }
 
 interface Proposition {
@@ -1158,8 +1159,7 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 		"**💾** saves the .da file. Obsidian also saves automatically.",
 		"**📷 Export PNG** saves <file name>.png next to the .da file. If one is already there, you're asked whether to replace it or keep both.",
 		"**🔗** opens the logical relationships reference. **📖** opens videos and reading on discourse analysis.",
-		"**RTL** mirrors the diagram right-to-left for Hebrew.",
-		"The **color theme** menu includes \"Theme\", which follows your Obsidian theme. UI size and custom colors are under **Settings → Discourse Analysis Tool**; UI size is also available through the commands Increase / Decrease / Reset UI size.",
+		"**⚙️** opens this plugin's settings: **Right-to-left (Hebrew)** for this file, the color theme (\"Theme\" follows your Obsidian theme), custom colors, and UI size. Right-to-left is also the command Toggle right-to-left (Hebrew), and UI size the commands Increase / Decrease / Reset UI size.",
 	] },
 ];
 
@@ -1531,7 +1531,6 @@ export class DAView extends TextFileView {
 		if (clear) this.trackSupportUsage();
 
 		if (this.domBuilt) {
-			this.syncRtlToggleUi();
 			this.renderSidebarList();
 			this.renderMainRows();
 			this.renderCanvas();
@@ -1564,7 +1563,6 @@ export class DAView extends TextFileView {
 		this.watchContainerResize();
 		this.refreshTheming();
 		if (this.loaded) {
-			this.syncRtlToggleUi();
 			this.renderSidebarList();
 			this.renderMainRows();
 			this.renderCanvas();
@@ -1687,13 +1685,7 @@ export class DAView extends TextFileView {
 		headerRight.createEl("button", { cls: "da-btn", text: "🔗", attr: { "data-action": "show-lr", title: "Logical Relations", "aria-label": "Logical Relations" } });
 		headerRight.createEl("button", { cls: "da-btn", text: "📖", attr: { "data-action": "show-resources", title: "Resources", "aria-label": "Resources" } });
 		headerRight.createEl("button", { cls: "da-btn", text: "📷", attr: { "data-action": "export-png", title: "Export PNG", "aria-label": "Export PNG" } });
-		headerRight.createEl("select", { cls: "da-theme-select", attr: { id: "theme-select", title: "Color theme", "aria-label": "Color theme" } }, sel => {
-			for (const t of COLOR_THEMES) sel.createEl("option", { text: t.label, attr: { value: t.id } });
-		});
-		headerRight.createSpan({ cls: "da-label", text: "RTL" });
-		headerRight.createEl("button", { cls: "da-switch", attr: { id: "rtl-toggle", role: "switch", "aria-checked": "false" } }, btn => {
-			btn.createSpan({ cls: "da-switch-thumb", attr: { id: "rtl-thumb" } });
-		});
+		headerRight.createEl("button", { cls: "da-btn", text: "⚙️", attr: { "data-action": "open-settings", title: "Settings (color theme, custom colors, UI size, right-to-left)", "aria-label": "Settings" } });
 		const supportWrap = headerRight.createDiv({ cls: "da-support-wrap" });
 		supportWrap.createEl("button", { cls: "da-btn da-btn-support", attr: { id: "support-btn", "data-action": "open-external", "data-url": SUPPORT_URL } }, btn => {
 			// Coffee mug icon, same as BibleSearch's Support button.
@@ -1939,6 +1931,7 @@ export class DAView extends TextFileView {
 		on("show-lr", () => this.showLogicalRelationships());
 		on("hide-lr", () => this.hideLogicalRelationships());
 		on("show-resources", () => this.showResources());
+		on("open-settings", () => this.plugin.openSettings());
 		on("hide-resources", () => this.hideResources());
 		on("show-instructions", () => this.showInstructions());
 		for (const key of ["textflow", "sentenceflow", "bracketing"]) {
@@ -1993,12 +1986,6 @@ export class DAView extends TextFileView {
 			const callout = this.byId("support-callout");
 			if (callout?.hasClass("da-open") && !callout.parentElement?.contains(e.target as Node)) callout.removeClass("da-open");
 		});
-
-		const rtlToggle = this.byId("rtl-toggle");
-		if (rtlToggle) this.registerDomEvent(rtlToggle, "click", () => this.toggleRTL());
-
-		const themeSelect = this.byId("theme-select") as HTMLSelectElement | null;
-		if (themeSelect) this.registerDomEvent(themeSelect, "change", () => this.setColorTheme(themeSelect.value));
 
 		this.initializeCanvasClick();
 		this.initializePanning();
@@ -2408,22 +2395,8 @@ export class DAView extends TextFileView {
 		});
 	}
 
-	private syncRtlToggleUi(): void {
-		const btn = this.byId("rtl-toggle");
-		const thumb = this.byId("rtl-thumb");
-		if (!btn || !thumb) return;
-		if (this.isRTL) {
-			btn.classList.add("da-switch-on");
-			btn.setAttribute("aria-checked", "true");
-		} else {
-			btn.classList.remove("da-switch-on");
-			btn.setAttribute("aria-checked", "false");
-		}
-	}
-
 	toggleRTL(): void {
 		this.isRTL = !this.isRTL;
-		this.syncRtlToggleUi();
 		this.renderSidebarList();
 		this.renderMainRows();
 		this.renderCanvas();
@@ -2448,7 +2421,6 @@ export class DAView extends TextFileView {
 	refreshTheming(): void {
 		this.contentEl.classList.remove(...ALL_COLOR_THEME_CLASSES);
 		this.contentEl.classList.add(...colorThemeClasses(this.plugin.settings.colorTheme));
-		this.syncThemeSelectUi();
 		this.applyColorOverrides();
 		this.applySidebarHidden();
 		this.contentEl.style.setProperty("--da-ui-scale", String(this.uiScale()));
@@ -2468,17 +2440,6 @@ export class DAView extends TextFileView {
 				this.contentEl.style.removeProperty(token.cssVar);
 			}
 		}
-	}
-
-	private syncThemeSelectUi(): void {
-		const sel = this.byId("theme-select") as HTMLSelectElement | null;
-		if (sel) sel.value = this.plugin.settings.colorTheme;
-	}
-
-	setColorTheme(theme: string): void {
-		this.plugin.settings.colorTheme = COLOR_THEMES.some(t => t.id === theme) ? theme : "standard";
-		void this.plugin.saveSettings();
-		this.plugin.refreshAllViews();
 	}
 
 	// ---------- history / persistence ----------

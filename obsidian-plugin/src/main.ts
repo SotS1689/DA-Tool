@@ -204,6 +204,19 @@ export default class DAToolPlugin extends Plugin {
 			},
 		});
 
+		// Right-to-left is saved per file, so this acts on the active DA view
+		// (same as the switch under Settings).
+		this.addCommand({
+			id: "toggle-rtl",
+			name: "Toggle right-to-left (Hebrew)",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(DAView);
+				if (!view) return false;
+				if (!checking) view.toggleRTL();
+				return true;
+			},
+		});
+
 		// Available everywhere (not just in a DA view) since it's a vault-wide
 		// setting; no default hotkeys, same as above.
 		const stepUiScale = (dir: -1 | 0 | 1) => {
@@ -229,6 +242,15 @@ export default class DAToolPlugin extends Plugin {
 		this.settings.uiScale = scale;
 		await this.saveSettings();
 		this.refreshAllViews();
+	}
+
+	// Opens Obsidian's settings on this plugin's tab (the header's ⚙️ button).
+	// app.setting isn't in the public API typings.
+	openSettings(): void {
+		const setting = (this.app as App & { setting?: { open(): void; openTabById(id: string): void } }).setting;
+		if (!setting) return;
+		setting.open();
+		setting.openTabById(this.manifest.id);
 	}
 
 	// Re-applies theme mode + color overrides to every currently open DA view.
@@ -298,9 +320,26 @@ class DAToolSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		// Right-to-left is saved in each .da file rather than here, so this
+		// switch acts on the DA file that was active when Settings opened
+		// (the header's ⚙️ button opens Settings from that file).
+		const daView = this.app.workspace.getActiveViewOfType(DAView);
+		new Setting(containerEl)
+			.setName("Right-to-left (Hebrew)")
+			.setDesc(daView?.file
+				? `Mirrors the diagram right-to-left for Hebrew. Saved with each file; this changes "${daView.file.basename}".`
+				: "Mirrors the diagram right-to-left for Hebrew. Saved with each file; open this from a DA file's ⚙️ button to change it.")
+			.addToggle(toggle => {
+				toggle.setValue(!!daView?.isRTL)
+					.setDisabled(!daView)
+					.onChange(() => {
+						if (daView && toggle.getValue() !== daView.isRTL) daView.toggleRTL();
+					});
+			});
+
 		new Setting(containerEl)
 			.setName("Color theme")
-			.setDesc("Standard is the tool's own palette; Theme follows your current Obsidian theme. The color schemes switch between their light and dark versions with Obsidian's own light/dark mode. Also available from the dropdown in the toolbar.")
+			.setDesc("Standard is the tool's own palette; Theme follows your current Obsidian theme. The color schemes switch between their light and dark versions with Obsidian's own light/dark mode (Settings → Appearance).")
 			.addDropdown(dropdown => {
 				for (const t of COLOR_THEMES) dropdown.addOption(t.id, t.label);
 				dropdown.setValue(this.plugin.settings.colorTheme).onChange(async (value) => {
