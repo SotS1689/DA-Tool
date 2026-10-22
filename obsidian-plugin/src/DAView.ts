@@ -856,6 +856,11 @@ function parsePastedText(raw: string): { chunks: MarkedVerse[]; passageRef?: str
 		return { chunks: dropUnnumberedLead(splitOnMarkers(deduceLeadingVerse(flowMarked, expectedStart))), passageRef, detection: "flow" };
 	}
 
+	const singleMarked = detectSingleVerse(body, expectedStart, expectedChapter);
+	if (singleMarked !== null) {
+		return { chunks: splitOnMarkers(singleMarked), passageRef, detection: "flow" };
+	}
+
 	const trimmed = body.trim();
 	return { chunks: trimmed ? [{ ref: undefined, text: trimmed }] : [], passageRef, detection: "none" };
 }
@@ -893,6 +898,21 @@ function detectVerseFlowAnchored(body: string, expectedStart: number | null, exp
 		if (result !== null && (result.match(/\[\d+(?::\d+)?\]/g) ?? []).length >= 2) return result;
 	}
 	return null;
+}
+
+// A single verse ("21 But now…", "3:21 But now…") has no second number to
+// prove a chain, so line and flow mode both pass on it. Taken as a verse only
+// when the number opens the text and agrees with a detected reference, if
+// there is one. Returns marked-up text or null.
+function detectSingleVerse(body: string, expectedStart: number | null, expectedChapter: number | null): string | null {
+	const m = body.match(/^\s*(\d{1,3})(?::(\d{1,3}))?\s+(?=["'“‘(]?\p{L})/u);
+	if (!m) return null;
+	const chapter = m[2] ? parseInt(m[1], 10) : null;
+	const verse = parseInt(m[2] ?? m[1], 10);
+	if (verse < 1 || chapter === 0) return null;
+	if (expectedStart !== null && verse !== expectedStart) return null;
+	if (chapter !== null && expectedChapter !== null && chapter !== expectedChapter) return null;
+	return `[${verse}] ${body.slice(m[0].length)}`;
 }
 
 // ---------- Text Flow -> Brackets conversion ----------
@@ -946,7 +966,10 @@ function flowLinesToPropositions(lines: { runs: FormatRun[]; stop: number }[]): 
 	let marked = body;
 	if (!/\[\d+(?::\d+)?\]/.test(body)) {
 		const lineResult = detectVerseLines(body, true);
-		marked = lineResult ? lineResult.marked : (detectVerseFlowAnchored(body, ref?.startVerse ?? null, ref?.chapter ?? null, true) ?? body);
+		marked = lineResult ? lineResult.marked
+			: (detectVerseFlowAnchored(body, ref?.startVerse ?? null, ref?.chapter ?? null, true)
+				?? detectSingleVerse(body, ref?.startVerse ?? null, ref?.chapter ?? null)
+				?? body);
 	}
 	// Lines ahead of the first verse number are the verse before it; with
 	// no numbers at all under a header (a one-verse passage), they're the
