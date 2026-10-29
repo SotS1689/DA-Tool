@@ -3294,27 +3294,47 @@ export class DAView extends TextFileView {
 		};
 		brackets.forEach((_, i) => snapLabelToArm(i));
 
-		brackets.forEach((b, i) => {
-			const allParentIds = getParentIds(b);
-			if (allParentIds.length === 0) return;
+		// A child's end that meets a parent's corner sits where that corner
+		// was actually drawn - the parent may itself have been snapped to its
+		// own parent, so repeat until nothing moves.
+		const snapToParents = (): boolean => {
+			let moved = false;
+			brackets.forEach((b, i) => {
+				const allParentIds = getParentIds(b);
+				if (allParentIds.length === 0) return;
+				const before = nodeY[i].top + "," + nodeY[i].bot + "," + nodeY[i].center;
 
-			const snapEndpointToParentCenter = (parentId?: number) => {
-				if (parentId === undefined) return;
-				const pi = brackets.findIndex(x => x.id === parentId);
-				if (pi < 0) return;
-				const parent = brackets[pi];
-				if (!parent.singleNode) return;
-				const pCenter = nodeY[pi].center;
-				const topIsFromParent = b.start >= parent.start && b.start <= parent.end;
-				const botIsFromParent = b.end >= parent.start && b.end <= parent.end;
-				if (topIsFromParent) nodeY[i].top = pCenter;
-				if (botIsFromParent) nodeY[i].bot = pCenter;
-				nodeY[i].center = (nodeY[i].top + nodeY[i].bot) / 2;
-				snapLabelToArm(i);
-			};
+				const snapEndpointToParent = (parentId?: number) => {
+					if (parentId === undefined) return;
+					const pi = brackets.findIndex(x => x.id === parentId);
+					if (pi < 0) return;
+					const parent = brackets[pi];
+					if (parent.singleNode) {
+						const pCenter = nodeY[pi].center;
+						const topIsFromParent = b.start >= parent.start && b.start <= parent.end;
+						const botIsFromParent = b.end >= parent.start && b.end <= parent.end;
+						if (topIsFromParent) nodeY[i].top = pCenter;
+						if (botIsFromParent) nodeY[i].bot = pCenter;
+					} else if (!b.singleNode) {
+						const parentTopRow = parent.attachToRow !== undefined ? parent.attachToRow : parent.start;
+						const childTopRow = b.attachToRow !== undefined ? b.attachToRow : b.start;
+						const cornerY = (row: number) =>
+							row === parent.end ? nodeY[pi].bot : row === parentTopRow ? nodeY[pi].top : null;
+						const topY = cornerY(childTopRow);
+						const botY = cornerY(b.end);
+						if (topY !== null) nodeY[i].top = topY;
+						if (botY !== null) nodeY[i].bot = botY;
+					}
+					nodeY[i].center = (nodeY[i].top + nodeY[i].bot) / 2;
+					snapLabelToArm(i);
+				};
 
-			allParentIds.forEach(snapEndpointToParentCenter);
-		});
+				allParentIds.forEach(snapEndpointToParent);
+				if (nodeY[i].top + "," + nodeY[i].bot + "," + nodeY[i].center !== before) moved = true;
+			});
+			return moved;
+		};
+		for (let pass = 0; pass <= brackets.length && snapToParents(); pass++) { /* until stable */ }
 
 		const armEndX = (bracketIdx: number, isTop: boolean): number => {
 			const b = brackets[bracketIdx];
