@@ -194,7 +194,7 @@ export interface SupportNudgeState {
 // distinct days), then resurfaces every 24 days after a "Maybe later". Stops
 // popping up (the Support button itself always stays) after 5 "Maybe later"s,
 // or for good after "Don't ask again" or after clicking through to support.
-const SUPPORT_URL = "https://buymeacoffee.com/reformedretrieval";
+const SUPPORT_URL = "https://buymeacoffee.com/taylordrummond";
 const SUPPORT_FIRST_FILES_THRESHOLD = 10;
 const SUPPORT_FIRST_DAYS_THRESHOLD = 3;
 const SUPPORT_RESHOW_INTERVAL_MS = 24 * 20 * 60 * 60 * 1000;
@@ -1182,7 +1182,7 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 	{ heading: "Labels and main point", items: [
 		"**Right-click a corner box** to type its label (e.g. G, Inf, ∴). [[Enter]]/OK saves; [[Esc]]/Cancel closes.",
 		"**Double-click a corner box** to mark it as the passage's **main point** (shown in the main-point color). Double-click again to unmark it.",
-		"Type `\tf` or `\therefore` in any label or text to get ∴. The command **Insert ∴ (therefore)** does the same.",
+		"Type `\\tf` or `\\therefore` in any label or text to get ∴. The command **Insert ∴ (therefore)** does the same.",
 		"🔗 in the header lists the logical relationships with their abbreviations.",
 	] },
 	{ heading: "Notes", items: [
