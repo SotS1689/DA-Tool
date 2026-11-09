@@ -4289,16 +4289,17 @@ export class DAView extends TextFileView {
 	// ---------- misc UI wiring ----------
 
 	private initializeCanvasClick(): void {
-		const svg = this.byId("bracket-svg");
+		// Any click on empty canvas deselects: the margins, the gaps between
+		// rows, the space beside them, and the empty parts of the bracket
+		// area. Brackets and nodes stop their own clicks; rows, notes and
+		// controls are skipped here.
 		const container = this.byId("diagram-container");
-		if (svg) {
-			this.registerDomEvent(svg, "click", (e: MouseEvent) => {
-				if (e.target === svg) this.deselectAll();
-			});
-		}
 		if (container) {
 			this.registerDomEvent(container, "click", (e: MouseEvent) => {
-				if ((e.target as HTMLElement).id === "diagram-container") this.deselectAll();
+				const t = e.target as Element | null;
+				if (t?.closest?.(".da-proposition-box, .da-note-callout, .da-note-tab, button, input, textarea, [contenteditable=\"true\"]")) return;
+				if (!this.selectedIndices.length && this.selectedBracketId === null && !this.selectedCorners.length) return;
+				this.deselectAll();
 			});
 		}
 	}

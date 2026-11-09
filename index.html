@@ -55,7 +55,8 @@
 }
 
 #diagram-container {
-    max-width: calc(100vw - 384px);
+    /* No max-width: the canvas fills the whole work area, so clicking
+       anywhere in it deselects and drags pan. */
     /* No scrolling at all (not even the scroll-into-view a focus does):
        the view moves only by panX/panY, see panWorkspace(). */
     overflow: clip;
@@ -3713,15 +3714,17 @@ function exportPNG() {
         }
 
         function initializeCanvasClick() {
-            const svg = document.getElementById('bracket-svg');
             const container = document.getElementById('diagram-container');
 
-            svg.addEventListener('click', (e) => {
-                if (e.target === svg) deselectAll();
-            });
-
+            // Any click on empty canvas deselects: the margins, the gaps between
+            // rows, the space beside them, and the empty parts of the bracket
+            // area. Brackets and nodes stop their own clicks; rows, notes and
+            // controls are skipped here.
             container.addEventListener('click', (e) => {
-                if (e.target.id === 'diagram-container') deselectAll();
+                const t = e.target;
+                if (t.closest && t.closest('.proposition-box, .note-callout, .note-tab, button, input, textarea, [contenteditable="true"]')) return;
+                if (!selectedIndices.length && selectedBracketId === null && !selectedCorners.length) return;
+                deselectAll();
             });
         }
 
