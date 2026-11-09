@@ -4308,20 +4308,22 @@ export class DAView extends TextFileView {
 		const diagramContainer = this.byId("diagram-container");
 		if (!diagramContainer) return;
 
-		// Click-and-drag moves the diagram from anywhere on it - rows and
-		// brackets included, hence the capture phase, since those stop their
-		// own mousedowns - except the reorder handle and text that's being
-		// edited (which keeps drag-to-select). Move/up are tracked on the
-		// document, not the container, so letting go outside the diagram
-		// still ends the pan instead of leaving it stuck until the next click.
+		// Click-and-drag moves the diagram, but only from empty canvas.
+		// Propositions (so a drag selects text), notes, controls, and the
+		// brackets and nodes (every SVG shape but the SVG itself) keep the
+		// mouse to themselves. Capture phase, since rows stop their own
+		// mousedowns before this would see an empty-canvas one otherwise.
+		// Move/up are tracked on the document, not the container, so letting
+		// go outside the diagram still ends the pan instead of leaving it
+		// stuck until the next click.
 		this.registerDomEvent(diagramContainer, "mousedown", (e: MouseEvent) => {
 			if (e.button !== 0) return;
-			const t = e.target as HTMLElement;
-			if (t.closest(".da-drag-handle")) return;
+			const t = e.target as Element;
+			if (!t?.closest) return;
+			if (t.closest(".da-proposition-box, .da-drag-handle, .da-note-callout, .da-note-tab, button, input, textarea, [contenteditable='true']")) return;
+			if (t.namespaceURI === "http://www.w3.org/2000/svg" && t.id !== "bracket-svg") return;
 			const doc = diagramContainer.ownerDocument;
 			const win = doc.defaultView ?? window;
-			const editing = t.closest("[contenteditable='true'], input, textarea");
-			if (editing && editing === doc.activeElement) return;
 			const startX = e.clientX;
 			const startY = e.clientY;
 			const origX = this.panX;

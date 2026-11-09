@@ -4824,8 +4824,13 @@ function exportPNG() {
 const diagramContainer = document.getElementById('diagram-container');
 diagramContainer.addEventListener('mousedown', function(e) {
     if (e.button !== 0) return;
-    const editing = e.target.closest && e.target.closest('[contenteditable="true"], input, textarea');
-    if (editing && editing === document.activeElement) return;
+    // Only empty canvas pans. Propositions (so drag selects text), notes,
+    // controls, and the brackets and nodes (every SVG shape but the SVG
+    // itself) keep the mouse to themselves.
+    const t = e.target;
+    if (!t.closest) return;
+    if (t.closest('.proposition-box, .note-callout, .note-tab, button, input, textarea, [contenteditable="true"]')) return;
+    if (t instanceof SVGElement && t.id !== 'bracket-svg') return;
     const startX = e.clientX;
     const startY = e.clientY;
     const origX = panX;
