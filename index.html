@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 	<!-- Google tag (gtag.js) -->
+<script>if (navigator.standalone) document.documentElement.classList.add("installed");</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-YW31K785WW"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -226,6 +227,12 @@
 	.support-callout-btn-secondary { background: var(--surface, #ffffff); color: var(--text, #0f172a); border: 1px solid var(--border, #cbd5e1); }
 	.support-callout-btn-text { background: none; color: var(--muted, #64748b); padding: 5px 2px; font-size: 11px; }
 	.support-callout-btn-text:hover { color: var(--text, #0f172a); text-decoration: underline; }
+
+	/* Home link to taylordrummond.org; hidden when running as an installed app */
+	#home { width: 44px; height: 44px; min-width: 44px; flex-shrink: 0; }
+	#home svg { width: 22px; height: 22px; }
+	@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) { #home { display: none; } }
+	.installed #home { display: none; }
 
 	</style>
     <script>/*!
@@ -568,6 +575,7 @@
     <div class="app-shell">
         <div class="ui-scaled app-header bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
             <div class="flex items-center gap-x-3">
+                <a id="home" href="https://taylordrummond.org/" aria-label="Home: taylordrummond.org" title="taylordrummond.org" class="flex items-center justify-center border border-slate-300 hover:border-slate-400 rounded-2xl text-slate-700 hover:text-slate-900"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8M5 9.5V21h5v-6h4v6h5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
                 <div class="w-9 h-9 bg-[#1e40af] rounded-2xl flex items-center justify-center text-white text-4xl font-bold leading-none pb-1.5">∴</div>
                 <h1 class="title-font text-3xl tracking-[-1px]">Discourse Analysis</h1>
                 <span class="text-xs font-medium px-2.5 py-px bg-amber-100 text-amber-700 rounded-full">Free</span>
