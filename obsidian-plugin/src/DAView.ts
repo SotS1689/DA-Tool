@@ -1470,9 +1470,9 @@ export class DAView extends TextFileView {
 			const editable = !!active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
 			if (!editable) return;
 			evt.preventDefault();
-			if (active?.classList.contains("da-sf-canvas") && isFlowTab(this.activeTab)) this.pushFlowHistory(this.curFlowKey());
+			// On a flow canvas, its cut handler (handleNotesCopy) fills the
+			// clipboard and removes the text itself.
 			document.execCommand("cut");
-			if (active?.classList.contains("da-sf-canvas") && isFlowTab(this.activeTab)) this.scheduleNotesLayout(true);
 			this.requestSave();
 			return false;
 		});
@@ -4873,10 +4873,16 @@ export class DAView extends TextFileView {
 		e.clipboardData.setData("text/html", flowLinesToHtml(lines, tabWidth, { family: cs.fontFamily, sizePx: parseFloat(cs.fontSize) || 16 }, this.isRTL));
 		e.clipboardData.setData(FLOW_CLIPBOARD_TYPE, JSON.stringify(payload));
 		if (cut) {
-			this.pushFlowHistory(key);
-			document.execCommand("delete");
-			this.scheduleNotesLayout(true);
-			this.requestSave();
+			// Deferred: Ctrl+X reaches here from inside execCommand("cut") (see
+			// the Mod+X scope handler), and Chromium silently ignores an
+			// execCommand called from inside another one - the text was copied
+			// but never removed.
+			window.setTimeout(() => {
+				this.pushFlowHistory(key);
+				document.execCommand("delete");
+				this.scheduleNotesLayout(true);
+				this.requestSave();
+			}, 0);
 		}
 	}
 
