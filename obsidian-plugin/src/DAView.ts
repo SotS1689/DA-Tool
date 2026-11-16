@@ -362,7 +362,7 @@ function nextVerseLetter(letterIdx: number): string {
 // (a bare manual label like "5", or arbitrary text like "Intro") is its own
 // base with no letters.
 function splitVerseLabel(label: string): { base: string; letters: string } {
-	const m = label.match(/^(.*?)([a-z]+)$/);
+	const m = label.match(/^(.*\d)([a-z]+)$/);
 	return m ? { base: m[1], letters: m[2] } : { base: label, letters: "" };
 }
 
@@ -2257,6 +2257,18 @@ export class DAView extends TextFileView {
 		if (mod && !e.altKey && (key === "z" || key === "y")) {
 			if (this.focusedTextFieldOwnsKeys()) return; // native text undo/redo
 			e.preventDefault();
+			// On a flow tab (focus outside its canvas, e.g. after a toolbar
+			// click) undo/redo belongs to that flow, not the hidden Brackets tab.
+			if (isFlowTab(this.activeTab)) {
+				if (key === "y" || e.shiftKey) this.redoFlow(this.curFlowKey());
+				else this.undoFlow(this.curFlowKey());
+				return;
+			}
+			// Blur a focused row first: the rebuild below would remove it and
+			// its blur handler would then write its old text into whichever
+			// proposition now sits at that index.
+			const focused = document.activeElement as HTMLElement | null;
+			if (focused && focused.isContentEditable && this.contentEl.contains(focused)) focused.blur();
 			if (key === "y" || e.shiftKey) this.redoLastAction();
 			else this.undoLastAction();
 			return;
@@ -2613,6 +2625,7 @@ export class DAView extends TextFileView {
 
 			row.draggable = false;
 			dragHandle.addEventListener("mousedown", () => { row.draggable = true; });
+			dragHandle.addEventListener("mouseup", () => { row.draggable = false; });
 			row.addEventListener("dragend", () => { row.draggable = false; });
 
 			const clearDragBorders = (el: HTMLElement) => el.setCssStyles({ borderTop: "", borderBottom: "" });
@@ -2629,6 +2642,7 @@ export class DAView extends TextFileView {
 			row.addEventListener("dragend", () => {
 				row.setCssStyles({ opacity: "" });
 				row.draggable = false;
+				this.dragSrcIndex = null;
 				this.qsa("#sidebar-prop-list .da-prop-row").forEach(r => clearDragBorders(r));
 			});
 
@@ -3686,8 +3700,6 @@ export class DAView extends TextFileView {
 			if (c1.bracketId === c2.bracketId) { new Notice("Pick two corner boxes from different brackets."); return; }
 			if (!this.brackets.some(b => b.id === c1.bracketId) || !this.brackets.some(b => b.id === c2.bracketId)) return;
 		}
-		this.saveToHistory();
-
 		let start = 0, end = 0, attachToRow: number | undefined, parentBracketId: number | undefined, parentBracketId2: number | undefined;
 
 		if (hasTwoProps) {
@@ -3720,6 +3732,9 @@ export class DAView extends TextFileView {
 			parentBracketId = b1.id;
 			parentBracketId2 = b2.id;
 		} else return;
+
+		if (start === end) { new Notice("Pick two different rows."); return; }
+		this.saveToHistory();
 
 		const newBracket: Bracket = { id: Date.now(), start, end, topLabel: "", bottomLabel: "" };
 		if (attachToRow !== undefined) newBracket.attachToRow = attachToRow;
@@ -3970,7 +3985,7 @@ export class DAView extends TextFileView {
 		if (!prop) return;
 		const trimmed = raw.trim();
 		const next = trimmed === "" ? undefined : trimmed;
-		if (next === prop.verseLabel && !!next === !!prop.verseLabelManual) { this.renderMainRows(); return; }
+		if (next === prop.verseLabel) { this.renderMainRows(); return; }
 		this.saveToHistory();
 		prop.verseLabel = next;
 		// Clearing the label back to "unassigned" also releases the manual
@@ -4035,6 +4050,8 @@ export class DAView extends TextFileView {
 				});
 
 			this.deparentReferencesTo(removedIds);
+			this.selectedCorners = this.selectedCorners.filter(c => !removedIds.includes(c.bracketId));
+			if (this.selectedBracketId !== null && removedIds.includes(this.selectedBracketId)) this.selectedBracketId = null;
 
 			if (this.sidebarSelected >= i) this.sidebarSelected = Math.max(-1, this.sidebarSelected - 1);
 			this.selectedIndices = this.selectedIndices.filter(idx => idx !== i).map(idx => (idx > i ? idx - 1 : idx));
@@ -4053,6 +4070,8 @@ export class DAView extends TextFileView {
 		// harmless no-op instead of clobbering the split.
 		const active = document.activeElement as HTMLElement | null;
 		if (active && active.isContentEditable) active.blur();
+		// Nothing to split: either half would be an empty proposition.
+		if (!this.propositions[index] || this.propositions[index].text.trim().length < 2) return;
 		this.saveToHistory();
 		const text = this.propositions[index].text;
 		let splitPos = Math.floor(text.length / 2);
@@ -4622,7 +4641,9 @@ export class DAView extends TextFileView {
 		}
 		// Ctrl+M / Ctrl+Shift+M are handled via this.scope (see the
 		// constructor), for the same reason as Bold/Italic/Underline below.
-		if (e.key === "Enter" && !e.shiftKey) {
+		if (e.key === "Enter") {
+			// Shift+Enter is treated the same: a native <br> inside a line
+			// isn't saved, so the break would vanish on reload.
 			// Handled manually rather than letting the browser's default
 			// paragraph-insert action run: that action's own choice of whether
 			// to carry the original line <div>'s marginInlineStart over to the

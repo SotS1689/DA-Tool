@@ -15,11 +15,11 @@ Discourse analysis (also called phrasing or bracketing) is a method of visually 
 - Double-click a proposition to split it at the exact click point
 - Bold, italic, and underline within propositions (Ctrl+B / Ctrl+I / Ctrl+U)
 - Connect propositions with two-node or single-node brackets; nesting depth is computed automatically so brackets never cross
-- Label brackets with logical relationships, with a built-in reference for 20 relationship types; type `	f` or `	herefore` to get ∴
+- Label brackets with logical relationships, with a built-in reference for 20 relationship types; type `\tf` or `\therefore` to get ∴
 - Double-click a bracket's label box to mark it as the passage's **main point** (shown in a distinct color)
 - An **Instructions** button opens *Bracketing Instructions*: Daniel Fuller's bracket symbols for each relationship, the steps of discourse analysis, and hints for bracketing (adapted from G. K. Beale's *Exegetical Manual*)
 - Indent/outdent, drag-and-drop reorder, and undo/redo your edits (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, or the ↶ / ↷ buttons)
-- Zoom controls and a right-to-left mode for Hebrew text
+- Zoom controls (buttons or Ctrl+scroll) and a right-to-left mode for Hebrew text
 - Export the diagram as a PNG saved directly into your vault
 
 ### Text Flow
@@ -36,13 +36,14 @@ Both flow tabs support:
 - New lines keep the previous line's indent, so you can flow a passage with just Enter and Tab
 - Bold, italic, and underline
 - Plain-text paste (tabs are preserved as tab stops)
-- Their own independent zoom level
+- Their own independent zoom level (buttons or Ctrl+scroll)
 - A **?** button with the editor's keyboard shortcuts
 - Correct rendering of polytonic Greek accents
 
 ### Customization (Obsidian)
 
-- Optionally adopt your Obsidian theme's colors, or pick custom colors for panels, brackets, selection, and the main-point highlight in the plugin settings
+- Pick a color theme from the toolbar dropdown: the standard palette, your Obsidian theme's colors, or one of six color schemes (Blue, Yellow, Red, Green, Purple, Cream) that switch between light and dark with Obsidian's own mode
+- Pick custom colors for panels, brackets, selection, and the main-point highlight in the plugin settings
 
 Everything is stored as plain JSON inside the `.da` file itself, so diagrams are portable, diffable, and work with whatever sync method you already use for your vault (Obsidian Sync, git, etc.).
 

@@ -15,7 +15,7 @@ Discourse analysis (also called phrasing or bracketing) is a method of visually 
 - Double-click a proposition to split it at the exact click point
 - Bold, italic, and underline within propositions (Ctrl+B / Ctrl+I / Ctrl+U)
 - Connect propositions with two-node or single-node brackets; nesting depth is computed automatically so brackets never cross
-- Label brackets with logical relationships, with a built-in reference for 20 relationship types; type `	f` or `	herefore` to get ∴
+- Label brackets with logical relationships, with a built-in reference for 20 relationship types; type `\tf` or `\therefore` to get ∴
 - Double-click a bracket's label box to mark it as the passage's **main point** (shown in a distinct color)
 - An **Instructions** button opens *Bracketing Instructions*: Daniel Fuller's bracket symbols for each relationship, the steps of discourse analysis, and hints for bracketing (adapted from G. K. Beale's *Exegetical Manual*)
 - Indent/outdent, drag-and-drop reorder, and undo/redo your edits (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, or the ↶ / ↷ buttons)

@@ -1250,7 +1250,7 @@
         // trailing letters (a bare manual label like "5", or arbitrary text
         // like "Intro") is its own base with no letters.
         function splitVerseLabel(label) {
-            const m = label.match(/^(.*?)([a-z]+)$/);
+            const m = label.match(/^(.*\d)([a-z]+)$/);
             return m ? { base: m[1], letters: m[2] } : { base: label, letters: '' };
         }
 
@@ -1418,7 +1418,7 @@
             if (!prop) return;
             const trimmed = raw.trim();
             const next = trimmed === '' ? undefined : trimmed;
-            if (next === prop.verseLabel && !!next === !!prop.verseLabelManual) { renderMainRows(); return; }
+            if (next === prop.verseLabel) { renderMainRows(); return; }
             saveToHistory();
             prop.verseLabel = next;
             // Clearing the label back to "unassigned" also releases the
@@ -1460,6 +1460,7 @@
                 // Only make row draggable when grabbing the handle
                 row.draggable = false;
                 dragHandle.addEventListener('mousedown', () => { row.draggable = true; });
+                dragHandle.addEventListener('mouseup', () => { row.draggable = false; });
                 row.addEventListener('dragend', () => { row.draggable = false; });
 
                 row.addEventListener('dragstart', e => {
@@ -1472,6 +1473,7 @@
                 row.addEventListener('dragend', () => {
                     row.style.opacity = '';
                     row.draggable = false;
+                    dragSrcIndex = null;
                     document.querySelectorAll('#sidebar-prop-list .proposition-row').forEach(r => {
                         r.style.borderTop = '';
                         r.style.borderBottom = '';
@@ -1500,6 +1502,9 @@
                 });
 
                 row.addEventListener('drop', e => {
+                    // Not a row reorder (e.g. a .da file dropped on the list):
+                    // let the page-level drop handler have it.
+                    if (dragSrcIndex === null) return;
                     e.preventDefault();
                     e.stopImmediatePropagation();
                     row.style.borderTop = '';
@@ -2555,8 +2560,6 @@ const bracketLeftX = (() => {
                 if (c1.bracketId === c2.bracketId) { alert("Pick two corner boxes from different brackets."); return; }
                 if (!brackets.some(b => b.id === c1.bracketId) || !brackets.some(b => b.id === c2.bracketId)) return;
             }
-            saveToHistory();
-
             let start, end, attachToRow, parentBracketId, parentBracketId2;
 
             if (hasTwoProps) {
@@ -2595,6 +2598,9 @@ const bracketLeftX = (() => {
                 parentBracketId = b1.id;
                 parentBracketId2 = b2.id;
             } else return;
+
+            if (start === end) { alert("Pick two different rows."); return; }
+            saveToHistory();
 
             const newBracket = {
                 id: Date.now(),
@@ -2790,7 +2796,7 @@ const bracketLeftX = (() => {
         // with the verse's text following ("21But now"). Superscript letters are
         // footnote/cross-reference markers and are always stripped.
         const SUPERSCRIPT_DIGITS = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9" };
-        const SUPERSCRIPT_VERSE_RUN = /(?<=^|[\s"'“‘(])[⁰¹²³⁴-⁹]+(?=\s?["'“‘(]?\p{L})/gu;
+        const SUPERSCRIPT_VERSE_RUN = /(^|[\s"'“‘(])([⁰¹²³⁴-⁹]+)(?=\s?["'“‘(]?\p{L})/gu;
         const SUPERSCRIPT_DIGIT_RUN = /[⁰¹²³⁴-⁹]+/g;
         const SUPERSCRIPT_LETTERS = /[ʰ-ʸᵃ-ᵪᶜ-ᶿⁱⁿ]+/g;
 
@@ -2806,7 +2812,7 @@ const bracketLeftX = (() => {
                 // Single [a]-style footnote letters only - two-letter brackets are
                 // KJV/NKJV italic supplied words like "[is]" and must survive.
                 .replace(/\[[a-z]\]/g, "")
-                .replace(SUPERSCRIPT_VERSE_RUN, (run) => `[${run.split("").map(c => SUPERSCRIPT_DIGITS[c] ?? "").join("")}] `)
+                .replace(SUPERSCRIPT_VERSE_RUN, (m, lead, run) => `${lead}[${run.split("").map(c => SUPERSCRIPT_DIGITS[c] ?? "").join("")}] `)
                 .replace(SUPERSCRIPT_DIGIT_RUN, "") // remaining runs are footnote numbers
                 .replace(/[^\S\n　]+/g, " "); // collapse whitespace, keep U+3000 (CJK reverence space) intact
         }
@@ -3330,6 +3336,8 @@ const bracketLeftX = (() => {
                 // Any bracket that pointed at one of the brackets just removed
                 // above would otherwise be left dangling on a stale parent id.
                 deparentReferencesTo(removedIds);
+                selectedCorners = selectedCorners.filter(c => !removedIds.includes(c.bracketId));
+                if (selectedBracketId !== null && removedIds.includes(selectedBracketId)) selectedBracketId = null;
 
                 if (sidebarSelected >= i) sidebarSelected = Math.max(-1, sidebarSelected - 1);
                 selectedIndices = selectedIndices
@@ -3351,6 +3359,8 @@ const bracketLeftX = (() => {
             if (document.activeElement && document.activeElement.isContentEditable) {
                 document.activeElement.blur();
             }
+            // Nothing to split: either half would be an empty proposition.
+            if (!propositions[index] || propositions[index].text.trim().length < 2) return;
             saveToHistory();
             const text = propositions[index].text;
             let splitPos = Math.floor(text.length / 2);
@@ -3417,6 +3427,7 @@ const bracketLeftX = (() => {
                 saveToHistory(true);
                 propositions = []; brackets = []; selectedIndices = []; selectedBracketId = null; selectedCorners = []; sidebarSelected = -1;
                 document.getElementById('paste-area').value = '';
+                setDaFileName('Untitled');
                 FLOW_KEYS.forEach(key => loadFlowFromJson(key, null));
                 renderSidebarList(); renderMainRows(); renderCanvas(); renderNotesTab(); applyNotesZoom();
             }
@@ -3581,6 +3592,10 @@ function exportPNG() {
             if (mod && !e.altKey && (key === 'z' || key === 'y')) {
                 if (focusedTextFieldOwnsKeys()) return; // native text undo/redo
                 e.preventDefault();
+                // Blur a focused row first: the rebuild would remove it and its
+                // blur handler would write its old text into whichever
+                // proposition now sits at that index.
+                if (document.activeElement && document.activeElement.isContentEditable) document.activeElement.blur();
                 if (key === 'y' || e.shiftKey) redoLastAction();
                 else undoLastAction();
                 return;
@@ -3593,6 +3608,9 @@ function exportPNG() {
                 // Leave Tab alone in the paste box, label editors, etc.
                 if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.classList.contains('row-num-badge'))) return;
                 e.preventDefault();
+                // Commit a row being typed in before the rebuild (Firefox and
+                // Safari don't fire blur on removal, which would drop the typing).
+                if (active && active.isContentEditable) active.blur();
                 if (selectedIndices.length >= 1) {
                     saveToHistory();
                     selectedIndices.forEach(idx => {
@@ -3728,7 +3746,9 @@ function exportPNG() {
             });
         }
 
-        window.onload = initialize;
+        // Not window.onload: that waits for the YouTube embeds and analytics,
+        // and an autosave in that gap would overwrite saved work with an empty project.
+        document.addEventListener('DOMContentLoaded', initialize);
 
         // ════════════════════════════════════════════════════════════
         //  SUPPORT CALLOUT  (occasional, dismissible ask for financial support)
@@ -4303,7 +4323,8 @@ function exportPNG() {
                 indentNotesParagraph(e.shiftKey ? -1 : 1);
                 return;
             }
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter') {
+                // Shift+Enter too: a native <br> inside a line isn't saved.
                 // Handled manually rather than letting the browser's default
                 // paragraph-insert action run: whether that action carries the
                 // original line's indent over to the new line isn't a
@@ -5228,10 +5249,10 @@ document.addEventListener('drop', e => {
         </div>
         <div class="overflow-auto p-8 flex-1 min-h-0">
             <div class="w-full rounded-2xl overflow-hidden shadow-lg" style="aspect-ratio: 16/9;">
-                <iframe width="560" height="315" src="https://www.youtube.com/embed/videoseries?si=r6RdCwzI3MgUnvlX&amp;list=PLMcXGoRTAIpZApAOJBP-M0BeMdDU_02Rk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe>
+                <iframe loading="lazy" width="560" height="315" src="https://www.youtube.com/embed/videoseries?si=r6RdCwzI3MgUnvlX&amp;list=PLMcXGoRTAIpZApAOJBP-M0BeMdDU_02Rk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe>
             </div>
 			<div class="w-full rounded-2xl overflow-hidden shadow-lg" style="aspect-ratio: 16/9;">
-				<iframe width="100%" height="100%" src="https://www.youtube.com/embed/videoseries?si=0xciDPsqyCsKt1GZ&amp;list=PLNbOazQtvR8fzM2-UhQRJicFMuf1VSoJO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe>
+				<iframe loading="lazy" width="100%" height="100%" src="https://www.youtube.com/embed/videoseries?si=0xciDPsqyCsKt1GZ&amp;list=PLNbOazQtvR8fzM2-UhQRJicFMuf1VSoJO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe>
 				</div>
 			<div class="px-4 py-3">
 				<button onclick="window.open('https://equip.biblearc.com/course/bible-logic', '_blank')" class="flex items-center gap-x-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 border border-slate-300 hover:border-slate-400 rounded-2xl text-white hover:text-white font-bold">Bible Logic Course (Free)</button>

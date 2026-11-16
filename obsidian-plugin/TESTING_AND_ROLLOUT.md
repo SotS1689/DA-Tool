@@ -2,21 +2,9 @@
 
 Use this to pick up work from any device. Just `git pull` this repo and follow along.
 
-## 0. Current status (check this first)
+## 0. Current status
 
-All source files are now written:
-
-- `manifest.json`, `package.json`, `tsconfig.json`, `esbuild.config.mjs` — done.
-- `src/main.ts` — done (registers the `.da` file extension/view, adds a ribbon icon + command to create a new Discourse Analysis file).
-- `src/DAView.ts` — done. Full ported engine: propositions, brackets, SVG rendering, column/spine layout, drag-and-drop reordering, zoom, RTL, undo history, label editor, the Logical Relationships and Resources reference modals, and PNG export (via the `html2canvas` npm package, saving into the vault next to the `.da` file instead of triggering a browser download).
-- `styles.css` — done. Hand-authored CSS scoped under `.da-tool-view` (not a Tailwind port — see limitations below).
-
-**Important: the build has NOT been run or verified yet.** This machine has no Node.js/npm installed, so `npm install && npm run build` could not be executed here to confirm the TypeScript actually compiles cleanly. The code was written carefully and reviewed by hand (including fixing one known type mismatch: `createCornerBox`'s parameter needed to be `SVGElement`, not `SVGGElement`, to match what `document.createElementNS` actually returns), but **you must run the build yourself as the first step on a machine with Node** — see Step 1. Don't skip straight to installing into a vault before it builds cleanly.
-
-What was intentionally simplified relative to the original `index.html`:
-- The "💾 Save Project" button (which used to download a whole new standalone HTML file with embedded JSON) is now a "💾 Save" button that just calls Obsidian's save — file persistence is automatic/implicit now that the `.da` file IS the storage.
-- The "Free" badge and "☕ Support" (Buy Me a Coffee) button from the original web tool's header were dropped as not applicable to a personal plugin.
-- Visual styling is a hand-written, reasonable-fidelity approximation of the original Tailwind-based look (see "Known limitations" below) — not a utility-class-by-utility-class port.
+Done. The build works and the manual-install checklist passed on 2026-09-16. For releases and current status see PUBLISHING_PLAN.md.
 
 ## 1. Build
 
