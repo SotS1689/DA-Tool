@@ -1201,7 +1201,7 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 	{ heading: "Moving around", items: [
 		"**Click and drag** anywhere on the diagram to move it, or scroll ([[Shift]]+scroll for sideways). It can go anywhere, past any edge.",
 		"**− / +** zoom out and in (30%–300%), keeping the middle of the view in place; [[Ctrl]]+scroll over the diagram does the same. **↺** goes back to 100% with the diagram in its starting spot.",
-		"**Recenter** brings the propositions and brackets back to the middle of the view at the current zoom, if you've panned away from them.",
+		"**⌖ Recenter** (the target button after ↺) brings the propositions and brackets back to the middle of the view at the current zoom, if you've panned away from them.",
 		"The panel button at the far left of the tab bar (or the command **Toggle propositions sidebar**) hides or shows the Propositions list. Drag the list's edge to resize it; the width is remembered.",
 	] },
 	{ heading: "Header buttons", items: [
@@ -1801,7 +1801,15 @@ export class DAView extends TextFileView {
 		zoomRow.createSpan({ cls: "da-zoom-label", text: "100%", attr: { id: "zoom-label" } });
 		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "+", attr: { "data-action": "zoom-in", title: "Zoom In", "aria-label": "Zoom In" } });
 		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↺", attr: { "data-action": "zoom-reset", title: "Reset Zoom", "aria-label": "Reset Zoom" } });
-		zoomRow.createEl("button", { cls: "da-btn", text: "Recenter", attr: { "data-action": "recenter", title: "Recenter the diagram in the view", "aria-label": "Recenter" } });
+		const recenterBtn = zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", attr: { "data-action": "recenter", title: "Recenter the diagram in the view", "aria-label": "Recenter" } });
+		this.appendBracketIcon(recenterBtn, [
+			{ tag: "circle", attr: { cx: "11", cy: "11", r: "6" } },
+			{ tag: "circle", attr: { cx: "11", cy: "11", r: "1.5", fill: "currentColor" } },
+			{ tag: "line", attr: { x1: "11", y1: "1", x2: "11", y2: "5" } },
+			{ tag: "line", attr: { x1: "11", y1: "17", x2: "11", y2: "21" } },
+			{ tag: "line", attr: { x1: "1", y1: "11", x2: "5", y2: "11" } },
+			{ tag: "line", attr: { x1: "17", y1: "11", x2: "21", y2: "11" } },
+		]);
 
 		tabToolbar.createEl("button", { cls: "da-btn da-btn-warn", text: "Clear Brackets", attr: { "data-action": "clear-brackets", title: "Clear All Brackets" } });
 		tabToolbar.createEl("button", { cls: "da-btn da-btn-danger", text: "Reset All", attr: { "data-action": "reset-all", title: "Reset Everything" } });
