@@ -1201,6 +1201,7 @@ const BRACKETS_INSTRUCTIONS: InstructionSection[] = [
 	{ heading: "Moving around", items: [
 		"**Click and drag** anywhere on the diagram to move it, or scroll ([[Shift]]+scroll for sideways). It can go anywhere, past any edge.",
 		"**− / +** zoom out and in (30%–300%), keeping the middle of the view in place; [[Ctrl]]+scroll over the diagram does the same. **↺** goes back to 100% with the diagram in its starting spot.",
+		"**Recenter** brings the propositions and brackets back to the middle of the view at the current zoom, if you've panned away from them.",
 		"The panel button at the far left of the tab bar (or the command **Toggle propositions sidebar**) hides or shows the Propositions list. Drag the list's edge to resize it; the width is remembered.",
 	] },
 	{ heading: "Header buttons", items: [
@@ -1800,6 +1801,7 @@ export class DAView extends TextFileView {
 		zoomRow.createSpan({ cls: "da-zoom-label", text: "100%", attr: { id: "zoom-label" } });
 		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "+", attr: { "data-action": "zoom-in", title: "Zoom In", "aria-label": "Zoom In" } });
 		zoomRow.createEl("button", { cls: "da-btn da-btn-icon-only", text: "↺", attr: { "data-action": "zoom-reset", title: "Reset Zoom", "aria-label": "Reset Zoom" } });
+		zoomRow.createEl("button", { cls: "da-btn", text: "Recenter", attr: { "data-action": "recenter", title: "Recenter the diagram in the view", "aria-label": "Recenter" } });
 
 		tabToolbar.createEl("button", { cls: "da-btn da-btn-warn", text: "Clear Brackets", attr: { "data-action": "clear-brackets", title: "Clear All Brackets" } });
 		tabToolbar.createEl("button", { cls: "da-btn da-btn-danger", text: "Reset All", attr: { "data-action": "reset-all", title: "Reset Everything" } });
@@ -2018,6 +2020,7 @@ export class DAView extends TextFileView {
 		on("zoom-out", () => this.adjustZoom(-0.1));
 		on("zoom-in", () => this.adjustZoom(0.1));
 		on("zoom-reset", () => this.resetZoom());
+		on("recenter", () => this.recenterWorkspace());
 		on("sf-zoom-out", () => this.adjustNotesZoom(-0.1));
 		on("sf-zoom-in", () => this.adjustNotesZoom(0.1));
 		on("sf-zoom-reset", () => this.resetNotesZoom());
@@ -2373,6 +2376,42 @@ export class DAView extends TextFileView {
 		this.panY = 0;
 		this.applyZoom();
 		this.requestSave();
+	}
+
+	// Pans (keeping the zoom) so the propositions and brackets sit in the
+	// middle of the view - a way back after panning off the diagram. A side
+	// of the diagram bigger than the view is lined up with that side's top or
+	// start edge instead, so its beginning stays in sight.
+	recenterWorkspace(): void {
+		const container = this.byId("diagram-container");
+		const scaler = this.byId("workspace-scaler");
+		if (!container || !scaler) return;
+		// Measure at the current pan/zoom, not partway through an easing.
+		scaler.setCssStyles({ transition: "none", transform: this.workspaceTransform() });
+		void scaler.offsetWidth;
+		const parts = scaler.querySelectorAll(".da-proposition-rows > .da-proposition-box, .da-bracket-svg > *, .da-note-callout");
+		let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+		parts.forEach((el) => {
+			const r = el.getBoundingClientRect();
+			if (!r.width && !r.height) return;
+			left = Math.min(left, r.left); top = Math.min(top, r.top);
+			right = Math.max(right, r.right); bottom = Math.max(bottom, r.bottom);
+		});
+		if (left === Infinity) {
+			this.panX = 0;
+			this.panY = 0;
+			this.applyZoom();
+			return;
+		}
+		const view = container.getBoundingClientRect();
+		const margin = 32;
+		const shift = (lo: number, hi: number, vLo: number, vSize: number, startAtHi: boolean): number => {
+			if (hi - lo <= vSize - 2 * margin) return vLo + vSize / 2 - (lo + hi) / 2;
+			return startAtHi ? vLo + vSize - margin - hi : vLo + margin - lo;
+		};
+		this.panX += shift(left, right, view.left, view.width, this.isRTL);
+		this.panY += shift(top, bottom, view.top, view.height, false);
+		this.applyZoom();
 	}
 
 	private workspaceTransform(): string {
